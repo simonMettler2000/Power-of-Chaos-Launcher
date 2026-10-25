@@ -79,7 +79,7 @@ public partial class MainWindow : Window
         }
         LibraryEmpty.IsVisible = _cards.Count == 0;
         InstalledLibrary.IsVisible = _cards.Count > 0;
-        GameCount.Text = $"YOUR GAMES · {_cards.Count} OF 3";
+        GameCount.Text = $"{_cards.Count} of 3 games installed";
         RescanMenu.IsEnabled = !_busy && _settings.SearchRoots.Count > 0;
         RescanButton.IsEnabled = RescanMenu.IsEnabled;
     }
@@ -137,7 +137,7 @@ public partial class MainWindow : Window
         RenderLibrary(); RenderLocations(); await RefreshSessionsAsync();
         ShowPage("library");
         var count = result.Result.Games.Select(i => i.GameId).Distinct().Count();
-        Notice($"{count} game{(count == 1 ? "" : "s")} found. Your library is ready." + ScanFootnote(result.Result) + (saved ? "" : " Settings could not be saved for next time."));
+        Notice($"{count} game{(count == 1 ? "" : "s")} found." + ScanFootnote(result.Result) + (saved ? "" : " Settings could not be saved for next time."));
     }
 
     private async void Rescan_Click(object? sender, RoutedEventArgs e)
@@ -279,11 +279,11 @@ public partial class MainWindow : Window
         CollectionNav.Classes.Set("active", page == "collection"); LocationsNav.Classes.Set("active", page == "locations");
         (PageTitle.Text, PageSubtitle.Text) = page switch
         {
-            "mods" => ("Mod library", "Make room for a different way to duel."),
-            "collection" => ("Your collection", "Across three games, every card has a place."),
-            "locations" => ("Game locations", "Keep your library connected to your installations."),
-            "about" => ("About", "An independent companion for the original trilogy."),
-            _ => ("Game library", "A familiar world. A simpler way back.")
+            "mods" => ("Mods", "Planned options for your games."),
+            "collection" => ("Collection", "Card collection support is in development."),
+            "locations" => ("Game locations", "Manage the folders searched for games."),
+            "about" => ("About", "Power of Chaos Launcher"),
+            _ => ("Games", "Your installed Power of Chaos games.")
         };
     }
 }

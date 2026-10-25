@@ -1,6 +1,5 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
-using Avalonia.Media;
 using PowerOfChaos.Launcher.Core;
 
 namespace PowerOfChaos.Launcher.ViewModels;
@@ -17,22 +16,14 @@ public sealed class GameCardViewModel : INotifyPropertyChanged
         Installation = installation;
         var game = GameCatalog.Get(installation.GameId);
         Title = game.Title;
-        Character = game.Character;
-        Monogram = game.Character[..1];
-        Number = $"0{game.Order + 1}";
-        Accent = new SolidColorBrush(Color.Parse(game.Accent));
     }
 
     public GameInstallation Installation { get; }
     public string Title { get; }
-    public string Character { get; }
-    public string Monogram { get; }
-    public string Number { get; }
-    public IBrush Accent { get; }
     public string Folder => Path.GetDirectoryName(Installation.ExecutablePath) ?? Installation.ExecutablePath;
     public string Playtime { get => _playtime; private set => Set(ref _playtime, value); }
     public bool IsRunning { get => _isRunning; private set { if (Set(ref _isRunning, value)) { Changed(nameof(PlayLabel)); Changed(nameof(CanPlay)); } } }
-    public string PlayLabel => IsRunning ? "Playing" : "Play game  →";
+    public string PlayLabel => IsRunning ? "Playing" : "Play";
     public bool CanPlay => !IsRunning && !_anotherRunning && !_launchPending;
 
     public void SetLaunchPending(bool pending)

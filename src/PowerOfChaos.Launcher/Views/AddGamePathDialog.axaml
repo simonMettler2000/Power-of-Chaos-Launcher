@@ -2,7 +2,7 @@
         x:Class="PowerOfChaos.Launcher.Views.AddGamePathDialog" Title="Add Game path" Width="590" Height="420"
         MinWidth="500" MinHeight="390" CanResize="False" WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
   <Grid Margin="30" RowDefinitions="Auto,Auto,Auto,*,Auto" RowSpacing="18">
-    <StackPanel Spacing="9"><TextBlock Text="CONNECT YOUR LIBRARY" Classes="eyebrow" /><TextBlock Text="Add Game path" Classes="sectionTitle" /><TextBlock Text="Choose one game folder, or a parent folder containing the trilogy. We’ll look up to six levels deeper." Classes="quiet" LineHeight="22" /></StackPanel>
+    <StackPanel Spacing="9"><TextBlock Text="Add Game path" Classes="sectionTitle" /><TextBlock Text="Choose a game folder, or a folder containing all three games. The search includes six folder levels." Classes="quiet" LineHeight="22" /></StackPanel>
     <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="10">
       <TextBox x:Name="PathInput" Watermark="Paste a folder path…" AutomationProperties.Name="Game folder path" />
       <Button Grid.Column="1" Content="Browse…" Classes="secondary" Click="Browse_Click" AutomationProperties.Name="Browse game folder" />

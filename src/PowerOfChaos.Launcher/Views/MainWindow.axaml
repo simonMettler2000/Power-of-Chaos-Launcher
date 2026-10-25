@@ -2,41 +2,39 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:PowerOfChaos.Launcher.ViewModels"
         x:Class="PowerOfChaos.Launcher.Views.MainWindow"
-        Title="Power of Chaos · Launcher" Width="1180" Height="790" MinWidth="850" MinHeight="620"
+        Title="Power of Chaos" Width="1100" Height="720" MinWidth="880" MinHeight="600"
         WindowStartupLocation="CenterScreen">
-  <Grid ColumnDefinitions="210,*">
-    <Border BorderBrush="#2A3534" BorderThickness="0,0,1,0" Background="#141C1D">
-      <Grid RowDefinitions="Auto,*,Auto" Margin="20,30,20,22">
-        <StackPanel Spacing="13" Margin="12,0,0,38">
-          <Border Width="38" Height="45" CornerRadius="6" BorderBrush="#B8D5BE" BorderThickness="1.5" HorizontalAlignment="Left">
-            <Path Data="M 9,20 L 18,7 L 27,20 L 18,33 Z" Stroke="#B8D5BE" StrokeThickness="1.4" HorizontalAlignment="Center" VerticalAlignment="Center" />
-          </Border>
-          <TextBlock Text="POWER OF&#10;CHAOS" FontSize="18" FontWeight="Bold" LetterSpacing="1.5" LineHeight="24" />
-          <TextBlock Text="YOUR DESKTOP COMPANION" FontSize="8" LetterSpacing="1.3" Foreground="#7E918A" />
+  <Grid ColumnDefinitions="190,*">
+    <Border BorderBrush="#242424" BorderThickness="0,0,1,0" Background="#101010">
+      <Grid RowDefinitions="Auto,*,Auto" Margin="14,28,14,18">
+        <StackPanel Spacing="6" Margin="12,0,0,32">
+          <TextBlock Text="Power of Chaos" FontSize="16" FontWeight="SemiBold" />
+          <TextBlock Text="Launcher" Classes="caption" />
         </StackPanel>
         <StackPanel Grid.Row="1">
-          <Button x:Name="LibraryNav" Classes="navigation active" Content="◈   Game library" Click="Library_Click" />
-          <Button x:Name="CollectionNav" Classes="navigation" Content="▦   Collection" Click="Collection_Click" />
-          <Button x:Name="ModsNav" Classes="navigation" Content="◇   Mod library" Click="Mods_Click" />
-          <Button x:Name="LocationsNav" Classes="navigation" Content="▱   Game locations" Click="Locations_Click" />
+          <Button x:Name="LibraryNav" Classes="navigation active" Content="Games" Click="Library_Click" />
+          <Button x:Name="CollectionNav" Classes="navigation" Content="Collection" Click="Collection_Click" />
+          <Button x:Name="ModsNav" Classes="navigation" Content="Mods" Click="Mods_Click" />
+          <Button x:Name="LocationsNav" Classes="navigation" Content="Game locations" Click="Locations_Click" />
         </StackPanel>
-        <StackPanel Grid.Row="2" Margin="12,0,0,0" Spacing="8">
-          <TextBlock Text="LOCAL BY DESIGN" Classes="eyebrow" FontSize="9" />
-          <TextBlock Text="Your games. Your files.&#10;One place to play." Classes="quiet" FontSize="11" LineHeight="18" />
-          <Button Content="About the launcher" Classes="navigation" Padding="0,12,0,0" FontSize="11" Click="About_Click" />
+        <StackPanel Grid.Row="2" Spacing="8">
+          <Button Content="About" Classes="navigation" Click="About_Click" />
+          <TextBlock Text="Version 0.1" Classes="caption" FontSize="11" Margin="12,0,0,0" />
         </StackPanel>
       </Grid>
     </Border>
-    <Grid Grid.Column="1" RowDefinitions="Auto,Auto,*" Margin="36,30,32,24">
-      <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,25">
-        <StackPanel Spacing="8">
-          <TextBlock Text="POWER OF CHAOS / LAUNCHER" Classes="eyebrow" />
-          <TextBlock x:Name="PageTitle" Text="Game library" Classes="sectionTitle" />
-          <TextBlock x:Name="PageSubtitle" Text="A familiar world. A simpler way back." Classes="quiet" />
+    <Grid Grid.Column="1" RowDefinitions="Auto,Auto,*" Margin="32,28,32,24">
+      <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,28">
+        <StackPanel Spacing="7">
+          <TextBlock x:Name="PageTitle" Text="Games" Classes="sectionTitle" />
+          <TextBlock x:Name="PageSubtitle" Text="Your installed Power of Chaos games." Classes="quiet" />
         </StackPanel>
-        <Button Grid.Column="1" Width="44" Height="44" VerticalAlignment="Top" Padding="0" Classes="secondary"
+        <Button Grid.Column="1" Width="36" Height="36" VerticalAlignment="Top" Padding="0" Classes="secondary"
                 AutomationProperties.Name="Settings" ToolTip.Tip="Settings">
-          <TextBlock Text="⚙" FontSize="23" VerticalAlignment="Center" HorizontalAlignment="Center" />
+          <Viewbox Width="18" Height="18">
+            <Path Width="24" Height="24" Stroke="#C5C5C5" StrokeThickness="1.5" StrokeJoin="Round"
+                  Data="M10,2 L14,2 L14.6,5 L16,5.8 L18.9,4.8 L21,8.2 L18.7,10.3 L18.7,13.7 L21,15.8 L18.9,19.2 L16,18.2 L14.6,19 L14,22 L10,22 L9.4,19 L8,18.2 L5.1,19.2 L3,15.8 L5.3,13.7 L5.3,10.3 L3,8.2 L5.1,4.8 L8,5.8 L9.4,5 Z M15.5,12 A3.5,3.5 0 1 1 8.5,12 A3.5,3.5 0 1 1 15.5,12" />
+          </Viewbox>
           <Button.Flyout>
             <MenuFlyout Placement="BottomEdgeAlignedRight">
               <MenuItem Header="Add Game path" Click="AddPath_Click" />
@@ -57,84 +55,58 @@
       </Border>
       <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Disabled">
         <Grid>
-          <StackPanel x:Name="LibraryView" Spacing="22">
-            <Border x:Name="LibraryEmpty" Classes="panel" Padding="40,46" AutomationProperties.Name="Library empty state">
-              <StackPanel HorizontalAlignment="Center" MaxWidth="480" Spacing="18">
-                <Grid Width="100" Height="91" Margin="0,0,0,4">
-                  <Border Width="44" Height="65" BorderBrush="#4C6660" BorderThickness="1" CornerRadius="5" RenderTransformOrigin="50%,80%">
-                    <Border.RenderTransform><RotateTransform Angle="-17" /></Border.RenderTransform>
-                  </Border>
-                  <Border Width="44" Height="65" BorderBrush="#8CA892" BorderThickness="1.4" Background="#1B2B26" CornerRadius="5" RenderTransformOrigin="50%,80%">
-                    <Border.RenderTransform><RotateTransform Angle="13" /></Border.RenderTransform>
-                    <Path Data="M 11,28 L 22,12 L 33,28 L 22,44 Z" Stroke="#ABC8AE" StrokeThickness="1.4" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                  </Border>
-                </Grid>
-                <TextBlock Text="no game path added" FontSize="24" FontWeight="SemiBold" HorizontalAlignment="Center" AutomationProperties.Name="No game path added" />
-                <TextBlock Text="Add a game folder to bring your collection together. A parent folder containing all three games works too." Classes="quiet" TextAlignment="Center" LineHeight="23" />
-                <Button Content="＋  Add Game path" Classes="primary" HorizontalAlignment="Center" Margin="0,8,0,0" Click="AddPath_Click" AutomationProperties.Name="Add Game path" />
-                <TextBlock Text="Your game files stay in their original folders." Classes="quiet" FontSize="11" TextAlignment="Center" />
+          <StackPanel x:Name="LibraryView" Spacing="18">
+            <Border x:Name="LibraryEmpty" Classes="panel" Padding="36,56" AutomationProperties.Name="Library empty state">
+              <StackPanel HorizontalAlignment="Center" MaxWidth="400" Spacing="14">
+                <TextBlock Text="no game path added" FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Center" AutomationProperties.Name="No game path added" />
+                <TextBlock Text="Choose a game folder, or a folder containing all three games." Classes="quiet" TextAlignment="Center" LineHeight="22" />
+                <Button Content="Add Game path" Classes="primary" HorizontalAlignment="Center" Margin="0,8,0,0" Click="AddPath_Click" AutomationProperties.Name="Add Game path" />
               </StackPanel>
             </Border>
-            <StackPanel x:Name="InstalledLibrary" Spacing="18" IsVisible="False">
-              <Grid ColumnDefinitions="*,Auto">
-                <TextBlock x:Name="GameCount" Text="YOUR GAMES" Classes="eyebrow" VerticalAlignment="Center" />
-                <Button Grid.Column="1" Content="＋  Add folder" Classes="secondary" Click="AddPath_Click" />
+            <StackPanel x:Name="InstalledLibrary" Spacing="14" IsVisible="False">
+              <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,4">
+                <TextBlock x:Name="GameCount" Text="Installed games" Classes="caption" VerticalAlignment="Center" />
+                <Button Grid.Column="1" Content="Add folder" Classes="secondary" Click="AddPath_Click" />
               </Grid>
               <ItemsControl x:Name="GameCards">
-                <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                   <DataTemplate DataType="vm:GameCardViewModel">
-                    <Border Classes="panel" Width="260" Margin="0,0,16,18" ClipToBounds="True">
-                      <StackPanel>
-                        <Border Background="#1D2A2B" Height="154" BorderBrush="#2D3838" BorderThickness="0,0,0,1">
-                          <Grid Margin="20,17">
-                            <TextBlock Text="{Binding Number}" FontSize="11" Foreground="{Binding Accent}" VerticalAlignment="Top" />
-                            <Border Width="63" Height="87" BorderBrush="{Binding Accent}" BorderThickness="1" CornerRadius="7" RenderTransformOrigin="50%,50%" HorizontalAlignment="Center" VerticalAlignment="Center">
-                              <Border.RenderTransform><RotateTransform Angle="-9" /></Border.RenderTransform>
-                              <TextBlock Text="{Binding Monogram}" FontSize="40" FontWeight="Light" Foreground="{Binding Accent}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                            </Border>
-                            <TextBlock Text="POWER OF CHAOS" FontSize="8" LetterSpacing="1.4" Foreground="#83958C" VerticalAlignment="Bottom" HorizontalAlignment="Right" />
-                          </Grid>
-                        </Border>
-                        <StackPanel Margin="20,19" Spacing="13">
-                          <TextBlock Text="{Binding Title}" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" MinHeight="26" />
-                          <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Text="PLAYTIME" Classes="eyebrow" FontSize="8" VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="1" Text="{Binding Playtime}" FontSize="13" Foreground="#C9D8CA" />
-                          </Grid>
-                          <TextBlock Text="{Binding Folder}" Classes="quiet" FontSize="10" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Folder}" />
-                          <Button Content="{Binding PlayLabel}" Classes="primary" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Tag="{Binding Installation}" IsEnabled="{Binding CanPlay}" Click="PlayGame_Click" AutomationProperties.Name="{Binding Title, StringFormat='Play {0}'}" />
+                    <Border Classes="panel" Margin="0,0,0,10" Padding="20,22">
+                      <Grid ColumnDefinitions="*,90,96" ColumnSpacing="24">
+                        <StackPanel Spacing="8" VerticalAlignment="Center">
+                          <TextBlock Text="{Binding Title}" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
+                          <TextBlock Text="{Binding Folder}" Classes="quiet" FontSize="11" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Folder}" />
                         </StackPanel>
-                      </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Center">
+                          <TextBlock Text="Playtime" Classes="caption" FontSize="11" />
+                          <TextBlock Text="{Binding Playtime}" FontSize="13" Foreground="#D4D4D4" />
+                        </StackPanel>
+                        <Button Grid.Column="2" Content="{Binding PlayLabel}" Classes="primary" HorizontalAlignment="Stretch" VerticalAlignment="Center" HorizontalContentAlignment="Center" Tag="{Binding Installation}" IsEnabled="{Binding CanPlay}" Click="PlayGame_Click" AutomationProperties.Name="{Binding Title, StringFormat='Play {0}'}" />
+                      </Grid>
                     </Border>
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
             </StackPanel>
-            <Border Classes="notice" Padding="20,17">
-              <StackPanel Spacing="7">
-                <TextBlock Text="Made for the games you already own" FontWeight="SemiBold" />
-                <TextBlock Text="Add one installation or the folder above all three. Playtime is recorded for sessions started from this launcher." Classes="quiet" FontSize="12" LineHeight="20" />
-              </StackPanel>
-            </Border>
+            <TextBlock Text="Playtime counts sessions started from this launcher." Classes="quiet" FontSize="11" Margin="0,0,0,8" />
           </StackPanel>
-          <StackPanel x:Name="ModsView" Spacing="16" IsVisible="False">
-            <Border Classes="notice"><TextBlock Text="Mod support is being developed. These entries describe planned modules; they do not change your games yet." TextWrapping="Wrap" LineHeight="22" /></Border>
-            <Border Classes="panel" Padding="24"><Grid ColumnDefinitions="*,Auto"><StackPanel Spacing="7"><TextBlock Text="Custom opponent decks" FontSize="18" FontWeight="SemiBold" /><TextBlock Text="Choose a different set of opponent deck templates." Classes="quiet" /></StackPanel><CheckBox Grid.Column="1" Content="In development" IsEnabled="False" Margin="18,0,0,0" /></Grid></Border>
-            <Border Classes="panel" Padding="24"><Grid ColumnDefinitions="*,Auto"><StackPanel Spacing="7"><TextBlock Text="New cards · full playsets" FontSize="18" FontWeight="SemiBold" /><TextBlock Text="Guaranteed new rewards with the permitted number of copies." Classes="quiet" /></StackPanel><CheckBox Grid.Column="1" Content="In development" IsEnabled="False" Margin="18,0,0,0" /></Grid></Border>
-            <Border Classes="panel" Padding="24"><Grid ColumnDefinitions="*,Auto"><StackPanel Spacing="7"><TextBlock Text="Shorter voice interruptions" FontSize="18" FontWeight="SemiBold" /><TextBlock Text="Reduce the pauses associated with opponent voice interactions." Classes="quiet" /></StackPanel><CheckBox Grid.Column="1" Content="In development" IsEnabled="False" Margin="18,0,0,0" /></Grid></Border>
-            <Border Classes="panel" Padding="24"><Grid ColumnDefinitions="*,Auto"><StackPanel Spacing="7"><TextBlock Text="HD card artwork" FontSize="18" FontWeight="SemiBold" /><TextBlock Text="Higher-resolution artwork with the required rendering changes." Classes="quiet" /></StackPanel><CheckBox Grid.Column="1" Content="In development" IsEnabled="False" Margin="18,0,0,0" /></Grid></Border>
+          <StackPanel x:Name="ModsView" Spacing="12" IsVisible="False">
+            <Border Classes="notice"><TextBlock Text="Mod support is in development. These options are not available yet." TextWrapping="Wrap" LineHeight="22" /></Border>
+            <Border Classes="panel" Padding="20"><Grid ColumnDefinitions="*,Auto" ColumnSpacing="20"><StackPanel Spacing="7"><TextBlock Text="Custom opponent decks" FontSize="16" FontWeight="SemiBold" /><TextBlock Text="Change the decks used by the opponent." Classes="quiet" /></StackPanel><CheckBox Grid.Column="1" Content="In development" IsEnabled="False" /></Grid></Border>
+            <Border Classes="panel" Padding="20"><Grid ColumnDefinitions="*,Auto" ColumnSpacing="20"><StackPanel Spacing="7"><TextBlock Text="New card rewards" FontSize="16" FontWeight="SemiBold" /><TextBlock Text="Award new cards in their permitted quantities." Classes="quiet" /></StackPanel><CheckBox Grid.Column="1" Content="In development" IsEnabled="False" /></Grid></Border>
+            <Border Classes="panel" Padding="20"><Grid ColumnDefinitions="*,Auto" ColumnSpacing="20"><StackPanel Spacing="7"><TextBlock Text="Shorter voice interruptions" FontSize="16" FontWeight="SemiBold" /><TextBlock Text="Reduce pauses during opponent voice lines." Classes="quiet" /></StackPanel><CheckBox Grid.Column="1" Content="In development" IsEnabled="False" /></Grid></Border>
+            <Border Classes="panel" Padding="20"><Grid ColumnDefinitions="*,Auto" ColumnSpacing="20"><StackPanel Spacing="7"><TextBlock Text="HD card artwork" FontSize="16" FontWeight="SemiBold" /><TextBlock Text="Support higher-resolution card images." Classes="quiet" /></StackPanel><CheckBox Grid.Column="1" Content="In development" IsEnabled="False" /></Grid></Border>
           </StackPanel>
           <StackPanel x:Name="CollectionView" Spacing="18" IsVisible="False">
-            <Border Classes="panel" Padding="30"><StackPanel Spacing="16"><TextBlock Text="A home for every card" FontSize="24" FontWeight="SemiBold" /><TextBlock Text="Collection browsing and shared or isolated card profiles are planned for a later build, after save support has been validated across all three games." Classes="quiet" LineHeight="24" /><CheckBox Content="Share card collection between games · in development" IsEnabled="False" /><TextBlock Text="The first build focuses on finding your games, launching them and keeping track of playtime." Classes="quiet" FontSize="12" /></StackPanel></Border>
+            <Border Classes="panel" Padding="24"><StackPanel Spacing="16"><TextBlock Text="Collection support is in development" FontSize="18" FontWeight="SemiBold" /><TextBlock Text="Owned cards and separate or shared collections will be available after save support has been validated for all three games." Classes="quiet" LineHeight="22" /><CheckBox Content="Share card collection between games" IsEnabled="False" /></StackPanel></Border>
           </StackPanel>
           <StackPanel x:Name="LocationsView" Spacing="18" IsVisible="False">
-            <TextBlock Text="The launcher searches up to six folder levels below each path you add. Removing a location only removes it from this library." Classes="quiet" LineHeight="23" />
+            <TextBlock Text="Folders are searched up to six levels deep. Removing a location does not delete your game files." Classes="quiet" LineHeight="22" />
             <StackPanel x:Name="LocationRows" Spacing="12" />
-            <StackPanel Orientation="Horizontal" Spacing="12"><Button Content="＋  Add Game path" Classes="primary" Click="AddPath_Click" /><Button x:Name="RescanButton" Content="Rescan folders" Classes="secondary" Click="Rescan_Click" /></StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="10"><Button Content="Add Game path" Classes="primary" Click="AddPath_Click" /><Button x:Name="RescanButton" Content="Rescan folders" Classes="secondary" Click="Rescan_Click" /></StackPanel>
           </StackPanel>
           <StackPanel x:Name="AboutView" Spacing="18" IsVisible="False">
-            <Border Classes="panel" Padding="30"><StackPanel Spacing="16"><TextBlock Text="Power of Chaos Launcher" FontSize="25" FontWeight="SemiBold" /><TextBlock Text="Version 0.1 · First desktop build" Classes="eyebrow" /><TextBlock Text="One launcher for Yugi the Destiny, Kaiba the Revenge and Joey the Passion. Built with C# and Avalonia for Windows, Linux and macOS." Classes="quiet" LineHeight="24" /><TextBlock Text="On Linux and macOS, launching requires a compatible Wine runner configured in Preferences. Game and mod compatibility must be tested on each platform." Classes="quiet" LineHeight="23" /><TextBlock Text="This independent launcher contains no original game executables, archives, artwork, music or saves. Game files remain in the installation folders you choose." Classes="quiet" FontSize="12" LineHeight="22" /></StackPanel></Border>
+            <Border Classes="panel" Padding="24"><StackPanel Spacing="16"><TextBlock Text="Power of Chaos Launcher" FontSize="20" FontWeight="SemiBold" /><TextBlock Text="Version 0.1" Classes="caption" /><TextBlock Text="A launcher for Yugi the Destiny, Kaiba the Revenge and Joey the Passion. Built with C# and Avalonia for Windows, Linux and macOS." Classes="quiet" LineHeight="22" /><TextBlock Text="Linux and macOS require a compatible Wine runner, set in Preferences. Game and mod compatibility must be tested on each platform." Classes="quiet" LineHeight="22" /><TextBlock Text="This independent project includes no original game executables, archives, artwork, music or saves." Classes="quiet" FontSize="12" LineHeight="22" /></StackPanel></Border>
           </StackPanel>
         </Grid>
       </ScrollViewer>

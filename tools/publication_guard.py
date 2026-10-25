@@ -7,7 +7,7 @@ import sys
 from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parents[1]
-TOP_LEVEL = {'.gitignore', '.editorconfig', 'AGENTS.md', 'README.md', 'Directory.Build.props',
+TOP_LEVEL = {'.gitignore', '.gitattributes', '.editorconfig', 'AGENTS.md', 'README.md', 'Directory.Build.props',
              'global.json', 'NuGet.Config', 'PowerOfChaos.Launcher.sln'}
 ALLOWED = {'.cs', '.axaml', '.csproj', '.manifest', '.svg', '.md', '.py', '.yml', '.yaml', '.json'}
 FORBIDDEN_PARTS = {'bin', 'obj', '.local', 'artifacts', 'packages', 'games', 'game-files', 'saves', 'mod-packs', '__pycache__'}

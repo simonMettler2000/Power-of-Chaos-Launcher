@@ -14,7 +14,7 @@ Only discovered games appear in the library. Locations and preferences persist b
 
 ## Current capabilities
 
-- Dark desktop interface with original geometric graphics; no game artwork is bundled.
+- Black desktop interface with compact game rows and monochrome controls; no game artwork is bundled.
 - Cogwheel settings menu, folder browser and pasteable game paths.
 - Discovery of one or all three titles, including nested installations.
 - Per-game launching and recorded session playtime.
