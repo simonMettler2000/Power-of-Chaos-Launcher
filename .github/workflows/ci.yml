@@ -1,0 +1,25 @@
+name: Launcher checks
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  launcher:
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - run: dotnet restore PowerOfChaos.Launcher.sln
+      - run: dotnet build PowerOfChaos.Launcher.sln -c Release --no-restore
+      - run: dotnet run --project tests/PowerOfChaos.Launcher.Tests -c Release --no-build
+      - run: dotnet run --project tests/PowerOfChaos.Launcher.UiChecks -c Release --no-build
+      - run: python tools/publication_guard.py --commit HEAD
