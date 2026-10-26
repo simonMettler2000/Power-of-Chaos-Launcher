@@ -2,7 +2,7 @@
 
 A lightweight, cross-platform desktop launcher for your own installations of **Yugi the Destiny**, **Kaiba the Revenge**, and **Joey the Passion**. Built with C# and Avalonia.
 
-This repository contains launcher source only. It does not contain, download or distribute the games, game executables, archives, saves, card databases, artwork, voices, music or mod packs.
+This repository contains launcher source and original vector UI assets. It does not contain, download or distribute the games or their executables, archives, saves, card databases, artwork, voices, music or mod packs.
 
 ## First run
 
@@ -15,6 +15,7 @@ Only discovered games appear in the library. Locations and preferences persist b
 ## Current capabilities
 
 - Black desktop interface with compact game rows and monochrome controls; no game artwork is bundled.
+- An original gold pyramid-and-eye launcher icon, generated at multiple desktop sizes from the included SVG during build. Generated icon binaries remain outside Git.
 - Character icons are read from each detected game's local archive: Kaiba's start pose, Joey's reaction pose, and Yugi's start pose with the open-eye layer. Green backgrounds become transparent in memory.
 - Cogwheel settings menu, folder browser and pasteable game paths.
 - Discovery of one or all three titles, including nested installations.

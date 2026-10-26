@@ -45,6 +45,7 @@ internal static class Program
                 Require(empty.IsVisible, "Initial empty state is hidden.");
                 Require(empty.GetVisualDescendants().OfType<TextBlock>().Any(t => t.Text == "no game path added"), "Empty text differs from requested message.");
                 Require(CardCount(window) == 0, "Fresh launcher contains games before a path is added.");
+                Require(window.Icon is not null, "The generated launcher window icon was not embedded or loaded.");
             });
             Capture(window, "empty.png");
 

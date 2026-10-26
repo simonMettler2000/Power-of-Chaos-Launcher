@@ -2,7 +2,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:PowerOfChaos.Launcher.ViewModels"
         x:Class="PowerOfChaos.Launcher.Views.MainWindow"
-        Title="Power of Chaos" Width="1100" Height="720" MinWidth="880" MinHeight="600"
+        Title="Power of Chaos" Icon="avares://PowerOfChaos.Launcher/!__AvaloniaDefaultWindowIcon"
+        Width="1100" Height="720" MinWidth="880" MinHeight="600"
         WindowStartupLocation="CenterScreen">
   <Grid ColumnDefinitions="190,*">
     <Border BorderBrush="#242424" BorderThickness="0,0,1,0" Background="#101010">
