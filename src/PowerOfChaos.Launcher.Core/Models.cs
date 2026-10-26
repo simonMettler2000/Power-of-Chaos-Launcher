@@ -25,6 +25,7 @@ public sealed class LauncherSettings
     public bool MinimizeOnLaunch { get; set; } = true;
     public bool SkipSplashScreens { get; set; }
     public bool SkipCharacterInteractions { get; set; }
+    public bool RestoreOriginalAspectRatio { get; set; }
     public string WineExecutable { get; set; } = "wine";
 }
 

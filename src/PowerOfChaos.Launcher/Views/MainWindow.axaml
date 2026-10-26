@@ -109,6 +109,22 @@
               </Grid>
             </Border>
             <Border Classes="panel" Padding="20">
+              <Grid x:Name="SkipCharacterInteractionsRow" ColumnDefinitions="Auto,210,*" ColumnSpacing="20">
+                <CheckBox x:Name="SkipCharacterInteractionsCheckBox" IsEnabled="False" VerticalAlignment="Center"
+                          AutomationProperties.Name="Skip character interactions for all three games" Click="SkipCharacterInteractions_Click" />
+                <TextBlock x:Name="SkipCharacterInteractionsTitle" Grid.Column="1" Text="Skip character interactions" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
+                <TextBlock x:Name="SkipCharacterInteractionsDescription" Grid.Column="2" Text="Skip in-duel character dialogue and reaction pauses. Keep duel music and card sounds. Applies on the next launch." Classes="quiet" TextWrapping="Wrap" LineHeight="21" VerticalAlignment="Center" />
+              </Grid>
+            </Border>
+            <Border Classes="panel" Padding="20">
+              <Grid x:Name="OriginalAspectRatioRow" ColumnDefinitions="Auto,210,*" ColumnSpacing="20">
+                <CheckBox x:Name="OriginalAspectRatioCheckBox" IsEnabled="False" VerticalAlignment="Center"
+                          AutomationProperties.Name="Original aspect ratio for all three games" Click="OriginalAspectRatio_Click" />
+                <TextBlock x:Name="OriginalAspectRatioTitle" Grid.Column="1" Text="Original aspect ratio" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
+                <TextBlock x:Name="OriginalAspectRatioDescription" Grid.Column="2" Text="Start windowed and keep the original 4:3 picture when resizing, maximizing or using fullscreen, with black bars as needed. Retains normal game speed. Applies on the next launch." Classes="quiet" TextWrapping="Wrap" LineHeight="21" VerticalAlignment="Center" />
+              </Grid>
+            </Border>
+            <Border Classes="panel" Padding="20">
               <Grid ColumnDefinitions="Auto,210,*" ColumnSpacing="20">
                 <CheckBox IsEnabled="False" VerticalAlignment="Center" AutomationProperties.Name="Custom opponent decks, in development" />
                 <TextBlock Grid.Column="1" Text="Custom opponent decks" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
@@ -120,14 +136,6 @@
                 <CheckBox IsEnabled="False" VerticalAlignment="Center" AutomationProperties.Name="New card rewards, in development" />
                 <TextBlock Grid.Column="1" Text="New card rewards" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
                 <TextBlock Grid.Column="2" Text="Award new cards in their permitted quantities. In development." Classes="quiet" TextWrapping="Wrap" LineHeight="21" VerticalAlignment="Center" />
-              </Grid>
-            </Border>
-            <Border Classes="panel" Padding="20">
-              <Grid x:Name="SkipCharacterInteractionsRow" ColumnDefinitions="Auto,210,*" ColumnSpacing="20">
-                <CheckBox x:Name="SkipCharacterInteractionsCheckBox" IsEnabled="False" VerticalAlignment="Center"
-                          AutomationProperties.Name="Skip character interactions for all three games" Click="SkipCharacterInteractions_Click" />
-                <TextBlock x:Name="SkipCharacterInteractionsTitle" Grid.Column="1" Text="Skip character interactions" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
-                <TextBlock x:Name="SkipCharacterInteractionsDescription" Grid.Column="2" Text="Skip in-duel character dialogue and reaction pauses. Keep duel music and card sounds. Applies on the next launch." Classes="quiet" TextWrapping="Wrap" LineHeight="21" VerticalAlignment="Center" />
               </Grid>
             </Border>
             <Border Classes="panel" Padding="20">

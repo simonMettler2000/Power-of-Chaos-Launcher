@@ -10,6 +10,18 @@ ROOT = Path(__file__).resolve().parents[1]
 TOP_LEVEL = {'.gitignore', '.gitattributes', '.editorconfig', 'AGENTS.md', 'README.md', 'Directory.Build.props',
              'global.json', 'NuGet.Config', 'PowerOfChaos.Launcher.sln'}
 ALLOWED = {'.cs', '.axaml', '.csproj', '.manifest', '.svg', '.md', '.py', '.yml', '.yaml', '.json'}
+# These build/probe tools are authored here. This does not admit native code,
+# downloaded sources or arbitrary shell scripts elsewhere in the repository.
+AUTHORED_NATIVE_TOOLS = {
+    'tools/DisplayComponent/build-profile.ps1',
+    'tools/DisplayComponent/launcher-maximize.c',
+    'tools/DisplayComponent/setup-component.ps1',
+    'tools/DisplayComponent/verify-tools.ps1',
+    'tools/DisplayProbe/DisplayProbe.cpp',
+    'tools/DisplayProbe/ComponentIdentity.cpp',
+    'tools/DisplayProbe/Build-DisplayProbe.ps1',
+    'tools/DisplayProbe/Run-DisplayProbe.ps1',
+}
 FORBIDDEN_PARTS = {'bin', 'obj', '.local', 'artifacts', 'packages', 'games', 'game-files', 'saves', 'mod-packs', '__pycache__'}
 RUNTIME_NAMES = {'launcher-settings.json', 'playtime.json', 'sessions.json', 'appsettings.local.json'}
 MAX_BYTES = 160_000
@@ -22,7 +34,7 @@ def check(path: str, content: bytes):
     p = PurePosixPath(path)
     if p.is_absolute() or '..' in p.parts or any(x in FORBIDDEN_PARTS for x in p.parts):
         errors.append('unexpected or generated path')
-    admitted = path in TOP_LEVEL or (
+    admitted = path in TOP_LEVEL or path in AUTHORED_NATIVE_TOOLS or (
         p.parts[0] in {'src', 'tests', 'docs', 'tools'} and p.suffix.lower() in ALLOWED) or (
         path.startswith('.github/workflows/') and p.suffix in {'.yml', '.yaml'})
     if not admitted or p.name in RUNTIME_NAMES: errors.append('not admitted launcher source')

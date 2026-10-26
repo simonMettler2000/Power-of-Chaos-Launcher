@@ -129,6 +129,7 @@ public sealed class SettingsStore
             MinimizeOnLaunch = settings.MinimizeOnLaunch,
             SkipSplashScreens = settings.SkipSplashScreens,
             SkipCharacterInteractions = settings.SkipCharacterInteractions,
+            RestoreOriginalAspectRatio = settings.RestoreOriginalAspectRatio,
             WineExecutable = wine
         };
     }

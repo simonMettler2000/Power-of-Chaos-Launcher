@@ -12,6 +12,13 @@ internal static class Program
 
     public static async Task<int> Main(string[] args)
     {
+        if (args is ["--hold-display-lock", var lockPath])
+        {
+            using var ownership = new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+            Console.WriteLine("LOCKED");
+            _ = await Console.In.ReadLineAsync();
+            return 0;
+        }
         using var fixtures = new FixtureScope();
         try
         {
@@ -243,6 +250,7 @@ internal static class Program
             await SessionChecks.RunAll(fixtures.Root, Run);
             await SplashChecks.RunAll(fixtures.Root, Run);
             await InteractionChecks.RunAll(fixtures.Root, Run);
+            await AspectRatioChecks.RunAll(fixtures.Root, Run);
             await PortraitChecks.RunAll(fixtures.Root, Run);
 
             if (args.Contains("--installed-mods", StringComparer.Ordinal))
@@ -287,7 +295,7 @@ internal static class Program
         Console.WriteLine("PASS " + name);
     }
 
-    private sealed class SkipCheckException(string message) : Exception(message);
+    internal sealed class SkipCheckException(string message) : Exception(message);
 
     private static void Require(bool condition, string message)
     {
@@ -346,7 +354,8 @@ internal static class Program
             DirectoryInfo? directory = new(AppContext.BaseDirectory);
             while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "PowerOfChaos.Launcher.Tests.csproj"))) directory = directory.Parent;
             if (directory is null) throw new InvalidOperationException("Cannot find tests project for ignored fixture storage.");
-            fixtureBase = Path.GetFullPath(Path.Combine(directory.FullName, ".local", "test-fixtures"));
+            fixtureBase = Path.GetFullPath(Environment.GetEnvironmentVariable("POC_LAUNCHER_TEST_ROOT")
+                ?? Path.Combine(directory.FullName, ".local", "test-fixtures"));
             Root = Path.Combine(fixtureBase, Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(Root);
         }

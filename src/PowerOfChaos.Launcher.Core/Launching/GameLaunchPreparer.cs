@@ -11,15 +11,19 @@ public sealed class GameLaunchPreparer : IGameLaunchPreparer
 {
     private readonly string _dataDirectory;
     private readonly IReadOnlyList<SplashProfile> _profiles;
+    private readonly OriginalAspectRatioPreparer _displayPreparer;
     private static readonly SemaphoreSlim CacheGate = new(1, 1);
     private static readonly StringComparison PathComparison = OperatingSystem.IsWindows()
         ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
 
-    public GameLaunchPreparer(string? dataDirectory = null) : this(dataDirectory, GameModProfiles.Profiles) { }
-    internal GameLaunchPreparer(string? dataDirectory, IReadOnlyList<SplashProfile> profiles)
+    public GameLaunchPreparer(string? dataDirectory = null, string? componentDirectory = null)
+        : this(dataDirectory, GameModProfiles.Profiles, componentDirectory) { }
+    internal GameLaunchPreparer(string? dataDirectory, IReadOnlyList<SplashProfile> profiles,
+        string? componentDirectory = null, IReadOnlyList<DisplayComponent>? components = null)
     {
         _dataDirectory = Path.GetFullPath(dataDirectory ?? LauncherPaths.DataDirectory);
         _profiles = profiles;
+        _displayPreparer = new OriginalAspectRatioPreparer(_dataDirectory, componentDirectory, components);
     }
 
     public Task<string> PrepareExecutableAsync(GameInstallation installation, bool skipSplashScreens,
@@ -37,8 +41,13 @@ public sealed class GameLaunchPreparer : IGameLaunchPreparer
             ?? throw new ArgumentException("Unknown game.");
         if (!string.Equals(Path.GetFileName(originalPath), definition.ExecutableName, StringComparison.OrdinalIgnoreCase))
             throw new ArgumentException("The selected executable does not match this game.");
-        var profile = _profiles.SingleOrDefault(item => item.GameId == installation.GameId && item.Options == options)
-            ?? throw new InvalidDataException("The selected mods are not supported for this game version. Untick the mods to launch normally.");
+        var binaryOptions = options.BinaryOptions;
+        var profile = options.BinaryModsEnabled
+            ? _profiles.SingleOrDefault(item => item.GameId == installation.GameId && item.Options == binaryOptions)
+            : _profiles.FirstOrDefault(item => item.GameId == installation.GameId);
+        if (profile is null)
+            throw new InvalidDataException("The selected mods are not supported for this game version. Untick the mods to launch normally.");
+        if (!options.BinaryModsEnabled) profile = profile with { Changes = [], ModifiedHash = profile.OriginalHash };
         await CacheGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
@@ -47,6 +56,9 @@ public sealed class GameLaunchPreparer : IGameLaunchPreparer
             var original = await ReadBoundedAsync(originalPath, profile.Length, cancellationToken).ConfigureAwait(false);
             var modified = SkipSplashPatch.Apply(original, profile);
             cancellationToken.ThrowIfCancellationRequested();
+            if (options.RestoreOriginalAspectRatio)
+                return await _displayPreparer.PrepareAsync(installation, options, profile, modified, cancellationToken)
+                    .ConfigureAwait(false);
             var directory = Path.Combine(_dataDirectory, "mod-cache", "verified-mods-v2", options.CacheKey,
                 profile.GameId, profile.OriginalHash, profile.ModifiedHash);
             var installDirectory = Path.GetDirectoryName(originalPath)!;

@@ -1,6 +1,8 @@
 using System.Diagnostics;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
@@ -19,6 +21,9 @@ internal static class Program
 {
     private static int passed;
     private static string artifacts = "";
+    private static JsonElement preservedSettings;
+    private static readonly string[] ModNames = ["SkipSplashScreens", "SkipCharacterInteractions", "OriginalAspectRatio"];
+    private static readonly string[] ModProperties = ["SkipSplashScreens", "SkipCharacterInteractions", "RestoreOriginalAspectRatio"];
 
     [STAThread]
     public static int Main(string[] args)
@@ -123,134 +128,201 @@ internal static class Program
                 Require(settings.RootElement.GetProperty("WineExecutable").GetString() == "/test/runner with spaces/wine", "Wine setting was not saved.");
             });
 
+            using (var beforeMods = JsonDocument.Parse(File.ReadAllText(Path.Combine(data, "launcher-settings.json"))))
+                preservedSettings = beforeMods.RootElement.Clone();
             OpenMods(window);
-            Check("Mods shows a left checkbox, title and right description with no subtitle", () =>
+            Check("Mods gives all three available choices readable rows above future mods", () =>
             {
                 Require(Find<TextBlock>(window, "PageTitle").Text == "Mods", "Mods page title differs.");
                 Require(!Find<TextBlock>(window, "PageSubtitle").IsVisible, "Mods subtitle still occupies the header.");
-                var row = Find<Grid>(window, "SkipSplashScreensRow");
-                var checkbox = Find<CheckBox>(window, "SkipSplashScreensCheckBox");
-                var title = Find<TextBlock>(window, "SkipSplashScreensTitle");
-                var description = Find<TextBlock>(window, "SkipSplashScreensDescription");
-                Require(checkbox.IsEnabled && checkbox.IsChecked == false, "New mod should initially be available and off.");
-                Require(checkbox.Bounds.Right <= title.Bounds.Left && title.Bounds.Right <= description.Bounds.Left,
-                    "Mod checkbox, title and description are not ordered left to right.");
-                Require(description.Bounds.Width > 0 && description.Bounds.Right <= row.Bounds.Width + 1,
-                    "Mod description does not fit its row.");
-                var interactionsRow = Find<Grid>(window, "SkipCharacterInteractionsRow");
-                var interactions = Find<CheckBox>(window, "SkipCharacterInteractionsCheckBox");
-                var interactionsTitle = Find<TextBlock>(window, "SkipCharacterInteractionsTitle");
-                var interactionsDescription = Find<TextBlock>(window, "SkipCharacterInteractionsDescription");
-                Require(interactions.IsEnabled && interactions.IsChecked == false, "Character mod should initially be available and off.");
-                Require(interactions.Bounds.Right <= interactionsTitle.Bounds.Left
-                    && interactionsTitle.Bounds.Right <= interactionsDescription.Bounds.Left
-                    && interactionsDescription.Bounds.Width > 0
-                    && interactionsDescription.Bounds.Right <= interactionsRow.Bounds.Width + 1,
-                    "Character mod does not have a readable checkbox/title/description row.");
-                Require(Find<StackPanel>(window, "ModsView").GetVisualDescendants().OfType<CheckBox>()
-                    .Count(c => !c.IsEnabled) == 3, "Future mods must remain disabled.");
+                foreach (var name in ModNames) CheckModRow(window, name);
+                Require(Find<TextBlock>(window, "OriginalAspectRatioTitle").Text == "Original aspect ratio", "Aspect ratio title differs.");
+                var description = Find<TextBlock>(window, "OriginalAspectRatioDescription").Text ?? "";
+                Require(description.Contains("4:3", StringComparison.Ordinal)
+                    && description.Contains("windowed", StringComparison.Ordinal)
+                    && description.Contains("resizing", StringComparison.Ordinal)
+                    && description.Contains("maximizing", StringComparison.Ordinal)
+                    && description.Contains("fullscreen", StringComparison.Ordinal)
+                    && description.Contains("normal game speed", StringComparison.Ordinal)
+                    && description.Contains("next launch", StringComparison.Ordinal), "Aspect ratio description omits its behavior or timing.");
+                Require(ModNames.All(name => ModCheckBox(window, name).IsChecked == false), "New mod choices should default to off.");
+                var futureNames = new[] { "Custom opponent decks, in development", "New card rewards, in development", "HD card artwork, in development" };
+                var mods = Find<StackPanel>(window, "ModsView");
+                var availableBottom = ModNames.Max(name => Find<Grid>(window, name + "Row").TranslatePoint(
+                    new Point(0, Find<Grid>(window, name + "Row").Bounds.Height), mods)!.Value.Y);
+                foreach (var futureName in futureNames)
+                {
+                    var future = mods.GetVisualDescendants().OfType<CheckBox>().Single(c => AutomationProperties.GetName(c) == futureName);
+                    Require(!future.IsEnabled && future.IsChecked != true, "A future mod became selectable.");
+                    Require(future.TranslatePoint(new Point(), mods)!.Value.Y >= availableBottom, "A future mod interrupts the available mod group.");
+                }
+                window.Width = window.MinWidth;
+                Pump(TimeSpan.FromMilliseconds(80));
+                foreach (var name in ModNames) CheckModRow(window, name);
+                window.Width = 1100;
+                Pump(TimeSpan.FromMilliseconds(80));
             });
             Capture(window, "mods.png");
-            Check("global mod checkbox saves without changing game locations or preferences", () =>
+            Check("saving a mod disables every choice and Play until persistence finishes", () =>
             {
-                ClickInput(window, Find<CheckBox>(window, "SkipSplashScreensCheckBox"));
-                WaitUntil(() => SavedModEnabled(data) && Find<CheckBox>(window, "SkipSplashScreensCheckBox").IsEnabled,
-                    "Enabled mod did not finish saving.");
-                Require(Find<CheckBox>(window, "SkipSplashScreensCheckBox").IsChecked == true, "Checkbox reverted after successful save.");
+                // Hold the real settings store's gate so the asynchronous save stays pending deterministically.
+                var gate = SettingsGate(window);
+                gate.Wait();
+                try
+                {
+                    ClickInput(window, ModCheckBox(window, ModNames[0]));
+                    Require(ModNames.All(name => !ModCheckBox(window, name).IsEnabled), "A mod remains enabled during a pending save.");
+                    Require(Find<ItemsControl>(window, "GameCards").Items.OfType<GameCardViewModel>().All(c => !c.CanPlay),
+                        "Play remained available before settings were saved.");
+                    ClickInput(window, ModCheckBox(window, ModNames[1]));
+                    ClickInput(window, ModCheckBox(window, ModNames[2]));
+                    Require(ModCheckBox(window, ModNames[1]).IsChecked == false && ModCheckBox(window, ModNames[2]).IsChecked == false,
+                        "A disabled mod accepted pointer input during another save.");
+                }
+                finally { gate.Release(); }
+                WaitForModSelections(window, data, true, false, false);
                 Require((Find<TextBlock>(window, "StatusText").Text ?? "").Contains("all three games", StringComparison.Ordinal),
                     "Mod status does not explain the global selection.");
                 CheckPreservedSettings(data);
             });
             Capture(window, "mods-enabled.png");
-
-            Check("character interactions toggle composes with the enabled splash setting", () =>
+            Check("character interactions compose with the enabled splash setting", () =>
             {
-                ClickInput(window, Find<CheckBox>(window, "SkipCharacterInteractionsCheckBox"));
-                WaitUntil(() => SavedModEnabled(data, "SkipCharacterInteractions")
-                    && Find<CheckBox>(window, "SkipCharacterInteractionsCheckBox").IsEnabled,
-                    "Character mod did not finish saving.");
-                Require(SavedModEnabled(data), "Enabling character mod disabled the splash setting.");
-                Require((Find<TextBlock>(window, "StatusText").Text ?? "").Contains("all three games", StringComparison.Ordinal),
-                    "Character mod does not explain its global scope.");
+                ClickInput(window, ModCheckBox(window, ModNames[1]));
+                WaitForModSelections(window, data, true, true, false);
                 CheckPreservedSettings(data);
             });
-            Capture(window, "mods-both-enabled.png");
+            var legacy = JsonNode.Parse(File.ReadAllText(Path.Combine(data, "launcher-settings.json")))!.AsObject();
+            legacy.Remove("RestoreOriginalAspectRatio");
+            var legacySettings = legacy.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
+            Check("original aspect ratio composes with both existing global mods", () =>
+            {
+                ClickInput(window, ModCheckBox(window, ModNames[2]));
+                WaitForModSelections(window, data, true, true, true);
+                Require((Find<TextBlock>(window, "StatusText").Text ?? "") == "Original aspect ratio enabled for all three games on their next launch.",
+                    "Aspect ratio status does not explain its global next-launch scope.");
+                CheckPreservedSettings(data);
+            });
+            Capture(window, "mods-all-enabled.png");
+            Check("busy and pending launch states disable all mod controls without starting a game", () =>
+            {
+                // Exercise the real controls with synthetic state; no Play handler or game process is invoked.
+                foreach (var fieldName in new[] { "_busy", "_pendingLaunch" })
+                {
+                    SetWindowState(window, fieldName, true);
+                    try
+                    {
+                        Require(ModNames.All(name => !ModCheckBox(window, name).IsEnabled), "A blocked state left a mod enabled.");
+                        foreach (var name in ModNames) ClickInput(window, ModCheckBox(window, name));
+                        Require(ModNames.All(name => ModCheckBox(window, name).IsChecked == true), "Disabled pointer input changed a choice.");
+                        CheckSavedSelections(data, true, true, true);
+                    }
+                    finally { SetWindowState(window, fieldName, false); }
+                }
+                Require(ModNames.All(name => ModCheckBox(window, name).IsEnabled), "Mod controls did not recover after blocked states.");
+            });
 
             window.Close();
             Pump(TimeSpan.FromMilliseconds(80));
             window = OpenWindow();
-            Check("reopening restores three games from launcher settings", () =>
+            Check("reopening restores three games and all three enabled mods", () =>
             {
                 WaitUntil(() => CardCount(window) == 3, "Reopened launcher did not restore three games.");
                 Require(!Find<Border>(window, "LibraryEmpty").IsVisible, "Reopened library shows empty state.");
                 WaitUntil(() => PortraitCount(window) == 3, "Reopened launcher did not reload portraits.");
-            });
-            Capture(window, "reopened.png");
-
-            OpenMods(window);
-            Check("reopening restores enabled mod and unticking persists disabled state", () =>
-            {
-                var checkbox = Find<CheckBox>(window, "SkipSplashScreensCheckBox");
-                WaitUntil(() => checkbox.IsEnabled, "Mod checkbox did not finish loading.");
-                Require(checkbox.IsChecked == true, "Enabled global mod was not restored.");
-                Require(Find<CheckBox>(window, "SkipCharacterInteractionsCheckBox").IsChecked == true,
-                    "Enabled character mod was not restored with the splash setting.");
-                ClickInput(window, checkbox);
-                WaitUntil(() => !SavedModEnabled(data) && checkbox.IsEnabled, "Unticking did not persist disabled state.");
-                Require(checkbox.IsChecked == false, "Unticked checkbox stayed enabled.");
-                Require(SavedModEnabled(data, "SkipCharacterInteractions"), "Unticking splash disabled the character mod.");
+                OpenMods(window);
+                WaitForModSelections(window, data, true, true, true);
                 CheckPreservedSettings(data);
             });
-            Check("unticking character interactions restores its saved state independently", () =>
+            Capture(window, "reopened-mods.png");
+            Check("turning aspect ratio off preserves both other enabled choices", () =>
             {
-                var checkbox = Find<CheckBox>(window, "SkipCharacterInteractionsCheckBox");
-                ClickInput(window, checkbox);
-                WaitUntil(() => !SavedModEnabled(data, "SkipCharacterInteractions") && checkbox.IsEnabled,
-                    "Unticking character mod did not finish saving.");
-                Require(!SavedModEnabled(data), "Unticking character mod enabled splash.");
-                Require(checkbox.IsChecked == false, "Character checkbox stayed checked after disabling.");
+                ClickInput(window, ModCheckBox(window, ModNames[2]));
+                WaitForModSelections(window, data, true, true, false);
                 CheckPreservedSettings(data);
             });
-            Check("failed mod save restores the previous checkbox selection", () =>
+            Check("failed aspect ratio enable preserves both existing enabled mods", () =>
             {
-                var path = Path.Combine(data, "launcher-settings.json");
-                var backup = path + ".test-backup";
-                File.Move(path, backup);
-                Directory.CreateDirectory(path); // Synthetic test folder blocks atomic replacement.
-                try
+                WithBlockedSettingsSave(data, () =>
                 {
-                    var checkbox = Find<CheckBox>(window, "SkipSplashScreensCheckBox");
-                    ClickInput(window, checkbox);
-                    WaitUntil(() => checkbox.IsEnabled && (Find<TextBlock>(window, "StatusText").Text ?? "")
-                        .Contains("previous selection was kept", StringComparison.Ordinal), "Failed save did not restore selection.");
-                    Require(checkbox.IsChecked == false, "Failed save left an unsaved mod active.");
-                    var characterCheckbox = Find<CheckBox>(window, "SkipCharacterInteractionsCheckBox");
-                    ClickInput(window, characterCheckbox);
-                    WaitUntil(() => characterCheckbox.IsEnabled && (Find<TextBlock>(window, "StatusText").Text ?? "")
-                        .Contains("previous selection was kept", StringComparison.Ordinal), "Failed character save did not restore selection.");
-                    Require(characterCheckbox.IsChecked == false && checkbox.IsChecked == false,
-                        "Failed character save changed either active mod setting.");
-                    Require(CardCount(window) == 3, "Failed mod save changed the library.");
-                }
-                finally
+                    ClickInput(window, ModCheckBox(window, ModNames[2]));
+                    WaitForFailedModSave(window);
+                    CheckVisibleSelections(window, true, true, false);
+                    Require(CardCount(window) == 3, "Failed aspect ratio save changed the library.");
+                });
+                CheckSavedSelections(data, true, true, false);
+                CheckPreservedSettings(data);
+            });
+            ClickInput(window, ModCheckBox(window, ModNames[2]));
+            WaitForModSelections(window, data, true, true, true);
+            Check("each failed disable restores only that choice with the other two enabled", () =>
+            {
+                WithBlockedSettingsSave(data, () =>
                 {
-                    Directory.Delete(path);
-                    File.Move(backup, path);
-                }
+                    foreach (var name in ModNames)
+                    {
+                        ClickInput(window, ModCheckBox(window, name));
+                        WaitForFailedModSave(window);
+                        CheckVisibleSelections(window, true, true, true);
+                    }
+                    Require(CardCount(window) == 3, "Failed saves changed the library.");
+                });
+                CheckSavedSelections(data, true, true, true);
+                CheckPreservedSettings(data);
+            });
+            Check("existing mods can be disabled independently while aspect ratio stays enabled", () =>
+            {
+                ClickInput(window, ModCheckBox(window, ModNames[0]));
+                WaitForModSelections(window, data, false, true, true);
+                ClickInput(window, ModCheckBox(window, ModNames[1]));
+                WaitForModSelections(window, data, false, false, true);
+                CheckPreservedSettings(data);
+            });
+            Check("aspect ratio can be disabled after the other mods", () =>
+            {
+                ClickInput(window, ModCheckBox(window, ModNames[2]));
+                WaitForModSelections(window, data, false, false, false);
+                CheckPreservedSettings(data);
             });
 
             window.Close();
             Pump(TimeSpan.FromMilliseconds(80));
             window = OpenWindow();
             OpenMods(window);
-            Check("reopening keeps a disabled global mod disabled", () =>
+            Check("reopening keeps all three disabled choices disabled", () =>
             {
-                var checkbox = Find<CheckBox>(window, "SkipSplashScreensCheckBox");
-                WaitUntil(() => checkbox.IsEnabled, "Reopened mod checkbox did not finish loading.");
-                Require(checkbox.IsChecked == false && !SavedModEnabled(data), "Disabled mod was reenabled on reopen.");
-                Require(Find<CheckBox>(window, "SkipCharacterInteractionsCheckBox").IsChecked == false
-                    && !SavedModEnabled(data, "SkipCharacterInteractions"), "Disabled character mod was reenabled on reopen.");
+                WaitForModSelections(window, data, false, false, false);
                 Require(CardCount(window) == 3, "Second reopen lost existing installations.");
+                CheckPreservedSettings(data);
+            });
+            window.Close();
+            Pump(TimeSpan.FromMilliseconds(80));
+            File.WriteAllText(Path.Combine(data, "launcher-settings.json"), legacySettings);
+            window = new MainWindow();
+            var loadingGate = SettingsGate(window);
+            loadingGate.Wait();
+            Check("loading legacy settings keeps every mod disabled until settings are ready", () =>
+            {
+                try
+                {
+                    window.Show();
+                    OpenMods(window);
+                    Require(ModNames.All(name => !ModCheckBox(window, name).IsEnabled), "A mod was available before settings loaded.");
+                    foreach (var name in ModNames) ClickInput(window, ModCheckBox(window, name));
+                    Require(ModNames.All(name => ModCheckBox(window, name).IsChecked == false), "Loading controls accepted a choice.");
+                }
+                finally { loadingGate.Release(); }
+            });
+            Check("legacy settings default aspect ratio off and preserve existing choices and preferences", () =>
+            {
+                WaitUntil(() => ModNames.All(name => ModCheckBox(window, name).IsEnabled), "Legacy settings did not finish loading.");
+                CheckVisibleSelections(window, true, true, false);
+                CheckSavedSelections(data, true, true, false);
+                Require(CardCount(window) == 3, "Legacy settings lost installed games.");
+                CheckPreservedSettings(data);
+                ClickInput(window, ModCheckBox(window, ModNames[2]));
+                WaitForModSelections(window, data, true, true, true);
+                CheckPreservedSettings(data);
             });
             Find<Button>(window, "LibraryNav").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
 
@@ -315,19 +387,88 @@ internal static class Program
         Pump(TimeSpan.FromMilliseconds(80));
     }
 
-    private static bool SavedModEnabled(string data, string property = "SkipSplashScreens")
+    private static CheckBox ModCheckBox(MainWindow window, string name) => Find<CheckBox>(window, name + "CheckBox");
+
+    private static void CheckModRow(MainWindow window, string name)
+    {
+        var row = Find<Grid>(window, name + "Row");
+        var checkbox = ModCheckBox(window, name);
+        var title = Find<TextBlock>(window, name + "Title");
+        var description = Find<TextBlock>(window, name + "Description");
+        Require(checkbox.IsEnabled, name + " should be available.");
+        Require(checkbox.Bounds.Right <= title.Bounds.Left && title.Bounds.Right <= description.Bounds.Left,
+            name + " checkbox, title and description are not ordered left to right.");
+        Require(description.Bounds.Width > 0 && description.Bounds.Right <= row.Bounds.Width + 1,
+            name + " description does not fit its row.");
+    }
+
+    private static void CheckVisibleSelections(MainWindow window, params bool[] expected)
+    {
+        for (var i = 0; i < ModNames.Length; i++)
+            Require(ModCheckBox(window, ModNames[i]).IsChecked == expected[i], "Unexpected checkbox state for " + ModNames[i]);
+    }
+
+    private static void CheckSavedSelections(string data, params bool[] expected)
     {
         using var settings = JsonDocument.Parse(File.ReadAllText(Path.Combine(data, "launcher-settings.json")));
-        return settings.RootElement.TryGetProperty(property, out var value) && value.GetBoolean();
+        for (var i = 0; i < ModProperties.Length; i++)
+        {
+            var selected = settings.RootElement.TryGetProperty(ModProperties[i], out var value) && value.GetBoolean();
+            Require(selected == expected[i], "Unexpected saved selection for " + ModProperties[i]);
+        }
+    }
+
+    private static void WaitForModSelections(MainWindow window, string data, params bool[] expected)
+    {
+        WaitUntil(() => ModNames.All(name => ModCheckBox(window, name).IsEnabled), "Mod controls did not finish saving or loading.");
+        CheckVisibleSelections(window, expected);
+        CheckSavedSelections(data, expected);
+    }
+
+    private static void WaitForFailedModSave(MainWindow window) => WaitUntil(
+        () => ModNames.All(name => ModCheckBox(window, name).IsEnabled)
+            && (Find<TextBlock>(window, "StatusText").Text ?? "").Contains("previous selection was kept", StringComparison.Ordinal),
+        "Failed save did not restore the previous selection.");
+
+    private static void WithBlockedSettingsSave(string data, Action action)
+    {
+        var path = Path.Combine(data, "launcher-settings.json");
+        var backup = path + ".test-backup";
+        File.Move(path, backup);
+        Directory.CreateDirectory(path); // Synthetic test folder blocks atomic replacement.
+        try { action(); }
+        finally
+        {
+            Directory.Delete(path);
+            File.Move(backup, path);
+        }
+    }
+
+    private static SemaphoreSlim SettingsGate(MainWindow window)
+    {
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+        var store = typeof(MainWindow).GetField("_store", flags)?.GetValue(window)
+            ?? throw new InvalidOperationException("Settings store was not found.");
+        return store.GetType().GetField("_gate", flags)?.GetValue(store) as SemaphoreSlim
+            ?? throw new InvalidOperationException("Settings gate was not found.");
+    }
+
+    private static void SetWindowState(MainWindow window, string fieldName, bool value)
+    {
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+        var field = typeof(MainWindow).GetField(fieldName, flags) ?? throw new InvalidOperationException("Missing window state: " + fieldName);
+        field.SetValue(window, value);
+        var refresh = typeof(MainWindow).GetMethod("RefreshModControls", flags) ?? throw new InvalidOperationException("Missing mod refresh method.");
+        refresh.Invoke(window, null);
+        Pump(TimeSpan.FromMilliseconds(30));
     }
 
     private static void CheckPreservedSettings(string data)
     {
         using var settings = JsonDocument.Parse(File.ReadAllText(Path.Combine(data, "launcher-settings.json")));
-        Require(settings.RootElement.GetProperty("Installations").GetArrayLength() == 3, "Mod save changed installed games.");
-        Require(settings.RootElement.GetProperty("SearchRoots").GetArrayLength() == 1, "Mod save changed search roots.");
-        Require(!settings.RootElement.GetProperty("MinimizeOnLaunch").GetBoolean(), "Mod save changed minimize preference.");
-        Require(settings.RootElement.GetProperty("WineExecutable").GetString() == "/test/runner with spaces/wine", "Mod save changed Wine preference.");
+        foreach (var property in new[] { "Installations", "SearchRoots", "MinimizeOnLaunch", "WineExecutable" })
+            Require(settings.RootElement.GetProperty(property).GetRawText() == preservedSettings.GetProperty(property).GetRawText(),
+                "Mod save changed " + property + ".");
     }
 
     private static AddGamePathDialog OpenAddPath(MainWindow window, MenuFlyout flyout)

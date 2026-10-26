@@ -302,25 +302,55 @@ public partial class MainWindow : Window
         SkipSplashScreensCheckBox.IsEnabled = _settingsReady && !_savingMod && !_pendingLaunch && !_busy;
         SkipCharacterInteractionsCheckBox.IsChecked = _settings.SkipCharacterInteractions;
         SkipCharacterInteractionsCheckBox.IsEnabled = SkipSplashScreensCheckBox.IsEnabled;
+        OriginalAspectRatioCheckBox.IsChecked = _settings.RestoreOriginalAspectRatio;
+        OriginalAspectRatioCheckBox.IsEnabled = SkipSplashScreensCheckBox.IsEnabled;
         foreach (var card in _cards) card.SetLaunchPending(!_settingsReady || _savingMod || _pendingLaunch);
     }
 
-    private async void SkipSplashScreens_Click(object? sender, RoutedEventArgs e) => await SaveModSelectionAsync(false);
+    private enum ModSelection { SkipSplashScreens, SkipCharacterInteractions, OriginalAspectRatio }
 
-    private async void SkipCharacterInteractions_Click(object? sender, RoutedEventArgs e) => await SaveModSelectionAsync(true);
+    private async void SkipSplashScreens_Click(object? sender, RoutedEventArgs e) => await SaveModSelectionAsync(ModSelection.SkipSplashScreens);
 
-    private async Task SaveModSelectionAsync(bool characterInteractions)
+    private async void SkipCharacterInteractions_Click(object? sender, RoutedEventArgs e) => await SaveModSelectionAsync(ModSelection.SkipCharacterInteractions);
+
+    private async void OriginalAspectRatio_Click(object? sender, RoutedEventArgs e) => await SaveModSelectionAsync(ModSelection.OriginalAspectRatio);
+
+    private bool GetModSelection(ModSelection mod) => mod switch
+    {
+        ModSelection.SkipSplashScreens => _settings.SkipSplashScreens,
+        ModSelection.SkipCharacterInteractions => _settings.SkipCharacterInteractions,
+        ModSelection.OriginalAspectRatio => _settings.RestoreOriginalAspectRatio,
+        _ => throw new ArgumentOutOfRangeException(nameof(mod))
+    };
+
+    private void SetModSelection(ModSelection mod, bool selected)
+    {
+        switch (mod)
+        {
+            case ModSelection.SkipSplashScreens: _settings.SkipSplashScreens = selected; break;
+            case ModSelection.SkipCharacterInteractions: _settings.SkipCharacterInteractions = selected; break;
+            case ModSelection.OriginalAspectRatio: _settings.RestoreOriginalAspectRatio = selected; break;
+            default: throw new ArgumentOutOfRangeException(nameof(mod));
+        }
+    }
+
+    private async Task SaveModSelectionAsync(ModSelection mod)
     {
         if (!_settingsReady || _savingMod || _pendingLaunch || _busy || _closed)
         {
             if (!_closed) RefreshModControls();
             return;
         }
-        var previous = characterInteractions ? _settings.SkipCharacterInteractions : _settings.SkipSplashScreens;
-        var selected = (characterInteractions ? SkipCharacterInteractionsCheckBox : SkipSplashScreensCheckBox).IsChecked == true;
-        if (characterInteractions) _settings.SkipCharacterInteractions = selected;
-        else _settings.SkipSplashScreens = selected;
-        var name = characterInteractions ? "Skip character interactions" : "Skip Splash Screens";
+        var (checkbox, name) = mod switch
+        {
+            ModSelection.SkipSplashScreens => (SkipSplashScreensCheckBox, "Skip Splash Screens"),
+            ModSelection.SkipCharacterInteractions => (SkipCharacterInteractionsCheckBox, "Skip character interactions"),
+            ModSelection.OriginalAspectRatio => (OriginalAspectRatioCheckBox, "Original aspect ratio"),
+            _ => throw new ArgumentOutOfRangeException(nameof(mod))
+        };
+        var previous = GetModSelection(mod);
+        var selected = checkbox.IsChecked == true;
+        SetModSelection(mod, selected);
         _savingMod = true;
         RefreshModControls();
         try
@@ -329,8 +359,7 @@ public partial class MainWindow : Window
                 Notice($"{name} {(selected ? "enabled" : "disabled")} for all three games on their next launch.");
             else
             {
-                if (characterInteractions) _settings.SkipCharacterInteractions = previous;
-                else _settings.SkipSplashScreens = previous;
+                SetModSelection(mod, previous);
                 Notice("The mod setting could not be saved. Your previous selection was kept.");
             }
         }

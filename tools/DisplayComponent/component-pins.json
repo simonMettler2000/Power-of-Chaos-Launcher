@@ -1,0 +1,118 @@
+{
+  "profile": "original-aspect-ratio-v1",
+  "upstreamCommit": "541b5de218ec3fbd6ea91e606ebfadc07c1786b0",
+  "inputs": [
+    {
+      "name": "source-v7.1.0.0.zip",
+      "url": "https://codeload.github.com/FunkyFr3sh/cnc-ddraw/zip/refs/tags/v7.1.0.0",
+      "length": 650605,
+      "sha256": "a4f638383364e3bc1e4682b1d549a1f5400fa0cc312ee216d1b42555b1c814eb",
+      "kind": "raw"
+    },
+    {
+      "name": "proxy-dlls.zip",
+      "url": "https://github.com/FunkyFr3sh/cnc-ddraw/releases/download/v7.1.0.0/proxy-dlls.zip",
+      "length": 468536,
+      "sha256": "203207cd48a01444880991878f338017e48dada92d590be04a80dae175ecc408",
+      "kind": "raw"
+    },
+    {
+      "name": "petool-LICENSE.txt",
+      "url": "https://api.github.com/repos/FunkyFr3sh/petool/git/blobs/4cffeef73373b9eb22c61ef1588326c320382a25",
+      "length": 1067,
+      "sha256": "d8220b095d6156f2d48aff570955f07d2f159a50a27ef0101d2f042e34cde3b2",
+      "kind": "git-blob"
+    },
+    {
+      "name": "hyllian-shader.glsl",
+      "url": "https://raw.githubusercontent.com/libretro/glsl-shaders/09e2942efbab2f51b60ff0b93b7761b0b0570910/windowed/shaders/lanczos2-sharp.glsl",
+      "length": 6760,
+      "sha256": "31ce41ff6aea6269a36d0b805f651a95646dceb2462b5212e366d39b2d9a8a3d",
+      "kind": "raw"
+    },
+    {
+      "name": "hyllian-xbr.glsl",
+      "url": "https://raw.githubusercontent.com/libretro/glsl-shaders/09e2942efbab2f51b60ff0b93b7761b0b0570910/xbr/shaders/xbr-lv2.glsl",
+      "length": 10518,
+      "sha256": "3d53812f73875c92cd5b0c60852f280cdf0d4b8ef1c4c762904ed064e1e8335d",
+      "kind": "raw"
+    },
+    {
+      "name": "MJP-raw-LICENSE.txt",
+      "url": "https://gist.githubusercontent.com/TheRealMJP/bc503b0b87b643d3505d41eab8b332ae/raw/68786fb41f2ff9c1922817e785f8092e592e9142/LICENSE",
+      "length": 1059,
+      "sha256": "da6ca3a8346001132113825a9b9d61b8a43c3f00d8c4f7593b8317d68359087f",
+      "kind": "raw"
+    }
+  ],
+  "components": [
+    {
+      "name": "ddraw.dll",
+      "length": 424448,
+      "sha256": "0f5f094dd1ab1bc23cfdc1fe4c1ed51d91c1c9a5fafd063c9897fa018606be91"
+    },
+    {
+      "name": "winmm.dll",
+      "length": 98304,
+      "sha256": "1de1ed07c548e262767ba06891284ae0ecc39f6cc0217dd715594e5bc30e0e8a"
+    }
+  ],
+  "notices": [
+    {
+      "name": "upstream-cnc-ddraw-LICENSE.txt",
+      "length": 1078,
+      "sha256": "a705144535bbfccc05e8310c4f8ab5f0b6f0ec2c9371b76ca5a522cf90e031f5",
+      "source": "source:LICENSE",
+      "transform": "copy"
+    },
+    {
+      "name": "petool-LICENSE.txt",
+      "length": 1067,
+      "sha256": "d8220b095d6156f2d48aff570955f07d2f159a50a27ef0101d2f042e34cde3b2",
+      "source": "input:petool-LICENSE.txt",
+      "transform": "copy"
+    },
+    {
+      "name": "Hyllian-Jararaca-LICENSE.txt",
+      "length": 1209,
+      "sha256": "d036d24fad0973e8b47fdc392067287c5ce4ed4511928c927ec7fab573d383c1",
+      "source": "input:hyllian-shader.glsl",
+      "transform": "first-comment"
+    },
+    {
+      "name": "Hyllian-xBR-LICENSE.txt",
+      "length": 1234,
+      "sha256": "01c779f320826e6ce554ec1fb50009ce7b4b0eb99db11b1145d43ce66a2b1e76",
+      "source": "input:hyllian-xbr.glsl",
+      "transform": "first-comment"
+    },
+    {
+      "name": "LodePNG-LICENSE.txt",
+      "length": 908,
+      "sha256": "6d2570c1867730f8a21cdfe1dcd5d7cdbac2343a9357e94ef6b39382c04b18b7",
+      "source": "source:src/lodepng.c",
+      "transform": "first-comment"
+    },
+    {
+      "name": "Microsoft-Detours-LICENSE.txt",
+      "length": 1099,
+      "sha256": "b301808b732cfaa60df2b4b422d78cd97d2a15058b207e7e33f0535ba5170dd6",
+      "source": "source:src/detours/LICENSE.md",
+      "transform": "copy"
+    },
+    {
+      "name": "MJP-LICENSE.txt",
+      "length": 1060,
+      "sha256": "33f78b7cb3e7887d0dd123b6a1ee03f6b1be44ed70a321e44283efe7e9b9e7b6",
+      "source": "input:MJP-raw-LICENSE.txt",
+      "transform": "lf-final-newline"
+    },
+    {
+      "name": "Khronos-LICENSE.txt",
+      "length": 2617,
+      "sha256": "77e1af94552f586bed31027e19b1438148a56571a46ed6205da9bf1ecdb33cad",
+      "source": "source:inc/glcorearb.h;inc/KHR/khrplatform.h;inc/wglext.h",
+      "transform": "khronos-comments"
+    }
+  ]
+}

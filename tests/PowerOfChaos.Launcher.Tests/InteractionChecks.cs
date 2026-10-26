@@ -19,11 +19,14 @@ internal static class InteractionChecks
         var games = (await new GameDiscovery().ScanAsync(root)).Games;
         foreach (var game in games)
         {
-            foreach (var options in Selections.Where(options => options.AnyEnabled))
+            foreach (var options in AspectRatioChecks.Selections)
             {
-                await run($"read-only installed {game.GameId} {options.CacheKey} full image verifies in memory", async () =>
+                await run($"read-only installed {game.GameId} {options.CacheKey} aspect={options.RestoreOriginalAspectRatio} full image verifies in memory", async () =>
                 {
-                    var profile = GameModProfiles.Profiles.Single(item => item.GameId == game.GameId && item.Options == options);
+                    var profile = options.BinaryModsEnabled
+                        ? GameModProfiles.Profiles.Single(item => item.GameId == game.GameId && item.Options == options.BinaryOptions)
+                        : GameModProfiles.Profiles.First(item => item.GameId == game.GameId);
+                    if (!options.BinaryModsEnabled) profile = profile with { Changes = [], ModifiedHash = profile.OriginalHash };
                     var original = await File.ReadAllBytesAsync(game.ExecutablePath);
                     var modified = SkipSplashPatch.Apply(original, profile);
                     var changed = Enumerable.Range(0, original.Length).Where(index => original[index] != modified[index]).ToArray();

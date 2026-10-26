@@ -47,6 +47,18 @@ Skipping the optional character callbacks also removes random choices for their 
 | Off | On | Normal publisher logos; skip greeting and in-duel character interruptions |
 | On | On | Both modifications |
 
-Each enabled combination has its own full-file verification and isolated cache identity. Turning off one mod keeps the other selected. Turning both off returns to the unchanged original executable. Changes take effect on the next launch and do not patch a running game.
+Each enabled combination has its own full-file verification and isolated cache identity. Turning off one mod keeps the other selected. Turning both off returns to the unchanged original executable when Original aspect ratio is also off. Changes take effect on the next launch and do not patch a running game.
 
 Automated checks exercise the four combinations with synthetic fixtures and fake processes, and verify the real pinned outputs entirely in memory. They never execute original or modified games. Actual duel behavior, audio/rendering and Windows/Wine compatibility remain manual checks under the project's no-execution rule.
+
+## Original aspect ratio
+
+This global switch uses the same supported executable hashes above. All three inspected targets request an 800 x 600 picture. It starts windowed at that size, constrains Windows drag resizing to 4:3, and centers the scaled picture with black bars when the window fills the work area or the monitor. The maximum button uses a custom workarea fill/restore operation; it does not set the Windows native maximized state bit. Alt+Enter toggles borderless fullscreen.
+
+All three switches are independent and apply on the next launch. With only Original aspect ratio enabled, the private executable has exactly the original bytes. With either of the other mods enabled, its bytes match that combination's existing verified output. Display DLLs and a fresh global-only configuration live beside that private executable; archives are still read from the original working directory. No DLL, INI or executable is written into the installation.
+
+The wrapper's game-logic limiter is disabled. The game's native timing fields and arguments are unchanged; its normal limiter defaults to 30, while the existing game option `-speedy` selects 60. This mod adds neither that argument nor a new speed selector. Presentation refresh and game updates remain separate, so a future speed mod can address game timing independently. Animation can stop during interactive drag resizing, and native catch-up after a short delay is preserved.
+
+Turning this mod off selects the original or binary-only cache path. The launcher refuses an aspect-off executable directory containing either display proxy DLL, so a stale display cache cannot silently keep the component active. Unsupported executable versions, missing components and invalid caches fail before starting a process.
+
+See [display setup](display.md) for component provenance, local prerequisites, tests and platform limits. A passing synthetic host proves only the exercised DirectDraw calls; it does not prove every game scene, physical device, graphics driver or Wine runner.

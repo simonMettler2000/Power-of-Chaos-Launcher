@@ -86,11 +86,13 @@ public sealed class GameSessionService : IAsyncDisposable
         CancellationToken cancellationToken = default)
     {
         // Capture before the first await, including when another launch owns the gate.
-        var options = new GameModOptions(settings.SkipSplashScreens, settings.SkipCharacterInteractions);
+        var options = new GameModOptions(settings.SkipSplashScreens, settings.SkipCharacterInteractions,
+            settings.RestoreOriginalAspectRatio);
         var launchSettings = new LauncherSettings
         {
             SkipSplashScreens = options.SkipSplashScreens,
             SkipCharacterInteractions = options.SkipCharacterInteractions,
+            RestoreOriginalAspectRatio = options.RestoreOriginalAspectRatio,
             WineExecutable = settings.WineExecutable,
             MinimizeOnLaunch = settings.MinimizeOnLaunch
         };

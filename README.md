@@ -22,7 +22,7 @@ Only discovered games appear in the library. Locations and preferences persist b
 - Per-game launching and recorded session playtime.
 - Minimize-on-launch preference and a Wine runner setting for Linux/macOS.
 - Local settings and atomic playtime checkpoints; no accounts, telemetry or always-on network service.
-- Global **Skip Splash Screens** and **Skip character interactions** switches for the three supported executable revisions, plus disabled entries for mods still in development.
+- Global **Skip Splash Screens**, **Skip character interactions** and **Original aspect ratio** switches for the three supported executable revisions, plus disabled entries for mods still in development.
 
 Playtime begins when this launcher starts tracking. It measures elapsed launcher sessions, including menus and idle time. Interrupted sessions retain their last saved checkpoint rather than counting time while the launcher was closed. Windows launches the selected executable directly; non-Windows launches through `wine start /wait /unix`. Actual game compatibility and Wine session behavior require testing on the chosen platform and runner.
 
@@ -40,7 +40,15 @@ The local copy lives in the launcher's application-data directory, with assets s
 
 Tick **Skip character interactions** in **Mods** to skip the duel-start greeting and in-duel character dialogue, reaction cut-ins and associated waits. Duel music, card sounds, normal card effects and gameplay continue. The end-of-duel result presentation is retained. Skipping cosmetic reactions also skips their random variant choices; the exact sequence from an identical random seed may therefore differ.
 
-Both mods work independently or together, using a separately verified local executable for each enabled combination. Unticking either restores that behavior on the next launch while keeping the other selection. No installed executable, archive or save is modified. The same supported-input hashes and development no-execution limits apply.
+The mods work independently or together, using a separately verified local executable for each enabled combination. Unticking one restores that behavior on the next launch while keeping the other selections. No installed executable, archive or save is modified. The same supported-input hashes and development no-execution limits apply.
+
+## Original aspect ratio
+
+The three inspected games use **800 x 600**, a **4:3** picture. Tick **Original aspect ratio** in **Mods** to start in an 800 x 600 window. Dragging a window edge keeps that ratio. Maximize fills the monitor work area, and borderless fullscreen fills the monitor; the game picture stays centered with black bars wherever needed. **Alt+Enter** toggles borderless fullscreen. Unticking the mod restores the ordinary display path on the next launch.
+
+The mod preserves the game's existing timing and adds no frame-rate selection. Resizing can temporarily pause presentation while the window is being dragged. The game's own short catch-up behavior remains unchanged.
+
+This option needs a separately prepared, verified local display component. [Display setup and validation](docs/display.md) explains how to build it and put it beside your launcher. Missing or changed components produce an error before starting a game. The repository supplies authored build tools and factual pins; compiled components and game files stay local. Windows synthetic tests cover the display path; actual gameplay and Wine compatibility remain manual checks.
 
 ## Build and run
 
