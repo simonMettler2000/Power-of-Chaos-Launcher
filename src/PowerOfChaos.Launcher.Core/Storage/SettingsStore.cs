@@ -128,6 +128,7 @@ public sealed class SettingsStore
             Installations = installations,
             MinimizeOnLaunch = settings.MinimizeOnLaunch,
             SkipSplashScreens = settings.SkipSplashScreens,
+            SkipCharacterInteractions = settings.SkipCharacterInteractions,
             WineExecutable = wine
         };
     }

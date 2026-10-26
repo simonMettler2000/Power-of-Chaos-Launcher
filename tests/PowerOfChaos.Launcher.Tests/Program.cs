@@ -242,10 +242,11 @@ internal static class Program
 
             await SessionChecks.RunAll(fixtures.Root, Run);
             await SplashChecks.RunAll(fixtures.Root, Run);
+            await InteractionChecks.RunAll(fixtures.Root, Run);
             await PortraitChecks.RunAll(fixtures.Root, Run);
 
             if (args.Contains("--installed-mods", StringComparer.Ordinal))
-                await SplashChecks.VerifyInstalledProfiles(Run);
+                await InteractionChecks.VerifyInstalledProfiles(Run);
 
             if (args.Contains("--installed", StringComparer.Ordinal))
             {

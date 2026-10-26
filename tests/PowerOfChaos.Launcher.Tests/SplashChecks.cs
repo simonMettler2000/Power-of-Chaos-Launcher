@@ -249,7 +249,7 @@ internal static class SplashChecks
         });
     }
 
-    private static byte[] SyntheticImage()
+    internal static byte[] SyntheticImage()
     {
         // Inert authored PE structure with two data scalars. No entry point, instructions or game bytes.
         var image = new byte[1024];
@@ -273,7 +273,7 @@ internal static class SplashChecks
             [new ScalarChange(0x1010, 0x210, 4294967292, 476), new ScalarChange(0x1020, 0x220, 0, 1)]);
     }
 
-    private static async Task<GameInstallation> Installation(string root, string id, byte[] image)
+    internal static async Task<GameInstallation> Installation(string root, string id, byte[] image)
     {
         var folder = Path.Combine(root, "game"); Directory.CreateDirectory(folder);
         var executable = Path.Combine(folder, GameCatalog.Get(id).ExecutableName);
@@ -298,9 +298,9 @@ internal static class SplashChecks
         internal TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         internal TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         internal bool SelectedMod { get; private set; }
-        public async Task<string> PrepareExecutableAsync(GameInstallation installation, bool skipSplashScreens, CancellationToken cancellationToken)
+        public async Task<string> PrepareExecutableAsync(GameInstallation installation, GameModOptions options, CancellationToken cancellationToken)
         {
-            SelectedMod = skipSplashScreens; Entered.TrySetResult();
+            SelectedMod = options.SkipSplashScreens; Entered.TrySetResult();
             await Release.Task.WaitAsync(cancellationToken); return path;
         }
     }

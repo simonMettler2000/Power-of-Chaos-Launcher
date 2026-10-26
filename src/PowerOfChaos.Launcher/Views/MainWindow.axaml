@@ -123,10 +123,11 @@
               </Grid>
             </Border>
             <Border Classes="panel" Padding="20">
-              <Grid ColumnDefinitions="Auto,210,*" ColumnSpacing="20">
-                <CheckBox IsEnabled="False" VerticalAlignment="Center" AutomationProperties.Name="Shorter voice interruptions, in development" />
-                <TextBlock Grid.Column="1" Text="Shorter voice interruptions" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
-                <TextBlock Grid.Column="2" Text="Reduce pauses during opponent voice lines. In development." Classes="quiet" TextWrapping="Wrap" LineHeight="21" VerticalAlignment="Center" />
+              <Grid x:Name="SkipCharacterInteractionsRow" ColumnDefinitions="Auto,210,*" ColumnSpacing="20">
+                <CheckBox x:Name="SkipCharacterInteractionsCheckBox" IsEnabled="False" VerticalAlignment="Center"
+                          AutomationProperties.Name="Skip character interactions for all three games" Click="SkipCharacterInteractions_Click" />
+                <TextBlock x:Name="SkipCharacterInteractionsTitle" Grid.Column="1" Text="Skip character interactions" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
+                <TextBlock x:Name="SkipCharacterInteractionsDescription" Grid.Column="2" Text="Skip in-duel character dialogue and reaction pauses. Keep duel music and card sounds. Applies on the next launch." Classes="quiet" TextWrapping="Wrap" LineHeight="21" VerticalAlignment="Center" />
               </Grid>
             </Border>
             <Border Classes="panel" Padding="20">

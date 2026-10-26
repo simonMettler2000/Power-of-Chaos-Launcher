@@ -3,11 +3,14 @@ using System.Security.Cryptography;
 
 namespace PowerOfChaos.Launcher.Core.Launching;
 
-internal sealed record ScalarChange(uint Rva, int FileOffset, uint Expected, uint Replacement);
+internal sealed record ScalarChange(uint Rva, int FileOffset, uint Expected, uint Replacement, int Width = 4);
 internal sealed record SplashProfile(string GameId, int Length, string OriginalHash, string ModifiedHash,
-    IReadOnlyList<ScalarChange> Changes);
+    IReadOnlyList<ScalarChange> Changes)
+{
+    internal GameModOptions Options { get; init; } = new(SkipSplashScreens: true);
+}
 
-/// <summary>Authored validator for numeric startup settings; contains no game instructions.</summary>
+/// <summary>Authored validator for bounded numeric fields; contains no game instructions.</summary>
 internal static class SkipSplashPatch
 {
     internal static IReadOnlyList<SplashProfile> Profiles { get; } = Array.AsReadOnly(new[]
@@ -29,14 +32,17 @@ internal static class SkipSplashPatch
     internal static byte[] Apply(ReadOnlySpan<byte> original, SplashProfile profile)
     {
         if (original.Length != profile.Length || !MatchesHash(original, profile.OriginalHash))
-            throw new InvalidDataException("Skip Splash Screens does not support this executable version. Untick the mod to launch normally.");
+            throw new InvalidDataException("The selected mods do not support this executable version. Untick the mods to launch normally.");
         ValidateImage(original, profile.Changes);
         var modified = original.ToArray();
         foreach (var change in profile.Changes)
         {
-            if (BinaryPrimitives.ReadUInt32LittleEndian(original.Slice(change.FileOffset, 4)) != change.Expected)
-                throw new InvalidDataException("The startup settings do not match this mod profile.");
-            BinaryPrimitives.WriteUInt32LittleEndian(modified.AsSpan(change.FileOffset, 4), change.Replacement);
+            var expected = change.Width == 1 ? original[change.FileOffset]
+                : BinaryPrimitives.ReadUInt32LittleEndian(original.Slice(change.FileOffset, 4));
+            if (expected != change.Expected)
+                throw new InvalidDataException("The executable fields do not match this mod profile.");
+            if (change.Width == 1) modified[change.FileOffset] = checked((byte)change.Replacement);
+            else BinaryPrimitives.WriteUInt32LittleEndian(modified.AsSpan(change.FileOffset, 4), change.Replacement);
         }
         if (!MatchesHash(modified, profile.ModifiedHash))
             throw new InvalidDataException("The modified executable failed verification. No game was started.");
@@ -60,14 +66,20 @@ internal static class SkipSplashPatch
             || (characteristics & 0x2000) != 0 || Read16(image, optional) != 0x10B) Invalid();
         var sections = checked(optional + optionalSize);
         Bounds(image, sections, checked(count * 40));
-        foreach (var change in changes)
+        for (var index = 0; index < changes.Count; index++)
         {
-            if (change.FileOffset < 0) Invalid();
-            Bounds(image, change.FileOffset, 4);
-            var offset = Map(image, sections, count, change.Rva, 4);
+            var change = changes[index];
+            if (change.Width is not (1 or 4) || change.FileOffset < 0
+                || (change.Width == 1 && (change.Expected > byte.MaxValue || change.Replacement > byte.MaxValue))) Invalid();
+            Bounds(image, change.FileOffset, change.Width);
+            var offset = Map(image, sections, count, change.Rva, change.Width);
             if (offset != change.FileOffset) Invalid();
-            if (changes.Any(other => !ReferenceEquals(change, other)
-                && (long)other.FileOffset < (long)change.FileOffset + 4 && (long)change.FileOffset < (long)other.FileOffset + 4)) Invalid();
+            for (var otherIndex = 0; otherIndex < index; otherIndex++)
+            {
+                var other = changes[otherIndex];
+                if ((long)other.FileOffset < (long)change.FileOffset + change.Width
+                    && (long)change.FileOffset < (long)other.FileOffset + other.Width) Invalid();
+            }
         }
         // No relocation may rewrite any part of a modified scalar at load time.
         var directoryCount = Read32(image, optional + 92);
@@ -92,7 +104,7 @@ internal static class SkipSplashPatch
                 // This mod accepts the documented x86 HIGHLOW format only.
                 if (type != 3) Invalid();
                 var rva = (ulong)page + (uint)(relocation & 0xFFF);
-                if (changes.Any(change => rva < (ulong)change.Rva + 4 && (ulong)change.Rva < rva + 4)) Invalid();
+                if (changes.Any(change => rva < (ulong)change.Rva + (uint)change.Width && (ulong)change.Rva < rva + 4)) Invalid();
             }
             block = checked(block + (int)size);
         }

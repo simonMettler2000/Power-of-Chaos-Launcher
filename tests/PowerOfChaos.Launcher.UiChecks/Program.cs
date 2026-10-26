@@ -137,8 +137,18 @@ internal static class Program
                     "Mod checkbox, title and description are not ordered left to right.");
                 Require(description.Bounds.Width > 0 && description.Bounds.Right <= row.Bounds.Width + 1,
                     "Mod description does not fit its row.");
+                var interactionsRow = Find<Grid>(window, "SkipCharacterInteractionsRow");
+                var interactions = Find<CheckBox>(window, "SkipCharacterInteractionsCheckBox");
+                var interactionsTitle = Find<TextBlock>(window, "SkipCharacterInteractionsTitle");
+                var interactionsDescription = Find<TextBlock>(window, "SkipCharacterInteractionsDescription");
+                Require(interactions.IsEnabled && interactions.IsChecked == false, "Character mod should initially be available and off.");
+                Require(interactions.Bounds.Right <= interactionsTitle.Bounds.Left
+                    && interactionsTitle.Bounds.Right <= interactionsDescription.Bounds.Left
+                    && interactionsDescription.Bounds.Width > 0
+                    && interactionsDescription.Bounds.Right <= interactionsRow.Bounds.Width + 1,
+                    "Character mod does not have a readable checkbox/title/description row.");
                 Require(Find<StackPanel>(window, "ModsView").GetVisualDescendants().OfType<CheckBox>()
-                    .Count(c => !c.IsEnabled) == 4, "Future mods must remain disabled.");
+                    .Count(c => !c.IsEnabled) == 3, "Future mods must remain disabled.");
             });
             Capture(window, "mods.png");
             Check("global mod checkbox saves without changing game locations or preferences", () =>
@@ -152,6 +162,19 @@ internal static class Program
                 CheckPreservedSettings(data);
             });
             Capture(window, "mods-enabled.png");
+
+            Check("character interactions toggle composes with the enabled splash setting", () =>
+            {
+                ClickInput(window, Find<CheckBox>(window, "SkipCharacterInteractionsCheckBox"));
+                WaitUntil(() => SavedModEnabled(data, "SkipCharacterInteractions")
+                    && Find<CheckBox>(window, "SkipCharacterInteractionsCheckBox").IsEnabled,
+                    "Character mod did not finish saving.");
+                Require(SavedModEnabled(data), "Enabling character mod disabled the splash setting.");
+                Require((Find<TextBlock>(window, "StatusText").Text ?? "").Contains("all three games", StringComparison.Ordinal),
+                    "Character mod does not explain its global scope.");
+                CheckPreservedSettings(data);
+            });
+            Capture(window, "mods-both-enabled.png");
 
             window.Close();
             Pump(TimeSpan.FromMilliseconds(80));
@@ -170,9 +193,22 @@ internal static class Program
                 var checkbox = Find<CheckBox>(window, "SkipSplashScreensCheckBox");
                 WaitUntil(() => checkbox.IsEnabled, "Mod checkbox did not finish loading.");
                 Require(checkbox.IsChecked == true, "Enabled global mod was not restored.");
+                Require(Find<CheckBox>(window, "SkipCharacterInteractionsCheckBox").IsChecked == true,
+                    "Enabled character mod was not restored with the splash setting.");
                 ClickInput(window, checkbox);
                 WaitUntil(() => !SavedModEnabled(data) && checkbox.IsEnabled, "Unticking did not persist disabled state.");
                 Require(checkbox.IsChecked == false, "Unticked checkbox stayed enabled.");
+                Require(SavedModEnabled(data, "SkipCharacterInteractions"), "Unticking splash disabled the character mod.");
+                CheckPreservedSettings(data);
+            });
+            Check("unticking character interactions restores its saved state independently", () =>
+            {
+                var checkbox = Find<CheckBox>(window, "SkipCharacterInteractionsCheckBox");
+                ClickInput(window, checkbox);
+                WaitUntil(() => !SavedModEnabled(data, "SkipCharacterInteractions") && checkbox.IsEnabled,
+                    "Unticking character mod did not finish saving.");
+                Require(!SavedModEnabled(data), "Unticking character mod enabled splash.");
+                Require(checkbox.IsChecked == false, "Character checkbox stayed checked after disabling.");
                 CheckPreservedSettings(data);
             });
             Check("failed mod save restores the previous checkbox selection", () =>
@@ -188,6 +224,12 @@ internal static class Program
                     WaitUntil(() => checkbox.IsEnabled && (Find<TextBlock>(window, "StatusText").Text ?? "")
                         .Contains("previous selection was kept", StringComparison.Ordinal), "Failed save did not restore selection.");
                     Require(checkbox.IsChecked == false, "Failed save left an unsaved mod active.");
+                    var characterCheckbox = Find<CheckBox>(window, "SkipCharacterInteractionsCheckBox");
+                    ClickInput(window, characterCheckbox);
+                    WaitUntil(() => characterCheckbox.IsEnabled && (Find<TextBlock>(window, "StatusText").Text ?? "")
+                        .Contains("previous selection was kept", StringComparison.Ordinal), "Failed character save did not restore selection.");
+                    Require(characterCheckbox.IsChecked == false && checkbox.IsChecked == false,
+                        "Failed character save changed either active mod setting.");
                     Require(CardCount(window) == 3, "Failed mod save changed the library.");
                 }
                 finally
@@ -206,6 +248,8 @@ internal static class Program
                 var checkbox = Find<CheckBox>(window, "SkipSplashScreensCheckBox");
                 WaitUntil(() => checkbox.IsEnabled, "Reopened mod checkbox did not finish loading.");
                 Require(checkbox.IsChecked == false && !SavedModEnabled(data), "Disabled mod was reenabled on reopen.");
+                Require(Find<CheckBox>(window, "SkipCharacterInteractionsCheckBox").IsChecked == false
+                    && !SavedModEnabled(data, "SkipCharacterInteractions"), "Disabled character mod was reenabled on reopen.");
                 Require(CardCount(window) == 3, "Second reopen lost existing installations.");
             });
             Find<Button>(window, "LibraryNav").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
@@ -271,10 +315,10 @@ internal static class Program
         Pump(TimeSpan.FromMilliseconds(80));
     }
 
-    private static bool SavedModEnabled(string data)
+    private static bool SavedModEnabled(string data, string property = "SkipSplashScreens")
     {
         using var settings = JsonDocument.Parse(File.ReadAllText(Path.Combine(data, "launcher-settings.json")));
-        return settings.RootElement.TryGetProperty("SkipSplashScreens", out var value) && value.GetBoolean();
+        return settings.RootElement.TryGetProperty(property, out var value) && value.GetBoolean();
     }
 
     private static void CheckPreservedSettings(string data)

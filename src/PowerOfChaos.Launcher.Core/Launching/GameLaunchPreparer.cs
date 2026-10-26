@@ -2,7 +2,7 @@ namespace PowerOfChaos.Launcher.Core.Launching;
 
 public interface IGameLaunchPreparer
 {
-    Task<string> PrepareExecutableAsync(GameInstallation installation, bool skipSplashScreens,
+    Task<string> PrepareExecutableAsync(GameInstallation installation, GameModOptions options,
         CancellationToken cancellationToken = default);
 }
 
@@ -15,25 +15,30 @@ public sealed class GameLaunchPreparer : IGameLaunchPreparer
     private static readonly StringComparison PathComparison = OperatingSystem.IsWindows()
         ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
 
-    public GameLaunchPreparer(string? dataDirectory = null) : this(dataDirectory, SkipSplashPatch.Profiles) { }
+    public GameLaunchPreparer(string? dataDirectory = null) : this(dataDirectory, GameModProfiles.Profiles) { }
     internal GameLaunchPreparer(string? dataDirectory, IReadOnlyList<SplashProfile> profiles)
     {
         _dataDirectory = Path.GetFullPath(dataDirectory ?? LauncherPaths.DataDirectory);
         _profiles = profiles;
     }
 
-    public async Task<string> PrepareExecutableAsync(GameInstallation installation, bool skipSplashScreens,
+    public Task<string> PrepareExecutableAsync(GameInstallation installation, bool skipSplashScreens,
+        CancellationToken cancellationToken = default) =>
+        PrepareExecutableAsync(installation, new GameModOptions(SkipSplashScreens: skipSplashScreens), cancellationToken);
+
+    public async Task<string> PrepareExecutableAsync(GameInstallation installation, GameModOptions options,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(options);
         cancellationToken.ThrowIfCancellationRequested();
         var originalPath = Path.GetFullPath(installation.ExecutablePath);
-        if (!skipSplashScreens) return originalPath;
+        if (!options.AnyEnabled) return originalPath;
         var definition = GameCatalog.All.FirstOrDefault(game => game.Id == installation.GameId)
             ?? throw new ArgumentException("Unknown game.");
         if (!string.Equals(Path.GetFileName(originalPath), definition.ExecutableName, StringComparison.OrdinalIgnoreCase))
             throw new ArgumentException("The selected executable does not match this game.");
-        var profile = _profiles.FirstOrDefault(item => item.GameId == installation.GameId)
-            ?? throw new InvalidDataException("Skip Splash Screens is not supported for this game version. Untick it to launch normally.");
+        var profile = _profiles.SingleOrDefault(item => item.GameId == installation.GameId && item.Options == options)
+            ?? throw new InvalidDataException("The selected mods are not supported for this game version. Untick the mods to launch normally.");
         await CacheGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
@@ -42,7 +47,8 @@ public sealed class GameLaunchPreparer : IGameLaunchPreparer
             var original = await ReadBoundedAsync(originalPath, profile.Length, cancellationToken).ConfigureAwait(false);
             var modified = SkipSplashPatch.Apply(original, profile);
             cancellationToken.ThrowIfCancellationRequested();
-            var directory = Path.Combine(_dataDirectory, "mod-cache", "skip-splash-screens-v1", profile.GameId, profile.OriginalHash);
+            var directory = Path.Combine(_dataDirectory, "mod-cache", "verified-mods-v2", options.CacheKey,
+                profile.GameId, profile.OriginalHash, profile.ModifiedHash);
             var installDirectory = Path.GetDirectoryName(originalPath)!;
             if (directory.Equals(installDirectory, PathComparison)
                 || directory.StartsWith(Path.TrimEndingDirectorySeparator(installDirectory) + Path.DirectorySeparatorChar, PathComparison))
@@ -93,7 +99,7 @@ public sealed class GameLaunchPreparer : IGameLaunchPreparer
     {
         if (length is < 256 or > 16 * 1024 * 1024) throw new InvalidDataException("Unsupported executable size.");
         await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, FileOptions.Asynchronous);
-        if (stream.Length != length) throw new InvalidDataException("Skip Splash Screens does not support this executable version. Untick it to launch normally.");
+        if (stream.Length != length) throw new InvalidDataException("The selected mods do not support this executable version. Untick the mods to launch normally.");
         var bytes = new byte[length];
         await stream.ReadExactlyAsync(bytes, cancellationToken).ConfigureAwait(false);
         if (stream.Length != length) throw new InvalidDataException("The executable changed during verification.");

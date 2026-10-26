@@ -24,6 +24,7 @@ public sealed class LauncherSettings
     public List<GameInstallation> Installations { get; set; } = [];
     public bool MinimizeOnLaunch { get; set; } = true;
     public bool SkipSplashScreens { get; set; }
+    public bool SkipCharacterInteractions { get; set; }
     public string WineExecutable { get; set; } = "wine";
 }
 

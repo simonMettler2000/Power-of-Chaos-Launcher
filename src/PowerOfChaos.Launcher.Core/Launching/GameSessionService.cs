@@ -85,6 +85,15 @@ public sealed class GameSessionService : IAsyncDisposable
     public async Task<LaunchResult> LaunchAsync(GameInstallation installation, LauncherSettings settings,
         CancellationToken cancellationToken = default)
     {
+        // Capture before the first await, including when another launch owns the gate.
+        var options = new GameModOptions(settings.SkipSplashScreens, settings.SkipCharacterInteractions);
+        var launchSettings = new LauncherSettings
+        {
+            SkipSplashScreens = options.SkipSplashScreens,
+            SkipCharacterInteractions = options.SkipCharacterInteractions,
+            WineExecutable = settings.WineExecutable,
+            MinimizeOnLaunch = settings.MinimizeOnLaunch
+        };
         CancellationTokenSource pendingCancellation;
         lock (_disposalLock)
         {
@@ -99,15 +108,8 @@ public sealed class GameSessionService : IAsyncDisposable
             enteredGate = true;
             ObjectDisposedException.ThrowIf(_disposed, this);
             if (_active is not null) return new(false, "Close the running game before launching another.");
-            // Launch options are a coherent snapshot; UI edits apply to the next Play action.
-            var launchSettings = new LauncherSettings
-            {
-                SkipSplashScreens = settings.SkipSplashScreens,
-                WineExecutable = settings.WineExecutable,
-                MinimizeOnLaunch = settings.MinimizeOnLaunch
-            };
             _ = LaunchPlan.Create(installation, launchSettings); // Validate installed files before cache work.
-            var executable = await _preparer.PrepareExecutableAsync(installation, launchSettings.SkipSplashScreens,
+            var executable = await _preparer.PrepareExecutableAsync(installation, options,
                 preparationCancellation.Token);
             var plan = LaunchPlan.CreatePrepared(installation, launchSettings, executable);
             await EnsureLoadedAsync();

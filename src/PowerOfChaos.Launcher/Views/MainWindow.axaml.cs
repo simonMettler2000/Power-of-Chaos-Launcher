@@ -300,29 +300,37 @@ public partial class MainWindow : Window
     {
         SkipSplashScreensCheckBox.IsChecked = _settings.SkipSplashScreens;
         SkipSplashScreensCheckBox.IsEnabled = _settingsReady && !_savingMod && !_pendingLaunch && !_busy;
+        SkipCharacterInteractionsCheckBox.IsChecked = _settings.SkipCharacterInteractions;
+        SkipCharacterInteractionsCheckBox.IsEnabled = SkipSplashScreensCheckBox.IsEnabled;
         foreach (var card in _cards) card.SetLaunchPending(!_settingsReady || _savingMod || _pendingLaunch);
     }
 
-    private async void SkipSplashScreens_Click(object? sender, RoutedEventArgs e)
+    private async void SkipSplashScreens_Click(object? sender, RoutedEventArgs e) => await SaveModSelectionAsync(false);
+
+    private async void SkipCharacterInteractions_Click(object? sender, RoutedEventArgs e) => await SaveModSelectionAsync(true);
+
+    private async Task SaveModSelectionAsync(bool characterInteractions)
     {
         if (!_settingsReady || _savingMod || _pendingLaunch || _busy || _closed)
         {
             if (!_closed) RefreshModControls();
             return;
         }
-        var previous = _settings.SkipSplashScreens;
-        _settings.SkipSplashScreens = SkipSplashScreensCheckBox.IsChecked == true;
+        var previous = characterInteractions ? _settings.SkipCharacterInteractions : _settings.SkipSplashScreens;
+        var selected = (characterInteractions ? SkipCharacterInteractionsCheckBox : SkipSplashScreensCheckBox).IsChecked == true;
+        if (characterInteractions) _settings.SkipCharacterInteractions = selected;
+        else _settings.SkipSplashScreens = selected;
+        var name = characterInteractions ? "Skip character interactions" : "Skip Splash Screens";
         _savingMod = true;
         RefreshModControls();
         try
         {
             if (await SaveSettingsAsync())
-                Notice(_settings.SkipSplashScreens
-                    ? "Skip Splash Screens enabled for all three games on their next launch."
-                    : "Skip Splash Screens disabled for all three games on their next launch.");
+                Notice($"{name} {(selected ? "enabled" : "disabled")} for all three games on their next launch.");
             else
             {
-                _settings.SkipSplashScreens = previous;
+                if (characterInteractions) _settings.SkipCharacterInteractions = previous;
+                else _settings.SkipSplashScreens = previous;
                 Notice("The mod setting could not be saved. Your previous selection was kept.");
             }
         }

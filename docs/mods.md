@@ -31,3 +31,22 @@ The executable copy is kept under the launcher's local application-data director
 Development checks inspect installed inputs as data, verify patch results in memory, and exercise the launcher with synthetic fixtures and fake process runners. UI tests operate the actual Avalonia controls without pressing Play. Neither original nor modified games are executed during development or automated testing.
 
 Actual logo-free startup, audio/rendering, module-location assumptions, operating-system permissions and Wine behavior therefore remain manual compatibility checks. A passing launcher build or exact patch hash cannot substitute for running your own installation. The native title fade is deliberately retained and may still take a short time before menu options appear.
+
+## Skip character interactions
+
+This global switch skips the initial character greeting and the character interruptions during duels: spoken reactions, portrait/special-monster reaction cut-ins and the pauses associated with those presentations. It keeps ordinary duel music, card sound effects and normal card animations, including fusion visuals and their normal music behavior. The end-of-duel win/loss/draw presentation is retained.
+
+The implementation bypasses optional character event callbacks and uses native skip/continuation branches before creating queued presentations. Standalone voice requests and fusion voice cues receive separate treatment where needed. These are distinct paths in each game; the profiles are individually derived for the three exact executable hashes listed above. No game code, sound file or modified executable is bundled. Existing code is selected by factual pointer/relative-target metadata; no instruction payload is inserted.
+
+Skipping the optional character callbacks also removes random choices for their cosmetic variants. Rules, decks, rewards and saved collections are not patched, but the exact later random sequence from an identical seed is not guaranteed to remain the same.
+
+| Splash screens | Character interactions | Next launch |
+|---|---|---|
+| Off | Off | Original executable |
+| On | Off | Skip publisher logos; normal character presentations |
+| Off | On | Normal publisher logos; skip greeting and in-duel character interruptions |
+| On | On | Both modifications |
+
+Each enabled combination has its own full-file verification and isolated cache identity. Turning off one mod keeps the other selected. Turning both off returns to the unchanged original executable. Changes take effect on the next launch and do not patch a running game.
+
+Automated checks exercise the four combinations with synthetic fixtures and fake processes, and verify the real pinned outputs entirely in memory. They never execute original or modified games. Actual duel behavior, audio/rendering and Windows/Wine compatibility remain manual checks under the project's no-execution rule.

@@ -22,11 +22,11 @@ Only discovered games appear in the library. Locations and preferences persist b
 - Per-game launching and recorded session playtime.
 - Minimize-on-launch preference and a Wine runner setting for Linux/macOS.
 - Local settings and atomic playtime checkpoints; no accounts, telemetry or always-on network service.
-- A global **Skip Splash Screens** switch for the three supported executable revisions, plus disabled entries for mods still in development.
+- Global **Skip Splash Screens** and **Skip character interactions** switches for the three supported executable revisions, plus disabled entries for mods still in development.
 
 Playtime begins when this launcher starts tracking. It measures elapsed launcher sessions, including menus and idle time. Interrupted sessions retain their last saved checkpoint rather than counting time while the launcher was closed. Windows launches the selected executable directly; non-Windows launches through `wine start /wait /unix`. Actual game compatibility and Wine session behavior require testing on the chosen platform and runner.
 
-Collection statistics, reversible shared/isolated collections, opponent-deck packs, guaranteed-new rewards, skipped voice waits and HD artwork are **not implemented in this first version**. Their mod entries are disabled rather than pretending to apply a modification. Native Linux/macOS ports of the games are not supplied.
+Collection statistics, reversible shared/isolated collections, opponent-deck packs, guaranteed-new rewards and HD artwork are **not implemented**. Their mod entries are disabled rather than pretending to apply a modification. Native Linux/macOS ports of the games are not supplied.
 
 ## Skip Splash Screens
 
@@ -35,6 +35,12 @@ Open **Mods** and tick **Skip Splash Screens**. The same setting applies to Yugi
 The launcher verifies the installed executable against an explicitly supported SHA256 before preparing a local modified copy. The installed executable, archives and saves are not patched. Unsupported versions produce an explanation rather than receiving a speculative patch; untick the mod to launch them normally. Only numeric startup fields are changed; no game content is bundled or downloaded.
 
 The local copy lives in the launcher's application-data directory, with assets still read from the installation. Static byte checks, synthetic process tests and UI checks cover the implementation; game startup is not executed during development. Actual rendering, copy-location assumptions and Wine compatibility still need a manual test with your own installation. See [mod behavior and supported versions](docs/mods.md).
+
+## Skip character interactions
+
+Tick **Skip character interactions** in **Mods** to skip the duel-start greeting and in-duel character dialogue, reaction cut-ins and associated waits. Duel music, card sounds, normal card effects and gameplay continue. The end-of-duel result presentation is retained. Skipping cosmetic reactions also skips their random variant choices; the exact sequence from an identical random seed may therefore differ.
+
+Both mods work independently or together, using a separately verified local executable for each enabled combination. Unticking either restores that behavior on the next launch while keeping the other selection. No installed executable, archive or save is modified. The same supported-input hashes and development no-execution limits apply.
 
 ## Build and run
 
