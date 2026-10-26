@@ -15,6 +15,7 @@ Only discovered games appear in the library. Locations and preferences persist b
 ## Current capabilities
 
 - Black desktop interface with compact game rows and monochrome controls; no game artwork is bundled.
+- Character icons are read from each detected game's local archive: Kaiba's start pose, Joey's reaction pose, and Yugi's start pose with the open-eye layer. Green backgrounds become transparent in memory.
 - Cogwheel settings menu, folder browser and pasteable game paths.
 - Discovery of one or all three titles, including nested installations.
 - Per-game launching and recorded session playtime.
@@ -37,6 +38,8 @@ dotnet run --project src/PowerOfChaos.Launcher -c Release --no-build
 ```
 
 Settings and counters are written under the current user's local application-data directory in `PowerOfChaosLauncher`. Nothing is saved inside an installed game directory. For isolated testing, set `POC_LAUNCHER_DATA_DIR` to a scratch folder before starting the launcher.
+
+Portrait artwork is loaded asynchronously from the selected installation and kept in memory. No original artwork is bundled, downloaded or written to the repository. Missing or unsupported portrait resources use a neutral placeholder and leave the game launch controls available.
 
 ## Verification
 

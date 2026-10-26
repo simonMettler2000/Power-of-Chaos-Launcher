@@ -241,6 +241,7 @@ internal static class Program
             });
 
             await SessionChecks.RunAll(fixtures.Root, Run);
+            await PortraitChecks.RunAll(fixtures.Root, Run);
 
             if (args.Contains("--installed", StringComparer.Ordinal))
             {

@@ -11,6 +11,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using PowerOfChaos.Launcher;
 using PowerOfChaos.Launcher.Views;
+using PowerOfChaos.Launcher.ViewModels;
 
 namespace PowerOfChaos.Launcher.UiChecks;
 
@@ -20,7 +21,7 @@ internal static class Program
     private static string artifacts = "";
 
     [STAThread]
-    public static int Main()
+    public static int Main(string[] args)
     {
         var project = FindProject();
         artifacts = Path.GetFullPath(Path.Combine(project, "..", "..", ".local", "ui-checks"));
@@ -88,6 +89,10 @@ internal static class Program
                 Require(status.Contains("3 games found", StringComparison.Ordinal), "Success message does not identify the three games.");
                 WaitUntil(() => File.Exists(Path.Combine(data, "launcher-settings.json")), "Settings were not persisted.");
             });
+            Check("detected game rows load their local portrait images", () =>
+            {
+                WaitUntil(() => PortraitCount(window) == 3, "Portrait images did not appear for all three detected games.");
+            });
             Capture(window, "three-games.png");
 
             dialog = OpenAddPath(window, flyout);
@@ -124,8 +129,34 @@ internal static class Program
             {
                 WaitUntil(() => CardCount(window) == 3, "Reopened launcher did not restore three games.");
                 Require(!Find<Border>(window, "LibraryEmpty").IsVisible, "Reopened library shows empty state.");
+                WaitUntil(() => PortraitCount(window) == 3, "Reopened launcher did not reload portraits.");
             });
             Capture(window, "reopened.png");
+
+            if (args.Contains("--installed-artwork", StringComparer.Ordinal))
+            {
+                Check("installed portraits are loaded without starting a game", () =>
+                {
+                    Require(OperatingSystem.IsWindows(), "Installed artwork preview requires this Windows installation.");
+                    var installedRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "KONAMI");
+                    var currentGear = window.GetVisualDescendants().OfType<Button>()
+                        .Single(b => AutomationProperties.GetName(b) == "Settings");
+                    var currentFlyout = currentGear.Flyout as MenuFlyout ?? throw new InvalidOperationException("Settings menu is missing.");
+                    dialog = OpenAddPath(window, currentFlyout);
+                    SubmitPath(dialog, installedRoot);
+                    WaitUntil(() => CardCount(window) == 3 && Find<ItemsControl>(window, "GameCards").Items
+                        .OfType<GameCardViewModel>().All(c => c.Folder.StartsWith(installedRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)),
+                        "Installed game locations were not discovered.");
+                    WaitUntil(() => PortraitCount(window) == 3, "Installed character portraits did not load.");
+                    var expected = new Dictionary<string, PixelSize>
+                    {
+                        ["yugi"] = new(591, 560), ["kaiba"] = new(739, 559), ["joey"] = new(672, 600)
+                    };
+                    foreach (var card in Find<ItemsControl>(window, "GameCards").Items.OfType<GameCardViewModel>())
+                        Require(card.Portrait?.PixelSize == expected[card.Installation.GameId], "Installed portrait dimensions differ from the selected resource.");
+                });
+                Capture(window, "installed-portraits.png");
+            }
 
             Console.WriteLine($"PASS {passed} real-component headless UI checks. No Play action or game process was invoked.");
             Console.WriteLine("Rendered frames: " + artifacts);
@@ -186,6 +217,8 @@ internal static class Program
     }
 
     private static int CardCount(MainWindow window) => Find<ItemsControl>(window, "GameCards").Items.Count;
+    private static int PortraitCount(MainWindow window) => window.GetVisualDescendants().OfType<Image>()
+        .Count(i => i.Name == "GamePortrait" && i.IsVisible && i.Source is not null);
     private static T Find<T>(Control root, string name) where T : Control => root.FindControl<T>(name)
         ?? throw new InvalidOperationException("Missing named control: " + name);
 
@@ -261,6 +294,11 @@ internal static class Program
         }
         foreach (var archive in new[] { "data.dat", "Voice.dat" })
         {
+            if (archive == "data.dat")
+            {
+                PortraitFixtureWriter.Write(Path.Combine(directory, archive), name);
+                continue;
+            }
             using var stream = new FileStream(Path.Combine(directory, archive), FileMode.CreateNew, FileAccess.Write);
             using var writer = new BinaryWriter(stream);
             writer.Write(Encoding.ASCII.GetBytes("KCEJYUGI")); writer.Write(1u); stream.SetLength(12 + 268);

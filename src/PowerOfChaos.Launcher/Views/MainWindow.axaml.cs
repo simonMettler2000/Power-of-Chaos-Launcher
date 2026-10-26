@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using PowerOfChaos.Launcher.Core;
+using PowerOfChaos.Launcher.Core.Artwork;
 using PowerOfChaos.Launcher.Core.Discovery;
 using PowerOfChaos.Launcher.Core.Launching;
 using PowerOfChaos.Launcher.Core.Storage;
@@ -15,9 +16,11 @@ public partial class MainWindow : Window
     private readonly SettingsStore _store = new();
     private readonly GameDiscovery _discovery = new();
     private readonly GameSessionService _sessions = new();
+    private readonly GamePortraitLoader _portraits = new();
     private readonly ObservableCollection<GameCardViewModel> _cards = [];
     private LauncherSettings _settings = new();
     private CancellationTokenSource? _scanCancellation;
+    private CancellationTokenSource? _portraitCancellation;
     private bool _busy;
     private bool _closeWhenIdle;
     private bool _closed;
@@ -44,6 +47,9 @@ public partial class MainWindow : Window
         {
             _closed = true;
             _scanCancellation?.Cancel();
+            _portraitCancellation?.Cancel();
+            _portraitCancellation?.Dispose();
+            foreach (var card in _cards) card.Dispose();
             _sessions.SessionsChanged -= SessionsChanged;
             await _sessions.DisposeAsync();
         };
@@ -71,7 +77,12 @@ public partial class MainWindow : Window
 
     private void RenderLibrary()
     {
+        _portraitCancellation?.Cancel();
+        _portraitCancellation?.Dispose();
+        _portraitCancellation = new CancellationTokenSource();
+        var retired = _cards.ToArray();
         _cards.Clear();
+        foreach (var card in retired) card.Dispose();
         foreach (var game in GameCatalog.All)
         {
             var installed = _settings.Installations.FirstOrDefault(i => i.GameId == game.Id);
@@ -82,6 +93,27 @@ public partial class MainWindow : Window
         GameCount.Text = $"{_cards.Count} of 3 games installed";
         RescanMenu.IsEnabled = !_busy && _settings.SearchRoots.Count > 0;
         RescanButton.IsEnabled = RescanMenu.IsEnabled;
+        foreach (var card in _cards) _ = LoadPortraitAsync(card, _portraitCancellation.Token);
+    }
+
+    private async Task LoadPortraitAsync(GameCardViewModel card, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var pixels = await _portraits.LoadAsync(card.Installation, cancellationToken).ConfigureAwait(false);
+            if (pixels is null || cancellationToken.IsCancellationRequested) return;
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (!_closed && !cancellationToken.IsCancellationRequested && _cards.Contains(card))
+                    card.SetPortrait(pixels);
+            });
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException
+                                   or InvalidOperationException or NotSupportedException)
+        {
+            // Artwork is optional: retain a usable game row when it cannot be loaded.
+        }
     }
 
     private void RenderLocations()

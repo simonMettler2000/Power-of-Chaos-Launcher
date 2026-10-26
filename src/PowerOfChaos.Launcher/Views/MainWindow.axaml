@@ -71,17 +71,25 @@
               <ItemsControl x:Name="GameCards">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate DataType="vm:GameCardViewModel">
-                    <Border Classes="panel" Margin="0,0,0,10" Padding="20,22">
-                      <Grid ColumnDefinitions="*,90,96" ColumnSpacing="24">
-                        <StackPanel Spacing="8" VerticalAlignment="Center">
+                    <Border Classes="panel" Margin="0,0,0,10" Padding="16,12">
+                      <Grid ColumnDefinitions="88,*,80,96" ColumnSpacing="20">
+                        <Grid Width="88" Height="80" ClipToBounds="True" VerticalAlignment="Center">
+                          <Border Background="#191919" CornerRadius="4" IsVisible="{Binding ShowPortraitPlaceholder}">
+                            <Path Width="24" Height="30" Stroke="#656565" StrokeThickness="1.5"
+                                  Data="M3,1 L21,1 L21,29 L3,29 Z M7,7 L17,7 M7,12 L17,12" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                          </Border>
+                          <Image x:Name="GamePortrait" Source="{Binding Portrait}" Stretch="Uniform" IsVisible="{Binding HasPortrait}"
+                                 AutomationProperties.Name="{Binding Title, StringFormat='Portrait of {0}'}" />
+                        </Grid>
+                        <StackPanel Grid.Column="1" Spacing="8" VerticalAlignment="Center">
                           <TextBlock Text="{Binding Title}" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
                           <TextBlock Text="{Binding Folder}" Classes="quiet" FontSize="11" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Folder}" />
                         </StackPanel>
-                        <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Center">
+                        <StackPanel Grid.Column="2" Spacing="6" VerticalAlignment="Center">
                           <TextBlock Text="Playtime" Classes="caption" FontSize="11" />
                           <TextBlock Text="{Binding Playtime}" FontSize="13" Foreground="#D4D4D4" />
                         </StackPanel>
-                        <Button Grid.Column="2" Content="{Binding PlayLabel}" Classes="primary" HorizontalAlignment="Stretch" VerticalAlignment="Center" HorizontalContentAlignment="Center" Tag="{Binding Installation}" IsEnabled="{Binding CanPlay}" Click="PlayGame_Click" AutomationProperties.Name="{Binding Title, StringFormat='Play {0}'}" />
+                        <Button Grid.Column="3" Content="{Binding PlayLabel}" Classes="primary" HorizontalAlignment="Stretch" VerticalAlignment="Center" HorizontalContentAlignment="Center" Tag="{Binding Installation}" IsEnabled="{Binding CanPlay}" Click="PlayGame_Click" AutomationProperties.Name="{Binding Title, StringFormat='Play {0}'}" />
                       </Grid>
                     </Border>
                   </DataTemplate>
