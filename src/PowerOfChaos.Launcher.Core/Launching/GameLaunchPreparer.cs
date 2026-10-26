@@ -1,0 +1,116 @@
+namespace PowerOfChaos.Launcher.Core.Launching;
+
+public interface IGameLaunchPreparer
+{
+    Task<string> PrepareExecutableAsync(GameInstallation installation, bool skipSplashScreens,
+        CancellationToken cancellationToken = default);
+}
+
+/// <summary>Builds verified private launch copies. Installed executables and assets are read-only.</summary>
+public sealed class GameLaunchPreparer : IGameLaunchPreparer
+{
+    private readonly string _dataDirectory;
+    private readonly IReadOnlyList<SplashProfile> _profiles;
+    private static readonly SemaphoreSlim CacheGate = new(1, 1);
+    private static readonly StringComparison PathComparison = OperatingSystem.IsWindows()
+        ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+
+    public GameLaunchPreparer(string? dataDirectory = null) : this(dataDirectory, SkipSplashPatch.Profiles) { }
+    internal GameLaunchPreparer(string? dataDirectory, IReadOnlyList<SplashProfile> profiles)
+    {
+        _dataDirectory = Path.GetFullPath(dataDirectory ?? LauncherPaths.DataDirectory);
+        _profiles = profiles;
+    }
+
+    public async Task<string> PrepareExecutableAsync(GameInstallation installation, bool skipSplashScreens,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var originalPath = Path.GetFullPath(installation.ExecutablePath);
+        if (!skipSplashScreens) return originalPath;
+        var definition = GameCatalog.All.FirstOrDefault(game => game.Id == installation.GameId)
+            ?? throw new ArgumentException("Unknown game.");
+        if (!string.Equals(Path.GetFileName(originalPath), definition.ExecutableName, StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException("The selected executable does not match this game.");
+        var profile = _profiles.FirstOrDefault(item => item.GameId == installation.GameId)
+            ?? throw new InvalidDataException("Skip Splash Screens is not supported for this game version. Untick it to launch normally.");
+        await CacheGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            RefuseLinks(originalPath);
+            // The source is bounded and hash checked on EVERY launch, even when a cache already exists.
+            var original = await ReadBoundedAsync(originalPath, profile.Length, cancellationToken).ConfigureAwait(false);
+            var modified = SkipSplashPatch.Apply(original, profile);
+            cancellationToken.ThrowIfCancellationRequested();
+            var directory = Path.Combine(_dataDirectory, "mod-cache", "skip-splash-screens-v1", profile.GameId, profile.OriginalHash);
+            var installDirectory = Path.GetDirectoryName(originalPath)!;
+            if (directory.Equals(installDirectory, PathComparison)
+                || directory.StartsWith(Path.TrimEndingDirectorySeparator(installDirectory) + Path.DirectorySeparatorChar, PathComparison))
+                throw new InvalidDataException("The mod cache must be outside the game installation. Choose a separate launcher data directory.");
+            RefuseLinks(directory);
+            Directory.CreateDirectory(directory);
+            RefuseLinks(directory);
+            var outputPath = Path.Combine(directory, definition.ExecutableName);
+            RefuseLinks(outputPath);
+            var lockPath = Path.Combine(directory, ".prepare.lock");
+            RefuseLinks(lockPath);
+            // Cross-process ownership prevents concurrent launchers replacing a cache under preparation.
+            await using var ownership = new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+            if (File.Exists(outputPath) && new FileInfo(outputPath).Length == profile.Length)
+            {
+                var cached = await ReadBoundedAsync(outputPath, profile.Length, cancellationToken).ConfigureAwait(false);
+                if (SkipSplashPatch.MatchesHash(cached, profile.ModifiedHash)) return outputPath;
+            }
+            var temporary = Path.Combine(directory, ".preparing-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                await using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None,
+                    65536, FileOptions.Asynchronous | FileOptions.WriteThrough))
+                {
+                    await stream.WriteAsync(modified, cancellationToken).ConfigureAwait(false);
+                    await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+                    stream.Flush(flushToDisk: true);
+                }
+                cancellationToken.ThrowIfCancellationRequested();
+                RefuseLinks(directory);
+                RefuseLinks(outputPath);
+                File.Move(temporary, outputPath, overwrite: true);
+            }
+            finally
+            {
+                if (File.Exists(temporary)) File.Delete(temporary);
+            }
+            // A final read checks the file selected for launch, rather than trusting only the write buffer.
+            var result = await ReadBoundedAsync(outputPath, profile.Length, cancellationToken).ConfigureAwait(false);
+            if (!SkipSplashPatch.MatchesHash(result, profile.ModifiedHash))
+                throw new InvalidDataException("The private mod cache failed verification. No game was started.");
+            return outputPath;
+        }
+        finally { CacheGate.Release(); }
+    }
+
+    private static async Task<byte[]> ReadBoundedAsync(string path, int length, CancellationToken cancellationToken)
+    {
+        if (length is < 256 or > 16 * 1024 * 1024) throw new InvalidDataException("Unsupported executable size.");
+        await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, FileOptions.Asynchronous);
+        if (stream.Length != length) throw new InvalidDataException("Skip Splash Screens does not support this executable version. Untick it to launch normally.");
+        var bytes = new byte[length];
+        await stream.ReadExactlyAsync(bytes, cancellationToken).ConfigureAwait(false);
+        if (stream.Length != length) throw new InvalidDataException("The executable changed during verification.");
+        return bytes;
+    }
+
+    private static void RefuseLinks(string path)
+    {
+        for (var current = Path.GetFullPath(path); !string.IsNullOrEmpty(current); current = Path.GetDirectoryName(current))
+        {
+            try
+            {
+                if ((File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)
+                    throw new InvalidDataException("Linked paths are not supported for mod launch copies. Select the real game and data folders.");
+            }
+            catch (FileNotFoundException) { }
+            catch (DirectoryNotFoundException) { }
+        }
+    }
+}

@@ -127,6 +127,7 @@ public sealed class SettingsStore
             SearchRoots = roots,
             Installations = installations,
             MinimizeOnLaunch = settings.MinimizeOnLaunch,
+            SkipSplashScreens = settings.SkipSplashScreens,
             WineExecutable = wine
         };
     }

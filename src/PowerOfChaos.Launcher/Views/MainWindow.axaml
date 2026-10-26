@@ -100,11 +100,42 @@
             <TextBlock Text="Playtime counts sessions started from this launcher." Classes="quiet" FontSize="11" Margin="0,0,0,8" />
           </StackPanel>
           <StackPanel x:Name="ModsView" Spacing="12" IsVisible="False">
-            <Border Classes="notice"><TextBlock Text="Mod support is in development. These options are not available yet." TextWrapping="Wrap" LineHeight="22" /></Border>
-            <Border Classes="panel" Padding="20"><Grid ColumnDefinitions="*,Auto" ColumnSpacing="20"><StackPanel Spacing="7"><TextBlock Text="Custom opponent decks" FontSize="16" FontWeight="SemiBold" /><TextBlock Text="Change the decks used by the opponent." Classes="quiet" /></StackPanel><CheckBox Grid.Column="1" Content="In development" IsEnabled="False" /></Grid></Border>
-            <Border Classes="panel" Padding="20"><Grid ColumnDefinitions="*,Auto" ColumnSpacing="20"><StackPanel Spacing="7"><TextBlock Text="New card rewards" FontSize="16" FontWeight="SemiBold" /><TextBlock Text="Award new cards in their permitted quantities." Classes="quiet" /></StackPanel><CheckBox Grid.Column="1" Content="In development" IsEnabled="False" /></Grid></Border>
-            <Border Classes="panel" Padding="20"><Grid ColumnDefinitions="*,Auto" ColumnSpacing="20"><StackPanel Spacing="7"><TextBlock Text="Shorter voice interruptions" FontSize="16" FontWeight="SemiBold" /><TextBlock Text="Reduce pauses during opponent voice lines." Classes="quiet" /></StackPanel><CheckBox Grid.Column="1" Content="In development" IsEnabled="False" /></Grid></Border>
-            <Border Classes="panel" Padding="20"><Grid ColumnDefinitions="*,Auto" ColumnSpacing="20"><StackPanel Spacing="7"><TextBlock Text="HD card artwork" FontSize="16" FontWeight="SemiBold" /><TextBlock Text="Support higher-resolution card images." Classes="quiet" /></StackPanel><CheckBox Grid.Column="1" Content="In development" IsEnabled="False" /></Grid></Border>
+            <Border Classes="panel" Padding="20">
+              <Grid x:Name="SkipSplashScreensRow" ColumnDefinitions="Auto,210,*" ColumnSpacing="20">
+                <CheckBox x:Name="SkipSplashScreensCheckBox" VerticalAlignment="Center" IsEnabled="False"
+                          AutomationProperties.Name="Skip Splash Screens for all three games" Click="SkipSplashScreens_Click" />
+                <TextBlock x:Name="SkipSplashScreensTitle" Grid.Column="1" Text="Skip Splash Screens" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
+                <TextBlock x:Name="SkipSplashScreensDescription" Grid.Column="2" Text="Skip publisher logos in all three games. The title menu keeps its normal fade. Applies on the next launch." Classes="quiet" TextWrapping="Wrap" LineHeight="21" VerticalAlignment="Center" />
+              </Grid>
+            </Border>
+            <Border Classes="panel" Padding="20">
+              <Grid ColumnDefinitions="Auto,210,*" ColumnSpacing="20">
+                <CheckBox IsEnabled="False" VerticalAlignment="Center" AutomationProperties.Name="Custom opponent decks, in development" />
+                <TextBlock Grid.Column="1" Text="Custom opponent decks" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="2" Text="Change the decks used by the opponent. In development." Classes="quiet" TextWrapping="Wrap" LineHeight="21" VerticalAlignment="Center" />
+              </Grid>
+            </Border>
+            <Border Classes="panel" Padding="20">
+              <Grid ColumnDefinitions="Auto,210,*" ColumnSpacing="20">
+                <CheckBox IsEnabled="False" VerticalAlignment="Center" AutomationProperties.Name="New card rewards, in development" />
+                <TextBlock Grid.Column="1" Text="New card rewards" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="2" Text="Award new cards in their permitted quantities. In development." Classes="quiet" TextWrapping="Wrap" LineHeight="21" VerticalAlignment="Center" />
+              </Grid>
+            </Border>
+            <Border Classes="panel" Padding="20">
+              <Grid ColumnDefinitions="Auto,210,*" ColumnSpacing="20">
+                <CheckBox IsEnabled="False" VerticalAlignment="Center" AutomationProperties.Name="Shorter voice interruptions, in development" />
+                <TextBlock Grid.Column="1" Text="Shorter voice interruptions" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="2" Text="Reduce pauses during opponent voice lines. In development." Classes="quiet" TextWrapping="Wrap" LineHeight="21" VerticalAlignment="Center" />
+              </Grid>
+            </Border>
+            <Border Classes="panel" Padding="20">
+              <Grid ColumnDefinitions="Auto,210,*" ColumnSpacing="20">
+                <CheckBox IsEnabled="False" VerticalAlignment="Center" AutomationProperties.Name="HD card artwork, in development" />
+                <TextBlock Grid.Column="1" Text="HD card artwork" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="2" Text="Support higher-resolution card images. In development." Classes="quiet" TextWrapping="Wrap" LineHeight="21" VerticalAlignment="Center" />
+              </Grid>
+            </Border>
           </StackPanel>
           <StackPanel x:Name="CollectionView" Spacing="18" IsVisible="False">
             <Border Classes="panel" Padding="24"><StackPanel Spacing="16"><TextBlock Text="Collection support is in development" FontSize="18" FontWeight="SemiBold" /><TextBlock Text="Owned cards and separate or shared collections will be available after save support has been validated for all three games." Classes="quiet" LineHeight="22" /><CheckBox Content="Share card collection between games" IsEnabled="False" /></StackPanel></Border>

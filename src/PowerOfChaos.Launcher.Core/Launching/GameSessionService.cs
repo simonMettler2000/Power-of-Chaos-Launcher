@@ -40,21 +40,25 @@ public sealed class GameSessionService : IAsyncDisposable
     private sealed record ActiveSession(string GameId, IGameProcess Process, long StartedTimestamp, long PreviousSeconds);
     private readonly string _file;
     private readonly IGameProcessRunner _runner;
+    private readonly IGameLaunchPreparer _preparer;
     private readonly TimeProvider _clock;
     private readonly TimeSpan _checkpointInterval;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly CancellationTokenSource _shutdown = new();
+    private readonly object _disposalLock = new();
+    private Task? _disposal;
     private PlaytimeData? _data;
     private ActiveSession? _active;
     private Task? _monitor;
-    private bool _disposed;
+    private volatile bool _disposed;
     private const long MaximumSeconds = 100L * 366 * 24 * 60 * 60;
 
     public GameSessionService(string? dataDirectory = null, IGameProcessRunner? runner = null,
-        TimeProvider? clock = null, TimeSpan? checkpointInterval = null)
+        TimeProvider? clock = null, TimeSpan? checkpointInterval = null, IGameLaunchPreparer? preparer = null)
     {
         _file = Path.Combine(dataDirectory ?? LauncherPaths.DataDirectory, "playtime.json");
         _runner = runner ?? new SystemGameProcessRunner();
+        _preparer = preparer ?? new GameLaunchPreparer(dataDirectory);
         _clock = clock ?? TimeProvider.System;
         _checkpointInterval = checkpointInterval ?? TimeSpan.FromSeconds(30);
         if (_checkpointInterval <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(checkpointInterval));
@@ -78,17 +82,38 @@ public sealed class GameSessionService : IAsyncDisposable
         finally { _gate.Release(); }
     }
 
-    public async Task<LaunchResult> LaunchAsync(GameInstallation installation, LauncherSettings settings)
+    public async Task<LaunchResult> LaunchAsync(GameInstallation installation, LauncherSettings settings,
+        CancellationToken cancellationToken = default)
     {
-        await _gate.WaitAsync();
+        CancellationTokenSource pendingCancellation;
+        lock (_disposalLock)
+        {
+            if (_disposed) return new(false, "The launcher is closing. No game was started.");
+            pendingCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _shutdown.Token);
+        }
+        using var preparationCancellation = pendingCancellation;
+        var enteredGate = false;
         try
         {
+            await _gate.WaitAsync(preparationCancellation.Token);
+            enteredGate = true;
             ObjectDisposedException.ThrowIf(_disposed, this);
             if (_active is not null) return new(false, "Close the running game before launching another.");
-            var plan = LaunchPlan.Create(installation, settings);
+            // Launch options are a coherent snapshot; UI edits apply to the next Play action.
+            var launchSettings = new LauncherSettings
+            {
+                SkipSplashScreens = settings.SkipSplashScreens,
+                WineExecutable = settings.WineExecutable,
+                MinimizeOnLaunch = settings.MinimizeOnLaunch
+            };
+            _ = LaunchPlan.Create(installation, launchSettings); // Validate installed files before cache work.
+            var executable = await _preparer.PrepareExecutableAsync(installation, launchSettings.SkipSplashScreens,
+                preparationCancellation.Token);
+            var plan = LaunchPlan.CreatePrepared(installation, launchSettings, executable);
             await EnsureLoadedAsync();
             // Check that tracking can be persisted before starting an external application.
             await SaveAsync();
+            preparationCancellation.Token.ThrowIfCancellationRequested();
             var process = _runner.Start(plan);
             _active = new ActiveSession(installation.GameId, process, _clock.GetTimestamp(),
                 _data!.Totals.GetValueOrDefault(installation.GameId));
@@ -100,14 +125,19 @@ public sealed class GameSessionService : IAsyncDisposable
                 LastWarning = "The game started, but its playtime could not be saved.";
             }
             var active = _active;
-            _monitor = Task.Run(() => MonitorAsync(active, _shutdown.Token));
+            var shutdownToken = _shutdown.Token;
+            _monitor = Task.Run(() => MonitorAsync(active, shutdownToken));
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
+        catch (OperationCanceledException)
+        {
+            return new(false, "Game launch was cancelled.");
+        }
+        catch (Exception exception) when (exception is IOException or InvalidDataException or UnauthorizedAccessException or OverflowException
             or ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception)
         {
             return new(false, "Could not start the game: " + exception.Message);
         }
-        finally { _gate.Release(); }
+        finally { if (enteredGate) _gate.Release(); }
         NotifyChanged();
         return new(true);
     }
@@ -223,18 +253,26 @@ public sealed class GameSessionService : IAsyncDisposable
         }
     }
 
-    public async ValueTask DisposeAsync()
+    public ValueTask DisposeAsync()
     {
+        lock (_disposalLock)
+            return new ValueTask(_disposal ??= DisposeCoreAsync());
+    }
+
+    private async Task DisposeCoreAsync()
+    {
+        // Signal before waiting for the launch gate: a pending preparer holds that gate
+        // and must receive cancellation in order to release it. One shared disposal task
+        // owns the CTS lifetime, so concurrent disposal cannot race Cancel against Dispose.
+        _disposed = true;
+        await _shutdown.CancelAsync().ConfigureAwait(false);
         Task? monitor;
         await _gate.WaitAsync().ConfigureAwait(false);
         try
         {
-            if (_disposed) return;
-            _disposed = true;
             monitor = _monitor;
         }
         finally { _gate.Release(); }
-        await _shutdown.CancelAsync();
         if (monitor is not null) await monitor.ConfigureAwait(false);
         _shutdown.Dispose();
         // The semaphore may still have an already-entered reader or a second disposal waiting.

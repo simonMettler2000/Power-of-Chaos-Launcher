@@ -22,11 +22,19 @@ Only discovered games appear in the library. Locations and preferences persist b
 - Per-game launching and recorded session playtime.
 - Minimize-on-launch preference and a Wine runner setting for Linux/macOS.
 - Local settings and atomic playtime checkpoints; no accounts, telemetry or always-on network service.
-- A mod roadmap that accurately marks features still in development.
+- A global **Skip Splash Screens** switch for the three supported executable revisions, plus disabled entries for mods still in development.
 
 Playtime begins when this launcher starts tracking. It measures elapsed launcher sessions, including menus and idle time. Interrupted sessions retain their last saved checkpoint rather than counting time while the launcher was closed. Windows launches the selected executable directly; non-Windows launches through `wine start /wait /unix`. Actual game compatibility and Wine session behavior require testing on the chosen platform and runner.
 
 Collection statistics, reversible shared/isolated collections, opponent-deck packs, guaranteed-new rewards, skipped voice waits and HD artwork are **not implemented in this first version**. Their mod entries are disabled rather than pretending to apply a modification. Native Linux/macOS ports of the games are not supplied.
+
+## Skip Splash Screens
+
+Open **Mods** and tick **Skip Splash Screens**. The same setting applies to Yugi, Kaiba and Joey. On the next launch, the publisher logos are skipped and the normal title menu appears with its entrance fade and music. Untick it to restore normal startup on the next launch. Changing the setting does not rewind a game already running.
+
+The launcher verifies the installed executable against an explicitly supported SHA256 before preparing a local modified copy. The installed executable, archives and saves are not patched. Unsupported versions produce an explanation rather than receiving a speculative patch; untick the mod to launch them normally. Only numeric startup fields are changed; no game content is bundled or downloaded.
+
+The local copy lives in the launcher's application-data directory, with assets still read from the installation. Static byte checks, synthetic process tests and UI checks cover the implementation; game startup is not executed during development. Actual rendering, copy-location assumptions and Wine compatibility still need a manual test with your own installation. See [mod behavior and supported versions](docs/mods.md).
 
 ## Build and run
 
@@ -51,6 +59,8 @@ python tools/publication_guard.py --working-tree
 ```
 
 The independent test harness creates synthetic fixtures, never copies real game data, and uses fake game processes. It covers depth limits, invalid files, persistence, cancellation, launch plans and session accounting. Headless UI checks exercise the actual Avalonia controls and render local screenshots without starting games. Optional `--installed` testing reads installed headers on Windows and never starts a game. Development and CI must not execute the original games.
+
+On a machine with the supported installations, `dotnet run --project tests/PowerOfChaos.Launcher.Tests -c Release -- --installed --installed-mods` also verifies all three original and modified whole-file hashes entirely in memory. It writes no game copies and starts no games. UI checks accept `--installed-artwork` to read locally installed portraits.
 
 ## Source-only publication
 

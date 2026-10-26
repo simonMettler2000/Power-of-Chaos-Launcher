@@ -123,6 +123,36 @@ internal static class Program
                 Require(settings.RootElement.GetProperty("WineExecutable").GetString() == "/test/runner with spaces/wine", "Wine setting was not saved.");
             });
 
+            OpenMods(window);
+            Check("Mods shows a left checkbox, title and right description with no subtitle", () =>
+            {
+                Require(Find<TextBlock>(window, "PageTitle").Text == "Mods", "Mods page title differs.");
+                Require(!Find<TextBlock>(window, "PageSubtitle").IsVisible, "Mods subtitle still occupies the header.");
+                var row = Find<Grid>(window, "SkipSplashScreensRow");
+                var checkbox = Find<CheckBox>(window, "SkipSplashScreensCheckBox");
+                var title = Find<TextBlock>(window, "SkipSplashScreensTitle");
+                var description = Find<TextBlock>(window, "SkipSplashScreensDescription");
+                Require(checkbox.IsEnabled && checkbox.IsChecked == false, "New mod should initially be available and off.");
+                Require(checkbox.Bounds.Right <= title.Bounds.Left && title.Bounds.Right <= description.Bounds.Left,
+                    "Mod checkbox, title and description are not ordered left to right.");
+                Require(description.Bounds.Width > 0 && description.Bounds.Right <= row.Bounds.Width + 1,
+                    "Mod description does not fit its row.");
+                Require(Find<StackPanel>(window, "ModsView").GetVisualDescendants().OfType<CheckBox>()
+                    .Count(c => !c.IsEnabled) == 4, "Future mods must remain disabled.");
+            });
+            Capture(window, "mods.png");
+            Check("global mod checkbox saves without changing game locations or preferences", () =>
+            {
+                ClickInput(window, Find<CheckBox>(window, "SkipSplashScreensCheckBox"));
+                WaitUntil(() => SavedModEnabled(data) && Find<CheckBox>(window, "SkipSplashScreensCheckBox").IsEnabled,
+                    "Enabled mod did not finish saving.");
+                Require(Find<CheckBox>(window, "SkipSplashScreensCheckBox").IsChecked == true, "Checkbox reverted after successful save.");
+                Require((Find<TextBlock>(window, "StatusText").Text ?? "").Contains("all three games", StringComparison.Ordinal),
+                    "Mod status does not explain the global selection.");
+                CheckPreservedSettings(data);
+            });
+            Capture(window, "mods-enabled.png");
+
             window.Close();
             Pump(TimeSpan.FromMilliseconds(80));
             window = OpenWindow();
@@ -133,6 +163,52 @@ internal static class Program
                 WaitUntil(() => PortraitCount(window) == 3, "Reopened launcher did not reload portraits.");
             });
             Capture(window, "reopened.png");
+
+            OpenMods(window);
+            Check("reopening restores enabled mod and unticking persists disabled state", () =>
+            {
+                var checkbox = Find<CheckBox>(window, "SkipSplashScreensCheckBox");
+                WaitUntil(() => checkbox.IsEnabled, "Mod checkbox did not finish loading.");
+                Require(checkbox.IsChecked == true, "Enabled global mod was not restored.");
+                ClickInput(window, checkbox);
+                WaitUntil(() => !SavedModEnabled(data) && checkbox.IsEnabled, "Unticking did not persist disabled state.");
+                Require(checkbox.IsChecked == false, "Unticked checkbox stayed enabled.");
+                CheckPreservedSettings(data);
+            });
+            Check("failed mod save restores the previous checkbox selection", () =>
+            {
+                var path = Path.Combine(data, "launcher-settings.json");
+                var backup = path + ".test-backup";
+                File.Move(path, backup);
+                Directory.CreateDirectory(path); // Synthetic test folder blocks atomic replacement.
+                try
+                {
+                    var checkbox = Find<CheckBox>(window, "SkipSplashScreensCheckBox");
+                    ClickInput(window, checkbox);
+                    WaitUntil(() => checkbox.IsEnabled && (Find<TextBlock>(window, "StatusText").Text ?? "")
+                        .Contains("previous selection was kept", StringComparison.Ordinal), "Failed save did not restore selection.");
+                    Require(checkbox.IsChecked == false, "Failed save left an unsaved mod active.");
+                    Require(CardCount(window) == 3, "Failed mod save changed the library.");
+                }
+                finally
+                {
+                    Directory.Delete(path);
+                    File.Move(backup, path);
+                }
+            });
+
+            window.Close();
+            Pump(TimeSpan.FromMilliseconds(80));
+            window = OpenWindow();
+            OpenMods(window);
+            Check("reopening keeps a disabled global mod disabled", () =>
+            {
+                var checkbox = Find<CheckBox>(window, "SkipSplashScreensCheckBox");
+                WaitUntil(() => checkbox.IsEnabled, "Reopened mod checkbox did not finish loading.");
+                Require(checkbox.IsChecked == false && !SavedModEnabled(data), "Disabled mod was reenabled on reopen.");
+                Require(CardCount(window) == 3, "Second reopen lost existing installations.");
+            });
+            Find<Button>(window, "LibraryNav").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
 
             if (args.Contains("--installed-artwork", StringComparer.Ordinal))
             {
@@ -187,6 +263,27 @@ internal static class Program
         window.Show();
         Pump(TimeSpan.FromMilliseconds(150));
         return window;
+    }
+
+    private static void OpenMods(MainWindow window)
+    {
+        Find<Button>(window, "ModsNav").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        Pump(TimeSpan.FromMilliseconds(80));
+    }
+
+    private static bool SavedModEnabled(string data)
+    {
+        using var settings = JsonDocument.Parse(File.ReadAllText(Path.Combine(data, "launcher-settings.json")));
+        return settings.RootElement.TryGetProperty("SkipSplashScreens", out var value) && value.GetBoolean();
+    }
+
+    private static void CheckPreservedSettings(string data)
+    {
+        using var settings = JsonDocument.Parse(File.ReadAllText(Path.Combine(data, "launcher-settings.json")));
+        Require(settings.RootElement.GetProperty("Installations").GetArrayLength() == 3, "Mod save changed installed games.");
+        Require(settings.RootElement.GetProperty("SearchRoots").GetArrayLength() == 1, "Mod save changed search roots.");
+        Require(!settings.RootElement.GetProperty("MinimizeOnLaunch").GetBoolean(), "Mod save changed minimize preference.");
+        Require(settings.RootElement.GetProperty("WineExecutable").GetString() == "/test/runner with spaces/wine", "Mod save changed Wine preference.");
     }
 
     private static AddGamePathDialog OpenAddPath(MainWindow window, MenuFlyout flyout)

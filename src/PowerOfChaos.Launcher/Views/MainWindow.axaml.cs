@@ -25,6 +25,8 @@ public partial class MainWindow : Window
     private bool _closeWhenIdle;
     private bool _closed;
     private bool _pendingLaunch;
+    private bool _settingsReady;
+    private bool _savingMod;
     private static StringComparison PathComparison => OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
 
     public MainWindow()
@@ -35,12 +37,12 @@ public partial class MainWindow : Window
         Opened += async (_, _) => await InitializeAsync();
         Closing += (_, e) =>
         {
-            if (_pendingLaunch || GameCatalog.All.Any(g => _sessions.IsRunning(g.Id)))
+            if (_pendingLaunch || _savingMod || GameCatalog.All.Any(g => _sessions.IsRunning(g.Id)))
             {
                 e.Cancel = true;
                 _closeWhenIdle = true;
                 WindowState = WindowState.Minimized;
-                Notice("The launcher will close when the current game session ends.");
+                Notice(_savingMod ? "The launcher will close after saving your settings." : "The launcher will close when the current game session ends.");
             }
         };
         Closed += async (_, _) =>
@@ -73,6 +75,11 @@ public partial class MainWindow : Window
         {
             Notice("Settings could not be loaded. You can add your game folder again.");
         }
+        finally
+        {
+            _settingsReady = true;
+            if (!_closed) RefreshModControls();
+        }
     }
 
     private void RenderLibrary()
@@ -86,7 +93,12 @@ public partial class MainWindow : Window
         foreach (var game in GameCatalog.All)
         {
             var installed = _settings.Installations.FirstOrDefault(i => i.GameId == game.Id);
-            if (installed is not null) _cards.Add(new GameCardViewModel(installed));
+            if (installed is not null)
+            {
+                var card = new GameCardViewModel(installed);
+                card.SetLaunchPending(!_settingsReady || _savingMod || _pendingLaunch);
+                _cards.Add(card);
+            }
         }
         LibraryEmpty.IsVisible = _cards.Count == 0;
         InstalledLibrary.IsVisible = _cards.Count > 0;
@@ -138,7 +150,7 @@ public partial class MainWindow : Window
 
     private async Task RemoveLocationAsync(string root)
     {
-        if (_busy || _pendingLaunch || _closed) return;
+        if (!_settingsReady || _savingMod || _busy || _pendingLaunch || _closed) return;
         if (GameCatalog.All.Any(g => _sessions.IsRunning(g.Id))) { Notice("Game locations can be changed after the current session ends."); return; }
         var confirm = new ConfirmDialog("Remove this game location?", "This removes the folder and its games from this launcher. Your installed files stay where they are.", "Remove location");
         var confirmed = await confirm.ShowDialog<bool>(this);
@@ -152,7 +164,7 @@ public partial class MainWindow : Window
 
     private async void AddPath_Click(object? sender, RoutedEventArgs e)
     {
-        if (_busy || _pendingLaunch || _closed) return;
+        if (!_settingsReady || _savingMod || _busy || _pendingLaunch || _closed) return;
         var result = await new AddGamePathDialog().ShowDialog<AddPathResult?>(this);
         if (result is null || _closed) return;
         foreach (var group in result.Result.Games.GroupBy(i => i.GameId))
@@ -174,9 +186,10 @@ public partial class MainWindow : Window
 
     private async void Rescan_Click(object? sender, RoutedEventArgs e)
     {
-        if (_busy || _pendingLaunch || _closed || _settings.SearchRoots.Count == 0) return;
+        if (!_settingsReady || _savingMod || _busy || _pendingLaunch || _closed || _settings.SearchRoots.Count == 0) return;
         if (GameCatalog.All.Any(g => _sessions.IsRunning(g.Id))) { Notice("Rescan is available after the current game session ends."); return; }
         _busy = true;
+        RefreshModControls();
         _scanCancellation = new CancellationTokenSource();
         CancelRescanButton.IsVisible = true;
         RescanMenu.IsEnabled = RescanButton.IsEnabled = false;
@@ -205,6 +218,7 @@ public partial class MainWindow : Window
             {
                 CancelRescanButton.IsVisible = false;
                 RescanMenu.IsEnabled = RescanButton.IsEnabled = _settings.SearchRoots.Count > 0;
+                RefreshModControls();
             }
         }
     }
@@ -216,9 +230,10 @@ public partial class MainWindow : Window
 
     private async void PlayGame_Click(object? sender, RoutedEventArgs e)
     {
-        if (_pendingLaunch || _closed || sender is not Button { Tag: GameInstallation installation }) return;
+        if (!_settingsReady || _savingMod || _busy || _pendingLaunch || _closed || sender is not Button { Tag: GameInstallation installation }) return;
         _pendingLaunch = true;
-        foreach (var card in _cards) card.SetLaunchPending(true);
+        RefreshModControls();
+        Notice($"Starting {GameCatalog.Get(installation.GameId).Title}…");
         try
         {
             var result = await _sessions.LaunchAsync(installation, _settings);
@@ -237,7 +252,7 @@ public partial class MainWindow : Window
             _pendingLaunch = false;
             if (!_closed)
             {
-                foreach (var card in _cards) card.SetLaunchPending(false);
+                RefreshModControls();
                 if (_closeWhenIdle && !GameCatalog.All.Any(g => _sessions.IsRunning(g.Id)) && !ShowSessionWarning()) Close();
             }
         }
@@ -277,7 +292,48 @@ public partial class MainWindow : Window
         {
             var running = _sessions.IsRunning(card.Installation.GameId);
             card.Refresh(totals.GetValueOrDefault(card.Installation.GameId), running, anyRunning && !running);
-            card.SetLaunchPending(_pendingLaunch);
+            card.SetLaunchPending(!_settingsReady || _savingMod || _pendingLaunch);
+        }
+    }
+
+    private void RefreshModControls()
+    {
+        SkipSplashScreensCheckBox.IsChecked = _settings.SkipSplashScreens;
+        SkipSplashScreensCheckBox.IsEnabled = _settingsReady && !_savingMod && !_pendingLaunch && !_busy;
+        foreach (var card in _cards) card.SetLaunchPending(!_settingsReady || _savingMod || _pendingLaunch);
+    }
+
+    private async void SkipSplashScreens_Click(object? sender, RoutedEventArgs e)
+    {
+        if (!_settingsReady || _savingMod || _pendingLaunch || _busy || _closed)
+        {
+            if (!_closed) RefreshModControls();
+            return;
+        }
+        var previous = _settings.SkipSplashScreens;
+        _settings.SkipSplashScreens = SkipSplashScreensCheckBox.IsChecked == true;
+        _savingMod = true;
+        RefreshModControls();
+        try
+        {
+            if (await SaveSettingsAsync())
+                Notice(_settings.SkipSplashScreens
+                    ? "Skip Splash Screens enabled for all three games on their next launch."
+                    : "Skip Splash Screens disabled for all three games on their next launch.");
+            else
+            {
+                _settings.SkipSplashScreens = previous;
+                Notice("The mod setting could not be saved. Your previous selection was kept.");
+            }
+        }
+        finally
+        {
+            _savingMod = false;
+            if (!_closed)
+            {
+                RefreshModControls();
+                if (_closeWhenIdle && !_sessions.AnyRunning && !_pendingLaunch) Close();
+            }
         }
     }
 
@@ -289,6 +345,7 @@ public partial class MainWindow : Window
 
     private async void Preferences_Click(object? sender, RoutedEventArgs e)
     {
+        if (!_settingsReady || _savingMod || _busy || _pendingLaunch || _closed) return;
         var result = await new PreferencesDialog(_settings).ShowDialog<PreferencesResult?>(this);
         if (result is null || _closed) return;
         _settings.MinimizeOnLaunch = result.MinimizeOnLaunch;
@@ -311,11 +368,12 @@ public partial class MainWindow : Window
         CollectionNav.Classes.Set("active", page == "collection"); LocationsNav.Classes.Set("active", page == "locations");
         (PageTitle.Text, PageSubtitle.Text) = page switch
         {
-            "mods" => ("Mods", "Planned options for your games."),
+            "mods" => ("Mods", ""),
             "collection" => ("Collection", "Card collection support is in development."),
             "locations" => ("Game locations", "Manage the folders searched for games."),
             "about" => ("About", "Power of Chaos Launcher"),
             _ => ("Games", "Your installed Power of Chaos games.")
         };
+        PageSubtitle.IsVisible = page != "mods";
     }
 }

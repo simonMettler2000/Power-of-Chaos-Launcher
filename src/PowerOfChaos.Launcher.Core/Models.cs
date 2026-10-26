@@ -23,6 +23,7 @@ public sealed class LauncherSettings
     public List<string> SearchRoots { get; set; } = [];
     public List<GameInstallation> Installations { get; set; } = [];
     public bool MinimizeOnLaunch { get; set; } = true;
+    public bool SkipSplashScreens { get; set; }
     public string WineExecutable { get; set; } = "wine";
 }
 
