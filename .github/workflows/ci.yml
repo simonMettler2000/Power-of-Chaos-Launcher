@@ -21,5 +21,8 @@ jobs:
       - run: dotnet restore PowerOfChaos.Launcher.sln
       - run: dotnet build PowerOfChaos.Launcher.sln -c Release --no-restore
       - run: dotnet run --project tests/PowerOfChaos.Launcher.Tests -c Release --no-build
+      - run: dotnet run --project tests/PowerOfChaos.HdCards.Tests -c Release --no-build
+      - run: dotnet run --project tests/PowerOfChaos.HdRendering.Tests -c Release --no-build
+      - run: python -I -B tests/test_hd_cards_import.py
       - run: dotnet run --project tests/PowerOfChaos.Launcher.UiChecks -c Release --no-build
       - run: python tools/publication_guard.py --commit HEAD

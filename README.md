@@ -28,6 +28,8 @@ Playtime begins when this launcher starts tracking. It measures elapsed launcher
 
 Collection statistics, reversible shared/isolated collections, opponent-deck packs, guaranteed-new rewards and HD artwork are **not implemented**. Their mod entries are disabled rather than pretending to apply a modification. Native Linux/macOS ports of the games are not supplied.
 
+The **HD-Cards** branch contains the [HD card pack and physical renderer foundation](docs/hd-cards.md) for locally supplied 800 × 1160 RGB PNG masters. Its authored probes preserve the source detail at a larger physical raster; integration with the games is still in progress and the mod remains disabled.
+
 ## Skip Splash Screens
 
 Open **Mods** and tick **Skip Splash Screens**. The same setting applies to Yugi, Kaiba and Joey. On the next launch, the publisher logos are skipped and the normal title menu appears with its entrance fade and music. Untick it to restore normal startup on the next launch. Changing the setting does not rewind a game already running.
