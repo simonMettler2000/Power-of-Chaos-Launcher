@@ -1,0 +1,74 @@
+{
+  "directories": {
+    "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.41.34120\\include": {
+      "count": 362,
+      "sha256": "c8fd839b52f9a9e3f95e68a1fc1b9cde6fd5dad7ae6a112223f747136761dbc4"
+    },
+    "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.41.34120\\lib\\x86": {
+      "count": 177,
+      "sha256": "94b73d1ee95d483bab5f3b45cc918a0e46177ac704bac6dda435242e58e5c4d5"
+    },
+    "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\MSBuild\\Microsoft\\VC\\v170": {
+      "count": 337,
+      "sha256": "00814237f2854a959bf61f9dbac88a1d9bdcc6d8450ce6ede5abfc5080fa4853"
+    },
+    "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\ucrt": {
+      "count": 66,
+      "sha256": "6b12913a7c6d9111798a64569928393222adeca17b33bd90978f549bb3ce77af"
+    },
+    "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\shared": {
+      "count": 303,
+      "sha256": "3fbb3fe5d6a077ca1eb77edd86ef65e1740742b2af4feda05eef4bf7810d376b"
+    },
+    "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\um": {
+      "count": 2214,
+      "sha256": "9d57829de91fb50577fc1823ac784e7953fb09a4ffd924aac59fb579d00663a9"
+    },
+    "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\winrt": {
+      "count": 793,
+      "sha256": "0031198cea1f0a06e6b7fba28fd8f3a311dc35c4be47d2e25e0961fc6466a0b3"
+    },
+    "C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.22621.0\\um\\x86": {
+      "count": 484,
+      "sha256": "9bb264bbb72e186ba8c4caab618d0d1860a6327e84ed89945d2622a00e4bde2c"
+    },
+    "C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.22621.0\\ucrt\\x86": {
+      "count": 8,
+      "sha256": "4e424f9a549f0d2ab7ed7a0f42e715dcce849b0967c07730af08a78a6f122501"
+    }
+  },
+  "tools": {
+    "C:\\Program Files (x86)\\Windows Kits\\10\\bin\\10.0.22621.0\\x64\\rc.exe": {
+      "length": 50680,
+      "sha256": "9274b05389a0a99c9d7c7aba9ecb6341023b2addc3435dd814fbf04af641c5e5"
+    },
+    "C:\\Program Files (x86)\\Windows Kits\\10\\bin\\10.0.22621.0\\x64\\rcdll.dll": {
+      "length": 259688,
+      "sha256": "3b316fa399a3378a7b3d7ac34a425f0834ebfea34374d7a993c268d32c97377d"
+    },
+    "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\MSBuild\\Current\\Bin\\MSBuild.exe": {
+      "length": 367376,
+      "sha256": "17904d23183d310d63dae141dc93ec0bd7598125c65ec7f3c3c437479e3f1a02"
+    },
+    "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.41.34120\\bin\\Hostx64\\x86\\c1.dll": {
+      "length": 3078576,
+      "sha256": "4ba40737b98fda88c36d047596b84d577c979b16e198dc9de2959a0555cdb8a8"
+    },
+    "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.41.34120\\bin\\Hostx64\\x86\\c1xx.dll": {
+      "length": 11917744,
+      "sha256": "cd81c961bc5103d80a678f478108ba0d9031bbac107ddce257854af0fe7f374c"
+    },
+    "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.41.34120\\bin\\Hostx64\\x86\\c2.dll": {
+      "length": 9393696,
+      "sha256": "a94adda38da6f711707e18b58ba6906574d8074e0bb751597375a990325b260e"
+    },
+    "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.41.34120\\bin\\Hostx64\\x86\\cl.exe": {
+      "length": 861664,
+      "sha256": "102c5505e7bb850e1bb21e1a622d578e11b99d75b101219c26da6c17f0016e1a"
+    },
+    "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.41.34120\\bin\\Hostx64\\x86\\link.exe": {
+      "length": 2851416,
+      "sha256": "882f4a258df99ca02a382796623e3050999d0eaef623fee59f3a6b775b3dcaf6"
+    }
+  }
+}

@@ -1,3 +1,6 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
 namespace PowerOfChaos.Launcher.Core;
 
 public sealed record GameDefinition(string Id, string Title, string Character, string ExecutableName, string Accent, int Order);
@@ -26,6 +29,10 @@ public sealed class LauncherSettings
     public bool SkipSplashScreens { get; set; }
     public bool SkipCharacterInteractions { get; set; }
     public bool RestoreOriginalAspectRatio { get; set; }
+    public bool HdCardArtwork { get; set; }
+    public string HdPackDirectory { get; set; } = "";
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? AdditionalSettings { get; set; }
     public string WineExecutable { get; set; } = "wine";
 }
 

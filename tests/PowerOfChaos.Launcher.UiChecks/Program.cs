@@ -119,7 +119,7 @@ internal static class Program
                 WaitUntil(() => window.OwnedWindows.OfType<PreferencesDialog>().Any(), "Preferences did not open.");
                 var preferences = window.OwnedWindows.OfType<PreferencesDialog>().Single();
                 preferences.GetVisualDescendants().OfType<CheckBox>().Single().IsChecked = false;
-                preferences.GetVisualDescendants().OfType<TextBox>().Single().Text = "/test/runner with spaces/wine";
+                preferences.GetVisualDescendants().OfType<TextBox>().Single(box => box.Name == "WineCommand").Text = "/test/runner with spaces/wine";
                 preferences.GetVisualDescendants().OfType<Button>().Single(b => b.Content?.ToString() == "Save preferences")
                     .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 WaitUntil(() => (Find<TextBlock>(window, "StatusText").Text ?? "") == "Preferences saved.", "Preferences did not finish saving.");
@@ -146,7 +146,10 @@ internal static class Program
                     && description.Contains("normal game speed", StringComparison.Ordinal)
                     && description.Contains("next launch", StringComparison.Ordinal), "Aspect ratio description omits its behavior or timing.");
                 Require(ModNames.All(name => ModCheckBox(window, name).IsChecked == false), "New mod choices should default to off.");
-                var futureNames = new[] { "Custom opponent decks, in development", "New card rewards, in development", "HD card artwork, in development" };
+                var futureNames = new[] { "Custom opponent decks, in development", "New card rewards, in development" };
+                var hd = Find<CheckBox>(window, "HdCardArtworkCheckBox");
+                Require(!hd.IsEnabled && hd.IsChecked != true, "HD without a selected pack must be unavailable and off.");
+                Require(!string.IsNullOrWhiteSpace(Find<TextBlock>(window, "HdCardArtworkDescription").Text), "Missing HD prerequisite explanation.");
                 var mods = Find<StackPanel>(window, "ModsView");
                 var availableBottom = ModNames.Max(name => Find<Grid>(window, name + "Row").TranslatePoint(
                     new Point(0, Find<Grid>(window, name + "Row").Bounds.Height), mods)!.Value.Y);

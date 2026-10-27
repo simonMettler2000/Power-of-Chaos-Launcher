@@ -12,6 +12,7 @@ public sealed class GameLaunchPreparer : IGameLaunchPreparer
     private readonly string _dataDirectory;
     private readonly IReadOnlyList<SplashProfile> _profiles;
     private readonly OriginalAspectRatioPreparer _displayPreparer;
+    private readonly OriginalAspectRatioPreparer _hdPreparer;
     private static readonly SemaphoreSlim CacheGate = new(1, 1);
     private static readonly StringComparison PathComparison = OperatingSystem.IsWindows()
         ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
@@ -19,11 +20,13 @@ public sealed class GameLaunchPreparer : IGameLaunchPreparer
     public GameLaunchPreparer(string? dataDirectory = null, string? componentDirectory = null)
         : this(dataDirectory, GameModProfiles.Profiles, componentDirectory) { }
     internal GameLaunchPreparer(string? dataDirectory, IReadOnlyList<SplashProfile> profiles,
-        string? componentDirectory = null, IReadOnlyList<DisplayComponent>? components = null)
+        string? componentDirectory = null, IReadOnlyList<DisplayComponent>? components = null,
+        string? hdComponentDirectory = null, IReadOnlyList<DisplayComponent>? hdComponents = null)
     {
         _dataDirectory = Path.GetFullPath(dataDirectory ?? LauncherPaths.DataDirectory);
         _profiles = profiles;
         _displayPreparer = new OriginalAspectRatioPreparer(_dataDirectory, componentDirectory, components);
+        _hdPreparer = new OriginalAspectRatioPreparer(_dataDirectory, hdComponentDirectory, hdComponents, hdMode: true);
     }
 
     public Task<string> PrepareExecutableAsync(GameInstallation installation, bool skipSplashScreens,
@@ -35,6 +38,10 @@ public sealed class GameLaunchPreparer : IGameLaunchPreparer
     {
         ArgumentNullException.ThrowIfNull(options);
         cancellationToken.ThrowIfCancellationRequested();
+        if (options.HdCardArtwork && !OperatingSystem.IsWindows())
+            throw new InvalidDataException("HD card artwork currently requires Windows and Direct3D 9.");
+        var hdPack = options.HdCardArtwork
+            ? await HdCardPack.ReadAsync(options.HdPackDirectory, installation.GameId, cancellationToken).ConfigureAwait(false) : null;
         var originalPath = Path.GetFullPath(installation.ExecutablePath);
         if (!options.AnyEnabled) return originalPath;
         var definition = GameCatalog.All.FirstOrDefault(game => game.Id == installation.GameId)
@@ -56,6 +63,9 @@ public sealed class GameLaunchPreparer : IGameLaunchPreparer
             var original = await ReadBoundedAsync(originalPath, profile.Length, cancellationToken).ConfigureAwait(false);
             var modified = SkipSplashPatch.Apply(original, profile);
             cancellationToken.ThrowIfCancellationRequested();
+            if (hdPack is not null)
+                return await _hdPreparer.PrepareAsync(installation, options, profile, modified, cancellationToken, hdPack)
+                    .ConfigureAwait(false);
             if (options.RestoreOriginalAspectRatio)
                 return await _displayPreparer.PrepareAsync(installation, options, profile, modified, cancellationToken)
                     .ConfigureAwait(false);

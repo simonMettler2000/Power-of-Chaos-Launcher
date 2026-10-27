@@ -24,5 +24,8 @@ jobs:
       - run: dotnet run --project tests/PowerOfChaos.HdCards.Tests -c Release --no-build
       - run: dotnet run --project tests/PowerOfChaos.HdRendering.Tests -c Release --no-build
       - run: python -I -B tests/test_hd_cards_import.py
+      - run: python -B -m unittest discover -s tests -p test_hd_cards_visible_pack.py -v
+      - run: dotnet run --project tests/PowerOfChaos.HdLauncher.Tests -c Release --no-build -- "${{ runner.temp }}/poc-hd-fixtures"
+        if: runner.os == 'Windows'
       - run: dotnet run --project tests/PowerOfChaos.Launcher.UiChecks -c Release --no-build
       - run: python tools/publication_guard.py --commit HEAD

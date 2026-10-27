@@ -5,10 +5,10 @@ namespace PowerOfChaos.Launcher.Core.Launching;
 public static class LaunchPlan
 {
     public static ProcessStartInfo Create(GameInstallation installation, LauncherSettings settings, bool? isWindows = null)
-        => CreatePrepared(installation, settings, installation.ExecutablePath, isWindows);
+        => CreatePrepared(installation, settings, installation.ExecutablePath, isWindows, validateInstallationOnly: true);
 
     internal static ProcessStartInfo CreatePrepared(GameInstallation installation, LauncherSettings settings,
-        string preparedExecutablePath, bool? isWindows = null, IReadOnlyDictionary<string, string?>? inheritedEnvironment = null)
+        string preparedExecutablePath, bool? isWindows = null, IReadOnlyDictionary<string, string?>? inheritedEnvironment = null, bool validateInstallationOnly = false)
     {
         var definition = GameCatalog.All.FirstOrDefault(g => g.Id == installation.GameId)
             ?? throw new ArgumentException("Unknown game.", nameof(installation));
@@ -21,7 +21,7 @@ public static class LaunchPlan
         if (!File.Exists(preparedExecutable)
             || !string.Equals(Path.GetFileName(preparedExecutable), definition.ExecutableName, StringComparison.OrdinalIgnoreCase))
             throw new FileNotFoundException("The prepared game executable is missing or invalid.");
-        if (!settings.RestoreOriginalAspectRatio && Directory.EnumerateFiles(Path.GetDirectoryName(preparedExecutable)!)
+        if (!settings.RestoreOriginalAspectRatio && !settings.HdCardArtwork && Directory.EnumerateFiles(Path.GetDirectoryName(preparedExecutable)!)
             .Any(path => Path.GetFileName(path).Equals("ddraw.dll", StringComparison.OrdinalIgnoreCase)
                 || Path.GetFileName(path).Equals("winmm.dll", StringComparison.OrdinalIgnoreCase)))
             throw new InvalidDataException("The selected launch directory contains display proxy DLLs. Choose the original installation, or enable Restore Original Aspect Ratio.");
@@ -36,7 +36,18 @@ public static class LaunchPlan
             foreach (var entry in inheritedEnvironment) result.Environment[entry.Key] = entry.Value;
         }
         var windows = isWindows ?? OperatingSystem.IsWindows();
-        if (settings.RestoreOriginalAspectRatio) ConfigureDisplayEnvironment(result, windows);
+        foreach (var key in result.Environment.Keys.Where(key => key.Equals("POC_HD_CONFIG", StringComparison.OrdinalIgnoreCase)).ToArray())
+            result.Environment.Remove(key);
+        if (settings.RestoreOriginalAspectRatio || settings.HdCardArtwork) ConfigureDisplayEnvironment(result, windows);
+        if (settings.HdCardArtwork && !validateInstallationOnly)
+        {
+            if (preparedExecutable.Equals(executable, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
+                throw new InvalidDataException("HD artwork requires a verified private launch directory.");
+            var configuration = Path.Combine(Path.GetDirectoryName(preparedExecutable)!, HdCardPack.ConfigurationFileName);
+            HdCardPack.ValidatePath(configuration);
+            if (!File.Exists(configuration)) throw new FileNotFoundException("The private HD configuration is missing. No game was started.");
+            result.Environment["POC_HD_CONFIG"] = configuration;
+        }
         if (windows)
             result.FileName = preparedExecutable;
         else

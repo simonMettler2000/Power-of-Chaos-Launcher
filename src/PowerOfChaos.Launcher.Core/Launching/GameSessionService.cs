@@ -87,12 +87,14 @@ public sealed class GameSessionService : IAsyncDisposable
     {
         // Capture before the first await, including when another launch owns the gate.
         var options = new GameModOptions(settings.SkipSplashScreens, settings.SkipCharacterInteractions,
-            settings.RestoreOriginalAspectRatio);
+            settings.RestoreOriginalAspectRatio, settings.HdCardArtwork, settings.HdPackDirectory);
         var launchSettings = new LauncherSettings
         {
             SkipSplashScreens = options.SkipSplashScreens,
             SkipCharacterInteractions = options.SkipCharacterInteractions,
             RestoreOriginalAspectRatio = options.RestoreOriginalAspectRatio,
+            HdCardArtwork = options.HdCardArtwork,
+            HdPackDirectory = options.HdPackDirectory,
             WineExecutable = settings.WineExecutable,
             MinimizeOnLaunch = settings.MinimizeOnLaunch
         };

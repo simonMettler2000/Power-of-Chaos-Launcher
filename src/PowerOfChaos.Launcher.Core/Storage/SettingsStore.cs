@@ -130,6 +130,9 @@ public sealed class SettingsStore
             SkipSplashScreens = settings.SkipSplashScreens,
             SkipCharacterInteractions = settings.SkipCharacterInteractions,
             RestoreOriginalAspectRatio = settings.RestoreOriginalAspectRatio,
+            HdCardArtwork = settings.HdCardArtwork,
+            HdPackDirectory = ValidAbsolutePath(settings.HdPackDirectory) ?? "",
+            AdditionalSettings = settings.AdditionalSettings?.ToDictionary(pair => pair.Key, pair => pair.Value.Clone()),
             WineExecutable = wine
         };
     }

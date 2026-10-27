@@ -22,13 +22,13 @@ Only discovered games appear in the library. Locations and preferences persist b
 - Per-game launching and recorded session playtime.
 - Minimize-on-launch preference and a Wine runner setting for Linux/macOS.
 - Local settings and atomic playtime checkpoints; no accounts, telemetry or always-on network service.
-- Global **Skip Splash Screens**, **Skip character interactions** and **Original aspect ratio** switches for the three supported executable revisions, plus disabled entries for mods still in development.
+- Global **Skip Splash Screens**, **Skip character interactions** **Original aspect ratio** and **HD card previews** switches for the three supported executable revisions, plus disabled entries for mods still in development.
 
 Playtime begins when this launcher starts tracking. It measures elapsed launcher sessions, including menus and idle time. Interrupted sessions retain their last saved checkpoint rather than counting time while the launcher was closed. Windows launches the selected executable directly; non-Windows launches through `wine start /wait /unix`. Actual game compatibility and Wine session behavior require testing on the chosen platform and runner.
 
-Collection statistics, reversible shared/isolated collections, opponent-deck packs, guaranteed-new rewards and HD artwork are **not implemented**. Their mod entries are disabled rather than pretending to apply a modification. Native Linux/macOS ports of the games are not supplied.
+Collection statistics, reversible shared/isolated collections, opponent-deck packs and guaranteed-new rewards are **not implemented**. Their mod entries are disabled rather than pretending to apply a modification. Native Linux/macOS ports of the games are not supplied.
 
-The **HD-Cards** branch contains the [HD card pack and physical renderer foundation](docs/hd-cards.md) for locally supplied 800 × 1160 RGB PNG masters. Its authored probes preserve the source detail at a larger physical raster; integration with the games is still in progress and the mod remains disabled.
+The **HD-Cards** branch adds a Windows/D3D9 [HD card preview candidate](docs/hd-launcher.md) using locally supplied 800 x 1160 RGB PNG masters. Choose the generated pack folder in Settings > Preferences and supply the separately built [HD display component](tools/HdCardsComponent/README.md). The global switch becomes available when both prerequisites validate. Large static previews are supported by the authored test path for all three games; small/rotated cards keep their original graphics. Installed-game validation remains pending. The [pack and renderer foundation](docs/hd-cards.md) remains available for authoring tools.
 
 ## Skip Splash Screens
 

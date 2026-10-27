@@ -1,0 +1,8 @@
+LIBRARY hd_visible_native
+EXPORTS
+    hdv_provider_configure
+    hdv_provider_shutdown
+    hdv_provider_invalidate
+    hdv_provider_bind_device
+    hdv_provider_capture
+    hdv_provider_draw

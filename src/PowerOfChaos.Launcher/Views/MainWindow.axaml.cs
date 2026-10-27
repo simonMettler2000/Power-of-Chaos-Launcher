@@ -27,6 +27,7 @@ public partial class MainWindow : Window
     private bool _pendingLaunch;
     private bool _settingsReady;
     private bool _savingMod;
+    private string? _hdUnavailableReason = "Checking local HD prerequisites...";
     private static StringComparison PathComparison => OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
 
     public MainWindow()
@@ -64,6 +65,8 @@ public partial class MainWindow : Window
             var loaded = await _store.LoadAsync();
             if (_closed) return;
             _settings = loaded;
+            await RefreshHdAvailabilityAsync();
+            if (_closed) return;
             RenderLibrary();
             RenderLocations();
             await RefreshSessionsAsync();
@@ -193,7 +196,7 @@ public partial class MainWindow : Window
         _scanCancellation = new CancellationTokenSource();
         CancelRescanButton.IsVisible = true;
         RescanMenu.IsEnabled = RescanButton.IsEnabled = false;
-        Notice("Scanning your game folders…");
+        Notice("Scanning your game folders...");
         try
         {
             var found = new List<GameInstallation>();
@@ -207,7 +210,7 @@ public partial class MainWindow : Window
             _settings.Installations = found.GroupBy(i => i.GameId).Select(g => g.First()).ToList();
             var saved = await SaveSettingsAsync();
             RenderLibrary(); RenderLocations(); await RefreshSessionsAsync();
-            Notice((found.Count == 0 ? "game not found" : $"Rescan complete · {_cards.Count} game{(_cards.Count == 1 ? "" : "s")} available." + (limited ? " A search limit was reached; choose a folder closer to the games." : skipped > 0 ? " Some protected folders could not be read." : "")) + (saved ? "" : " Settings could not be saved for next time."));
+            Notice((found.Count == 0 ? "game not found" : $"Rescan complete - {_cards.Count} game{(_cards.Count == 1 ? "" : "s")} available." + (limited ? " A search limit was reached; choose a folder closer to the games." : skipped > 0 ? " Some protected folders could not be read." : "")) + (saved ? "" : " Settings could not be saved for next time."));
         }
         catch (OperationCanceledException) { Notice("Scan cancelled. Your previous game locations were kept."); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException) { Notice("The folders could not be scanned. Check the locations and try again."); }
@@ -233,7 +236,7 @@ public partial class MainWindow : Window
         if (!_settingsReady || _savingMod || _busy || _pendingLaunch || _closed || sender is not Button { Tag: GameInstallation installation }) return;
         _pendingLaunch = true;
         RefreshModControls();
-        Notice($"Starting {GameCatalog.Get(installation.GameId).Title}…");
+        Notice($"Starting {GameCatalog.Get(installation.GameId).Title}...");
         try
         {
             var result = await _sessions.LaunchAsync(installation, _settings);
@@ -304,10 +307,15 @@ public partial class MainWindow : Window
         SkipCharacterInteractionsCheckBox.IsEnabled = SkipSplashScreensCheckBox.IsEnabled;
         OriginalAspectRatioCheckBox.IsChecked = _settings.RestoreOriginalAspectRatio;
         OriginalAspectRatioCheckBox.IsEnabled = SkipSplashScreensCheckBox.IsEnabled;
+        HdCardArtworkCheckBox.IsChecked = _settings.HdCardArtwork;
+        HdCardArtworkCheckBox.IsEnabled = SkipSplashScreensCheckBox.IsEnabled && (_hdUnavailableReason is null || _settings.HdCardArtwork);
+        HdCardArtworkDescription.Text = _hdUnavailableReason is null
+            ? "Replace fully visible preview cards with local HD masters in a larger 4:3 window. Applies to all three games on the next launch. In-game validation is pending."
+            : "Unavailable: " + _hdUnavailableReason;
         foreach (var card in _cards) card.SetLaunchPending(!_settingsReady || _savingMod || _pendingLaunch);
     }
 
-    private enum ModSelection { SkipSplashScreens, SkipCharacterInteractions, OriginalAspectRatio }
+    private enum ModSelection { SkipSplashScreens, SkipCharacterInteractions, OriginalAspectRatio, HdCardArtwork }
 
     private async void SkipSplashScreens_Click(object? sender, RoutedEventArgs e) => await SaveModSelectionAsync(ModSelection.SkipSplashScreens);
 
@@ -315,11 +323,14 @@ public partial class MainWindow : Window
 
     private async void OriginalAspectRatio_Click(object? sender, RoutedEventArgs e) => await SaveModSelectionAsync(ModSelection.OriginalAspectRatio);
 
+    private async void HdCardArtwork_Click(object? sender, RoutedEventArgs e) => await SaveModSelectionAsync(ModSelection.HdCardArtwork);
+
     private bool GetModSelection(ModSelection mod) => mod switch
     {
         ModSelection.SkipSplashScreens => _settings.SkipSplashScreens,
         ModSelection.SkipCharacterInteractions => _settings.SkipCharacterInteractions,
         ModSelection.OriginalAspectRatio => _settings.RestoreOriginalAspectRatio,
+        ModSelection.HdCardArtwork => _settings.HdCardArtwork,
         _ => throw new ArgumentOutOfRangeException(nameof(mod))
     };
 
@@ -330,6 +341,7 @@ public partial class MainWindow : Window
             case ModSelection.SkipSplashScreens: _settings.SkipSplashScreens = selected; break;
             case ModSelection.SkipCharacterInteractions: _settings.SkipCharacterInteractions = selected; break;
             case ModSelection.OriginalAspectRatio: _settings.RestoreOriginalAspectRatio = selected; break;
+            case ModSelection.HdCardArtwork: _settings.HdCardArtwork = selected; break;
             default: throw new ArgumentOutOfRangeException(nameof(mod));
         }
     }
@@ -346,10 +358,13 @@ public partial class MainWindow : Window
             ModSelection.SkipSplashScreens => (SkipSplashScreensCheckBox, "Skip Splash Screens"),
             ModSelection.SkipCharacterInteractions => (SkipCharacterInteractionsCheckBox, "Skip character interactions"),
             ModSelection.OriginalAspectRatio => (OriginalAspectRatioCheckBox, "Original aspect ratio"),
+            ModSelection.HdCardArtwork => (HdCardArtworkCheckBox, "HD card previews"),
             _ => throw new ArgumentOutOfRangeException(nameof(mod))
         };
         var previous = GetModSelection(mod);
         var selected = checkbox.IsChecked == true;
+        if (mod == ModSelection.HdCardArtwork && selected && _hdUnavailableReason is not null)
+        { RefreshModControls(); Notice(_hdUnavailableReason); return; }
         SetModSelection(mod, selected);
         _savingMod = true;
         RefreshModControls();
@@ -387,7 +402,16 @@ public partial class MainWindow : Window
         if (result is null || _closed) return;
         _settings.MinimizeOnLaunch = result.MinimizeOnLaunch;
         _settings.WineExecutable = result.WineExecutable;
+        _settings.HdPackDirectory = result.HdPackDirectory;
+        await RefreshHdAvailabilityAsync();
+        if (_closed) return;
+        RefreshModControls();
         if (await SaveSettingsAsync()) Notice("Preferences saved.");
+    }
+
+    private async Task RefreshHdAvailabilityAsync()
+    {
+        _hdUnavailableReason = await HdCardArtworkAvailability.GetUnavailableReasonAsync(_settings.HdPackDirectory);
     }
 
     private void Notice(string message) { if (_closed) return; StatusText.Text = message; StatusBanner.IsVisible = true; }

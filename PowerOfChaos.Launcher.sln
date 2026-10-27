@@ -29,6 +29,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{61C50A6C
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PowerOfChaos.HdCardProbe", "tools\PowerOfChaos.HdCardProbe\PowerOfChaos.HdCardProbe.csproj", "{CDC4D688-3AA1-4156-BAB8-38F30BB4FEC8}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PowerOfChaos.HdLauncher.Tests", "tests\PowerOfChaos.HdLauncher.Tests\PowerOfChaos.HdLauncher.Tests.csproj", "{46141AD4-72D8-4990-AE10-31312968DE6A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -39,6 +41,18 @@ Global
 		Release|x86 = Release|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{46141AD4-72D8-4990-AE10-31312968DE6A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{46141AD4-72D8-4990-AE10-31312968DE6A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{46141AD4-72D8-4990-AE10-31312968DE6A}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{46141AD4-72D8-4990-AE10-31312968DE6A}.Debug|x64.Build.0 = Debug|Any CPU
+		{46141AD4-72D8-4990-AE10-31312968DE6A}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{46141AD4-72D8-4990-AE10-31312968DE6A}.Debug|x86.Build.0 = Debug|Any CPU
+		{46141AD4-72D8-4990-AE10-31312968DE6A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{46141AD4-72D8-4990-AE10-31312968DE6A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{46141AD4-72D8-4990-AE10-31312968DE6A}.Release|x64.ActiveCfg = Release|Any CPU
+		{46141AD4-72D8-4990-AE10-31312968DE6A}.Release|x64.Build.0 = Release|Any CPU
+		{46141AD4-72D8-4990-AE10-31312968DE6A}.Release|x86.ActiveCfg = Release|Any CPU
+		{46141AD4-72D8-4990-AE10-31312968DE6A}.Release|x86.Build.0 = Release|Any CPU
 		{4AA0D985-9367-4240-806E-AF12576512D8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{4AA0D985-9367-4240-806E-AF12576512D8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4AA0D985-9367-4240-806E-AF12576512D8}.Debug|x64.ActiveCfg = Debug|Any CPU
@@ -164,6 +178,7 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
+		{46141AD4-72D8-4990-AE10-31312968DE6A} = {D275648E-42BD-4068-8D7A-5215C5E28316}
 		{4AA0D985-9367-4240-806E-AF12576512D8} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{A7E609DA-CB19-4395-B2FC-A905091B8F99} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{9592EBDF-F268-4CF8-9661-1E83DDCEB08C} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}

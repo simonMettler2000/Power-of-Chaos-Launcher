@@ -1,0 +1,150 @@
+{
+  "profile": "hd-card-artwork-v1",
+  "upstreamCommit": "541b5de218ec3fbd6ea91e606ebfadc07c1786b0",
+  "inputs": [
+    {
+      "name": "source-v7.1.0.0.zip",
+      "url": "https://codeload.github.com/FunkyFr3sh/cnc-ddraw/zip/refs/tags/v7.1.0.0",
+      "length": 650605,
+      "sha256": "a4f638383364e3bc1e4682b1d549a1f5400fa0cc312ee216d1b42555b1c814eb",
+      "kind": "raw"
+    },
+    {
+      "name": "proxy-dlls.zip",
+      "url": "https://github.com/FunkyFr3sh/cnc-ddraw/releases/download/v7.1.0.0/proxy-dlls.zip",
+      "length": 468536,
+      "sha256": "203207cd48a01444880991878f338017e48dada92d590be04a80dae175ecc408",
+      "kind": "raw"
+    },
+    {
+      "name": "petool-LICENSE.txt",
+      "url": "https://api.github.com/repos/FunkyFr3sh/petool/git/blobs/4cffeef73373b9eb22c61ef1588326c320382a25",
+      "length": 1067,
+      "sha256": "d8220b095d6156f2d48aff570955f07d2f159a50a27ef0101d2f042e34cde3b2",
+      "kind": "git-blob"
+    },
+    {
+      "name": "hyllian-shader.glsl",
+      "url": "https://raw.githubusercontent.com/libretro/glsl-shaders/09e2942efbab2f51b60ff0b93b7761b0b0570910/windowed/shaders/lanczos2-sharp.glsl",
+      "length": 6760,
+      "sha256": "31ce41ff6aea6269a36d0b805f651a95646dceb2462b5212e366d39b2d9a8a3d",
+      "kind": "raw"
+    },
+    {
+      "name": "hyllian-xbr.glsl",
+      "url": "https://raw.githubusercontent.com/libretro/glsl-shaders/09e2942efbab2f51b60ff0b93b7761b0b0570910/xbr/shaders/xbr-lv2.glsl",
+      "length": 10518,
+      "sha256": "3d53812f73875c92cd5b0c60852f280cdf0d4b8ef1c4c762904ed064e1e8335d",
+      "kind": "raw"
+    },
+    {
+      "name": "MJP-raw-LICENSE.txt",
+      "url": "https://gist.githubusercontent.com/TheRealMJP/bc503b0b87b643d3505d41eab8b332ae/raw/68786fb41f2ff9c1922817e785f8092e592e9142/LICENSE",
+      "length": 1059,
+      "sha256": "da6ca3a8346001132113825a9b9d61b8a43c3f00d8c4f7593b8317d68359087f",
+      "kind": "raw"
+    }
+  ],
+  "components": [
+    {
+      "name": "ddraw.dll",
+      "length": 502784,
+      "sha256": "4156f862bd6363b9a3925af75ac924e732751f035d84517c88be8d02d604a925"
+    },
+    {
+      "name": "winmm.dll",
+      "length": 98304,
+      "sha256": "1de1ed07c548e262767ba06891284ae0ecc39f6cc0217dd715594e5bc30e0e8a"
+    }
+  ],
+  "notices": [
+    {
+      "name": "upstream-cnc-ddraw-LICENSE.txt",
+      "length": 1078,
+      "sha256": "a705144535bbfccc05e8310c4f8ab5f0b6f0ec2c9371b76ca5a522cf90e031f5",
+      "source": "source:LICENSE",
+      "transform": "copy"
+    },
+    {
+      "name": "petool-LICENSE.txt",
+      "length": 1067,
+      "sha256": "d8220b095d6156f2d48aff570955f07d2f159a50a27ef0101d2f042e34cde3b2",
+      "source": "input:petool-LICENSE.txt",
+      "transform": "copy"
+    },
+    {
+      "name": "Hyllian-Jararaca-LICENSE.txt",
+      "length": 1209,
+      "sha256": "d036d24fad0973e8b47fdc392067287c5ce4ed4511928c927ec7fab573d383c1",
+      "source": "input:hyllian-shader.glsl",
+      "transform": "first-comment"
+    },
+    {
+      "name": "Hyllian-xBR-LICENSE.txt",
+      "length": 1234,
+      "sha256": "01c779f320826e6ce554ec1fb50009ce7b4b0eb99db11b1145d43ce66a2b1e76",
+      "source": "input:hyllian-xbr.glsl",
+      "transform": "first-comment"
+    },
+    {
+      "name": "LodePNG-LICENSE.txt",
+      "length": 908,
+      "sha256": "6d2570c1867730f8a21cdfe1dcd5d7cdbac2343a9357e94ef6b39382c04b18b7",
+      "source": "source:src/lodepng.c",
+      "transform": "first-comment"
+    },
+    {
+      "name": "Microsoft-Detours-LICENSE.txt",
+      "length": 1099,
+      "sha256": "b301808b732cfaa60df2b4b422d78cd97d2a15058b207e7e33f0535ba5170dd6",
+      "source": "source:src/detours/LICENSE.md",
+      "transform": "copy"
+    },
+    {
+      "name": "MJP-LICENSE.txt",
+      "length": 1060,
+      "sha256": "33f78b7cb3e7887d0dd123b6a1ee03f6b1be44ed70a321e44283efe7e9b9e7b6",
+      "source": "input:MJP-raw-LICENSE.txt",
+      "transform": "lf-final-newline"
+    },
+    {
+      "name": "Khronos-LICENSE.txt",
+      "length": 2617,
+      "sha256": "77e1af94552f586bed31027e19b1438148a56571a46ed6205da9bf1ecdb33cad",
+      "source": "source:inc/glcorearb.h;inc/KHR/khrplatform.h;inc/wglext.h",
+      "transform": "khronos-comments"
+    }
+  ],
+  "baseRecipe": {
+    "build-profile.ps1": "26257132dfd2c3c2c05ae47deb2f40f26c7a7c50cb4696c4dfee66c4bae5f7d8",
+    "component-pins.json": "3c33aef9dffe9d32ed411c171cb45dd4d19bdcdeaebe6674b208988e77c018cc",
+    "launcher-maximize.c": "2af741cc89340ac6cb5d889b2805cff5b50ebaf51bd03e7a4f54e594d5518984",
+    "setup-component.ps1": "acf8e4cc927798bc83e060e78ba1bfc5d81fb63801999cbdd4c8a3f1eb0170b3"
+  },
+  "nativeSources": {
+    "ConfigAdversarialProbe.cpp": "c8046a4c2e4024103902895b8712cb38f249d93939e5f92bc627397064cc53cc",
+    "hd_visible.cpp": "826aa42a9803b515fac96da430aa78de90519195fca9d72c2a885eb7b3fde107",
+    "hd_visible.def": "ac998dcc297b781906bd00562ed5611360696fc7454421efa75965f42c947312",
+    "hd_visible.h": "f32105db570fe6f7ac77344a41ace90fcd56aae1bc81da20f4b1c67845685fe8",
+    "hd_visible_d3d9.cpp": "a516e6f5015a4b51f41a84770aeba8fda7c0db776b633b97f59cc3cd2e853c76",
+    "hd_visible_test.cpp": "bcb361066a97af6e060ab0beba41c5b144fab3744b41cfc852cec19fa903072e",
+    "hd_visible_test_observer.cpp": "40bccd9fbe032b6cba9b38cbff769477bcac0e96a9837db621b96e6e4018e19b",
+    "hd_visible_test_observer.h": "df77ec6abf0f3d26a69977b2e3b2a3a6fdeabfe198f15101175807e96395665b",
+    "SyntheticDisplayProbe.cpp": "30eeb4e55ec933045d0c566ef6b7b1e831bef4f2a3b3f1c3e5b338d28b3fbf4d",
+    "SyntheticProviderProbe.cpp": "69af16e8876f4ae6abb6b437a9c0bbcd2e6079a8b82d5c29e6909d160f980d73"
+  },
+  "providerSourceTrees": {
+    "aspect": {
+      "count": 126,
+      "sha256": "aa754828c7de6f198ed3eb06d01bfed827f0cf5f40d863f25f0384f7f1bffab4"
+    },
+    "production": {
+      "count": 129,
+      "sha256": "c6b0bafa123f2680372d11c24a30a5e556668cec0cab052b078aa96aa6ba2f0e"
+    },
+    "synthetic": {
+      "count": 131,
+      "sha256": "20eb5e202001e7dad1515a63a06fb375b17769dba0293b3411249ca94696120f"
+    }
+  }
+}
