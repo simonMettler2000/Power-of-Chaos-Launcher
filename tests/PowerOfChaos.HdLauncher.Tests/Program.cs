@@ -23,7 +23,7 @@ internal static class Program
             return 0;
         }
         if (args.Length != 1 || !Path.IsPathFullyQualified(args[0])) throw new ArgumentException("Supply an absolute ignored fixture directory.");
-        var root = Path.Combine(args[0], Guid.NewGuid().ToString("N")[..8]);
+        var root = Path.Combine(Path.GetFullPath(args[0]), Guid.NewGuid().ToString("N")[..8]);
         Directory.CreateDirectory(root);
         var passed = 0;
         async Task Check(string name, Func<Task> action)
