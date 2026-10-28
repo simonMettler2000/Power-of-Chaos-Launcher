@@ -144,7 +144,7 @@ internal static class InteractionChecks
                     if (options.AnyEnabled)
                     {
                         var profile = profiles.Single(item => item.Options == options);
-                        Require(path.Contains(profile.ModifiedHash, StringComparison.Ordinal), "Cache path omitted full output hash.");
+                        // Verify full contents independently of the compact cache directory's spelling.
                         Require(Hash(await File.ReadAllBytesAsync(path)) == profile.ModifiedHash, "Wrong combination was selected.");
                     }
                     else Require(path == game.ExecutablePath, "Unticking both selected a cached executable.");

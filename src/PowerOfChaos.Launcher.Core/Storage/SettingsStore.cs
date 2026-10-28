@@ -130,7 +130,8 @@ public sealed class SettingsStore
             SkipSplashScreens = settings.SkipSplashScreens,
             SkipCharacterInteractions = settings.SkipCharacterInteractions,
             RestoreOriginalAspectRatio = settings.RestoreOriginalAspectRatio,
-            WineExecutable = wine
+            WineExecutable = wine,
+            CollectionSavePath = ValidAbsolutePath(settings.CollectionSavePath)
         };
     }
 

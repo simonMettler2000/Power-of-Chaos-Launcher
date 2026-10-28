@@ -27,6 +27,7 @@ public sealed class LauncherSettings
     public bool SkipCharacterInteractions { get; set; }
     public bool RestoreOriginalAspectRatio { get; set; }
     public string WineExecutable { get; set; } = "wine";
+    public string? CollectionSavePath { get; set; }
 }
 
 public static class LauncherPaths

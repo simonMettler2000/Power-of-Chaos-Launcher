@@ -26,6 +26,8 @@ For a supported input, the launcher changes the initial logo timer and index in 
 
 The executable copy is kept under the launcher's local application-data directory. Game archives remain in their installation, which is used as the working directory. Preparation verifies the original and resulting hashes and refuses an unexpected version or damaged cache. No game executable or binary patch is distributed by this repository.
 
+Binary-only mod copies use a compact `mod-cache/v3/<game>/<SHA256>` directory. The identity includes the game, selected mods and full original/result hashes; every launch still verifies both executable contents. This avoids Windows process-launch failures caused by the previous cache's long nested paths. Old cache directories are left alone. Excessively long custom launch paths are rejected with an explanation before process creation. Launcher messages are selectable with Ctrl+C and have a Copy button for the complete diagnostic.
+
 ### Verification limits
 
 Development checks inspect installed inputs as data, verify patch results in memory, and exercise the launcher with synthetic fixtures and fake process runners. UI tests operate the actual Avalonia controls without pressing Play. Neither original nor modified games are executed during development or automated testing.

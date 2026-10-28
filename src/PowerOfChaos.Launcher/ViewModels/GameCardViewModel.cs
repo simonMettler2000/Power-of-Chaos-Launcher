@@ -6,6 +6,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using PowerOfChaos.Launcher.Core;
 using PowerOfChaos.Launcher.Core.Artwork;
+using PowerOfChaos.Launcher.Core.Collections;
 
 namespace PowerOfChaos.Launcher.ViewModels;
 
@@ -17,12 +18,15 @@ public sealed class GameCardViewModel : INotifyPropertyChanged, IDisposable
     private bool _launchPending;
     private WriteableBitmap? _portrait;
     private bool _disposed;
+    private string _collectionCount;
+    private string _collectionMessage = "Collection unavailable";
 
     public GameCardViewModel(GameInstallation installation)
     {
         Installation = installation;
         var game = GameCatalog.Get(installation.GameId);
         Title = game.Title;
+        _collectionCount = $"—/{CollectionSnapshot.TotalFor(game.Id)}";
     }
 
     public GameInstallation Installation { get; }
@@ -32,24 +36,35 @@ public sealed class GameCardViewModel : INotifyPropertyChanged, IDisposable
     public bool ShowPortraitPlaceholder => _portrait is null;
     public string Folder => Path.GetDirectoryName(Installation.ExecutablePath) ?? Installation.ExecutablePath;
     public string Playtime { get => _playtime; private set => Set(ref _playtime, value); }
+    public string CollectionCount { get => _collectionCount; private set => Set(ref _collectionCount, value); }
+    public string CollectionMessage { get => _collectionMessage; private set => Set(ref _collectionMessage, value); }
+    public void SetCollection(GameCollectionProgress progress)
+    {
+        if (_disposed || progress.GameId != Installation.GameId) return;
+        CollectionCount = $"{progress.OwnedCards?.ToString() ?? "—"}/{progress.TotalCards}";
+        CollectionMessage = progress.Message;
+    }
     public bool IsRunning { get => _isRunning; private set { if (Set(ref _isRunning, value)) { Changed(nameof(PlayLabel)); Changed(nameof(CanPlay)); } } }
     public string PlayLabel => IsRunning ? "Playing" : "Play";
     public bool CanPlay => !IsRunning && !_anotherRunning && !_launchPending;
 
-    public void SetPortrait(PortraitPixels pixels)
+    public void SetPortrait(PortraitThumbnail thumbnail)
     {
         if (_disposed) return;
-        if (pixels.Width is < 1 or > 2048 || pixels.Height is < 1 or > 2048
-            || pixels.BgraPixels.Length != checked(pixels.Width * pixels.Height * 4))
-            throw new ArgumentException("Invalid portrait pixels.", nameof(pixels));
-        var bitmap = new WriteableBitmap(new PixelSize(pixels.Width, pixels.Height),
-            new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Unpremul);
+        if (thumbnail.Width is < 1 or > 4096 || thumbnail.Height is < 1 or > 4096
+            || thumbnail.PremultipliedBgraPixels.Length != checked(thumbnail.Width * thumbnail.Height * 4)
+            || thumbnail.PremultipliedBgraPixels.Length > 8_000_000)
+            throw new ArgumentException("Invalid portrait thumbnail.", nameof(thumbnail));
+        var bitmap = new WriteableBitmap(new PixelSize(thumbnail.Width, thumbnail.Height),
+            // Image source rectangles use pixels. Keep 96-DPI metadata and let Stretch fit the
+            // physical-resolution thumbnail; monitor DPI belongs to the destination transform.
+            new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Premul);
         try
         {
             using var frame = bitmap.Lock();
-            var rowBytes = pixels.Width * 4;
-            for (var y = 0; y < pixels.Height; y++)
-                Marshal.Copy(pixels.BgraPixels, y * rowBytes, frame.Address + y * frame.RowBytes, rowBytes);
+            var rowBytes = thumbnail.Width * 4;
+            for (var y = 0; y < thumbnail.Height; y++)
+                Marshal.Copy(thumbnail.PremultipliedBgraPixels, y * rowBytes, frame.Address + y * frame.RowBytes, rowBytes);
         }
         catch
         {

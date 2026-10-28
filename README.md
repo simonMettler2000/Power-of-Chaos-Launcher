@@ -20,13 +20,26 @@ Only discovered games appear in the library. Locations and preferences persist b
 - Cogwheel settings menu, folder browser and pasteable game paths.
 - Discovery of one or all three titles, including nested installations.
 - Per-game launching and recorded session playtime.
+- Read-only collection counts in Games and Collection, with a deduplicated total across all three games.
 - Minimize-on-launch preference and a Wine runner setting for Linux/macOS.
 - Local settings and atomic playtime checkpoints; no accounts, telemetry or always-on network service.
 - Global **Skip Splash Screens**, **Skip character interactions** and **Original aspect ratio** switches for the three supported executable revisions, plus disabled entries for mods still in development.
 
 Playtime begins when this launcher starts tracking. It measures elapsed launcher sessions, including menus and idle time. Interrupted sessions retain their last saved checkpoint rather than counting time while the launcher was closed. Windows launches the selected executable directly; non-Windows launches through `wine start /wait /unix`. Actual game compatibility and Wine session behavior require testing on the chosen platform and runner.
 
-Collection statistics, reversible shared/isolated collections, opponent-deck packs, guaranteed-new rewards and HD artwork are **not implemented**. Their mod entries are disabled rather than pretending to apply a modification. Native Linux/macOS ports of the games are not supplied.
+Reversible shared/isolated collections, opponent-deck packs, guaranteed-new rewards and HD artwork are **not implemented**. Their mod entries are disabled rather than pretending to apply a modification. Native Linux/macOS ports of the games are not supplied.
+
+## Collection
+
+Games shows **owned/available** beside playtime and Play. Collection shows the same per-game counts and a unique-card total: **155** available in Yugi, **466** in Kaiba and **771** in Joey; **771** distinct cards overall. These are the full cumulative playable pools, including earlier games' cards, rather than only each opponent's new reward pool. Multiple copies and cards shared between games count once.
+
+The stock games use a shared system.dat. On Windows the launcher looks for its registered CommonDir and ordinary common-folder locations, including the current user's VirtualStore when applicable. If it cannot find one unambiguous save, open Collection and browse to system.dat or paste its full path. Wine users can choose the file inside their Wine prefix. Only the selected path is saved in launcher preferences.
+
+Collection reads never change saves, installed files or registry values. Counts refresh when opening Collection, activating the launcher, updating a tracked session or pressing Refresh. Missing, busy, damaged or unsupported saves display **—/total**, not a fabricated zero. A valid empty collection displays **0/total**. Only readable added games contribute to a partial unique count, which is labelled accordingly.
+
+Expand a game's Collection panel to see **owned cards** and **missing cards**. The launcher reads the small original card images from your installed game files, so no HD card mod is required. Cards keep their native 49/50 × 72 size when clicked. Missing cards are dimmed; hovering shows the card ID, number of copies and first game where it is available. Collapsing the panel releases its artwork from memory.
+
+Card pools and identities are read in memory from each installed game's own archive; no card database is bundled. The stock encrypted save's encoding, signature and both checksums are validated. Save identity acceptance by the games is not changed or inferred. Custom save formats and remapped card tables may be unavailable. See [collection format and validation](docs/collection.md).
 
 ## Skip Splash Screens
 
@@ -74,7 +87,7 @@ python tools/publication_guard.py --working-tree
 
 The independent test harness creates synthetic fixtures, never copies real game data, and uses fake game processes. It covers depth limits, invalid files, persistence, cancellation, launch plans and session accounting. Headless UI checks exercise the actual Avalonia controls and render local screenshots without starting games. Optional `--installed` testing reads installed headers on Windows and never starts a game. Development and CI must not execute the original games.
 
-On a machine with the supported installations, `dotnet run --project tests/PowerOfChaos.Launcher.Tests -c Release -- --installed --installed-mods` also verifies all three original and modified whole-file hashes entirely in memory. It writes no game copies and starts no games. UI checks accept `--installed-artwork` to read locally installed portraits.
+On a machine with the supported installations, `dotnet run --project tests/PowerOfChaos.Launcher.Tests -c Release -- --installed --installed-mods` also verifies all three original and modified whole-file hashes entirely in memory. It writes no game copies and starts no games. UI checks accept `--installed-artwork` to read locally installed portraits and every native card mini for the three cumulative pools.
 
 ## Source-only publication
 

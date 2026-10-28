@@ -1,9 +1,12 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using PowerOfChaos.Launcher.Core;
 using PowerOfChaos.Launcher.Core.Artwork;
+using PowerOfChaos.Launcher.Core.Collections;
 using PowerOfChaos.Launcher.Core.Discovery;
 using PowerOfChaos.Launcher.Core.Launching;
 using PowerOfChaos.Launcher.Core.Storage;
@@ -17,10 +20,18 @@ public partial class MainWindow : Window
     private readonly GameDiscovery _discovery = new();
     private readonly GameSessionService _sessions = new();
     private readonly GamePortraitLoader _portraits = new();
+    private readonly CardCollectionReader _collections = new();
+    private readonly NativeCardArtworkReader _cardArtwork = new();
+    private readonly ObservableCollection<CollectionGameViewModel> _collectionRows = [];
+    private readonly Dictionary<string, CancellationTokenSource> _galleryLoads = [];
+    private readonly HashSet<string> _galleryAttempted = [];
     private readonly ObservableCollection<GameCardViewModel> _cards = [];
+    private readonly Dictionary<GameCardViewModel, PortraitPixels> _portraitSources = [];
     private LauncherSettings _settings = new();
     private CancellationTokenSource? _scanCancellation;
     private CancellationTokenSource? _portraitCancellation;
+    private CancellationTokenSource _portraitResizeCancellation = new();
+    private CancellationTokenSource? _collectionCancellation;
     private bool _busy;
     private bool _closeWhenIdle;
     private bool _closed;
@@ -33,8 +44,17 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         GameCards.ItemsSource = _cards;
+        foreach (var game in GameCatalog.All)
+        {
+            var row = new CollectionGameViewModel(new(game.Id, CollectionSnapshot.TotalFor(game.Id), null, "Game not added"));
+            row.PropertyChanged += CollectionRowChanged;
+            _collectionRows.Add(row);
+        }
+        CollectionGames.ItemsSource = _collectionRows;
         _sessions.SessionsChanged += SessionsChanged;
         Opened += async (_, _) => await InitializeAsync();
+        ScalingChanged += (_, _) => RefreshPortraitThumbnails();
+        Activated += async (_, _) => { if (_settingsReady && !_closed) await RefreshCollectionAsync(); };
         Closing += (_, e) =>
         {
             if (_pendingLaunch || _savingMod || GameCatalog.All.Any(g => _sessions.IsRunning(g.Id)))
@@ -51,6 +71,17 @@ public partial class MainWindow : Window
             _scanCancellation?.Cancel();
             _portraitCancellation?.Cancel();
             _portraitCancellation?.Dispose();
+            _portraitResizeCancellation.Cancel();
+            _portraitResizeCancellation.Dispose();
+            _portraitSources.Clear();
+            _collectionCancellation?.Cancel();
+            _collectionCancellation?.Dispose();
+            ResetGalleryArtwork();
+            foreach (var row in _collectionRows)
+            {
+                row.PropertyChanged -= CollectionRowChanged;
+                row.Dispose();
+            }
             foreach (var card in _cards) card.Dispose();
             _sessions.SessionsChanged -= SessionsChanged;
             await _sessions.DisposeAsync();
@@ -64,6 +95,7 @@ public partial class MainWindow : Window
             var loaded = await _store.LoadAsync();
             if (_closed) return;
             _settings = loaded;
+            CollectionSaveInput.Text = _settings.CollectionSavePath;
             RenderLibrary();
             RenderLocations();
             await RefreshSessionsAsync();
@@ -84,9 +116,14 @@ public partial class MainWindow : Window
 
     private void RenderLibrary()
     {
+        ResetGalleryArtwork();
         _portraitCancellation?.Cancel();
         _portraitCancellation?.Dispose();
         _portraitCancellation = new CancellationTokenSource();
+        _portraitResizeCancellation.Cancel();
+        _portraitResizeCancellation.Dispose();
+        _portraitResizeCancellation = new CancellationTokenSource();
+        _portraitSources.Clear();
         var retired = _cards.ToArray();
         _cards.Clear();
         foreach (var card in retired) card.Dispose();
@@ -106,6 +143,7 @@ public partial class MainWindow : Window
         RescanMenu.IsEnabled = !_busy && _settings.SearchRoots.Count > 0;
         RescanButton.IsEnabled = RescanMenu.IsEnabled;
         foreach (var card in _cards) _ = LoadPortraitAsync(card, _portraitCancellation.Token);
+        _ = RefreshCollectionAsync();
     }
 
     private async Task LoadPortraitAsync(GameCardViewModel card, CancellationToken cancellationToken)
@@ -117,7 +155,10 @@ public partial class MainWindow : Window
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 if (!_closed && !cancellationToken.IsCancellationRequested && _cards.Contains(card))
-                    card.SetPortrait(pixels);
+                {
+                    _portraitSources[card] = pixels;
+                    _ = UpdatePortraitThumbnailAsync(card, pixels, _portraitResizeCancellation.Token);
+                }
             });
         }
         catch (OperationCanceledException) { }
@@ -125,6 +166,41 @@ public partial class MainWindow : Window
                                    or InvalidOperationException or NotSupportedException)
         {
             // Artwork is optional: retain a usable game row when it cannot be loaded.
+        }
+    }
+
+    private void RefreshPortraitThumbnails()
+    {
+        if (_closed) return;
+        _portraitResizeCancellation.Cancel();
+        _portraitResizeCancellation.Dispose();
+        _portraitResizeCancellation = new CancellationTokenSource();
+        foreach (var (card, pixels) in _portraitSources)
+            _ = UpdatePortraitThumbnailAsync(card, pixels, _portraitResizeCancellation.Token);
+    }
+
+    private async Task UpdatePortraitThumbnailAsync(GameCardViewModel card, PortraitPixels pixels,
+        CancellationToken cancellationToken)
+    {
+        // Prepare the actual display-pixel footprint off the UI thread, including fractional monitor scaling.
+        var scale = double.IsFinite(RenderScaling) && RenderScaling > 0 ? Math.Min(RenderScaling, 8) : 1;
+        var width = (int)Math.Ceiling(112 * scale);
+        var height = (int)Math.Ceiling(104 * scale);
+        try
+        {
+            var thumbnail = await Task.Run(() => PortraitThumbnail.Create(pixels, width, height, cancellationToken),
+                cancellationToken).ConfigureAwait(false);
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (!_closed && !cancellationToken.IsCancellationRequested && _cards.Contains(card)
+                    && _portraitSources.TryGetValue(card, out var current) && ReferenceEquals(current, pixels))
+                    card.SetPortrait(thumbnail);
+            });
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or NotSupportedException)
+        {
+            // Keep optional artwork failures from disabling a game row.
         }
     }
 
@@ -264,6 +340,7 @@ public partial class MainWindow : Window
         try
         {
             await RefreshSessionsAsync();
+            await RefreshCollectionAsync();
             if (ShowSessionWarning()) return;
             if (_closeWhenIdle && !GameCatalog.All.Any(g => _sessions.IsRunning(g.Id))) Close();
         }
@@ -390,10 +467,220 @@ public partial class MainWindow : Window
         if (await SaveSettingsAsync()) Notice("Preferences saved.");
     }
 
-    private void Notice(string message) { if (_closed) return; StatusText.Text = message; StatusBanner.IsVisible = true; }
+    private void Notice(string message)
+    {
+        if (_closed) return;
+        StatusText.Text = message;
+        StatusText.ClearSelection();
+        CopyStatusButton.Content = "Copy";
+        StatusBanner.IsVisible = true;
+    }
+
+    private async void CopyStatus_Click(object? sender, RoutedEventArgs e)
+    {
+        var message = StatusText.Text;
+        if (_closed || string.IsNullOrEmpty(message)) return;
+        try
+        {
+            if (Clipboard is not { } clipboard) { CopyStatusButton.Content = "Select text"; return; }
+            await clipboard.SetTextAsync(message);
+            if (!_closed && StatusText.Text == message) CopyStatusButton.Content = "Copied";
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
+            or InvalidOperationException or NotSupportedException or System.Runtime.InteropServices.ExternalException)
+        {
+            // Keep the diagnostic available even when another application owns the clipboard.
+            if (!_closed && StatusText.Text == message) CopyStatusButton.Content = "Select text";
+        }
+    }
     private void Library_Click(object? sender, RoutedEventArgs e) => ShowPage("library");
     private void Mods_Click(object? sender, RoutedEventArgs e) => ShowPage("mods");
-    private void Collection_Click(object? sender, RoutedEventArgs e) => ShowPage("collection");
+    private async void Collection_Click(object? sender, RoutedEventArgs e)
+    {
+        ShowPage("collection");
+        await RefreshCollectionAsync();
+    }
+    private async void RefreshCollection_Click(object? sender, RoutedEventArgs e)
+    {
+        ResetGalleryArtwork();
+        await RefreshCollectionAsync();
+    }
+
+    private async Task RefreshCollectionAsync()
+    {
+        if (_closed) return;
+        _collectionCancellation?.Cancel();
+        _collectionCancellation?.Dispose();
+        var cancellation = _collectionCancellation = new CancellationTokenSource();
+        RefreshCollectionButton.IsEnabled = false;
+        try
+        {
+            var snapshot = await _collections.ReadAsync(_settings.Installations.ToArray(),
+                _settings.CollectionSavePath, cancellation.Token);
+            if (_closed || cancellation.IsCancellationRequested) return;
+            foreach (var row in _collectionRows)
+            {
+                if (row.UpdateProgress(snapshot.Games.Single(p => p.GameId == row.Progress.GameId)))
+                {
+                    CancelGalleryLoad(row.Progress.GameId);
+                    _galleryAttempted.Remove(row.Progress.GameId);
+                }
+                if (row.IsExpanded && !_galleryAttempted.Contains(row.Progress.GameId)) StartGalleryLoad(row);
+            }
+            UniqueCardCount.Text = $"{snapshot.UniqueCards?.ToString() ?? "—"}/{CollectionSnapshot.MaximumUniqueCards}";
+            UniqueCollectionProgress.IsVisible = snapshot.UniqueCards.HasValue;
+            UniqueCollectionProgress.Value = snapshot.UniqueCards ?? 0;
+            CollectionStatus.Text = snapshot.Message;
+            CollectionSaveSource.Text = snapshot.SavePath is null ? "Automatic location" : Path.GetFileName(snapshot.SavePath);
+            CollectionSaveSource.SetValue(ToolTip.TipProperty, snapshot.SavePath);
+            foreach (var card in _cards)
+                card.SetCollection(snapshot.Games.Single(p => p.GameId == card.Installation.GameId));
+        }
+        catch (OperationCanceledException) { }
+        finally
+        {
+            if (!_closed && ReferenceEquals(_collectionCancellation, cancellation))
+                RefreshCollectionButton.IsEnabled = true;
+        }
+    }
+
+    private void CollectionRowChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (_closed || e.PropertyName != nameof(CollectionGameViewModel.IsExpanded)
+            || sender is not CollectionGameViewModel row) return;
+        if (row.IsExpanded) StartGalleryLoad(row);
+        else
+        {
+            CancelGalleryLoad(row.Progress.GameId);
+            _galleryAttempted.Remove(row.Progress.GameId);
+            row.ClearArtwork();
+            row.SetGalleryStatus("Expand to view your original card images.");
+        }
+    }
+
+    private void CancelGalleryLoad(string gameId)
+    {
+        if (!_galleryLoads.Remove(gameId, out var cancellation)) return;
+        cancellation.Cancel();
+        cancellation.Dispose();
+    }
+
+    private void ResetGalleryArtwork()
+    {
+        foreach (var gameId in _galleryLoads.Keys.ToArray()) CancelGalleryLoad(gameId);
+        _galleryAttempted.Clear();
+        foreach (var row in _collectionRows) row.ClearArtwork();
+    }
+
+    private void StartGalleryLoad(CollectionGameViewModel row)
+    {
+        CancelGalleryLoad(row.Progress.GameId);
+        if (_closed || !row.IsExpanded) return;
+        _galleryAttempted.Add(row.Progress.GameId);
+        var installation = _settings.Installations.FirstOrDefault(i => i.GameId == row.Progress.GameId);
+        if (installation is null || !row.HasCards)
+        {
+            row.SetGalleryStatus(row.HasCount ? "No cards are available for this game." : "Choose a readable collection save to see owned and missing cards.");
+            return;
+        }
+        var cancellation = new CancellationTokenSource();
+        _galleryLoads.Add(row.Progress.GameId, cancellation);
+        row.SetGalleryStatus("Loading original card images…");
+        _ = LoadGalleryAsync(row, installation, row.ArtworkVersion, cancellation);
+    }
+
+    private async Task LoadGalleryAsync(CollectionGameViewModel row, GameInstallation installation, int version,
+        CancellationTokenSource cancellation)
+    {
+        var token = cancellation.Token;
+        bool Current() => !_closed && !token.IsCancellationRequested && row.IsExpanded && row.ArtworkVersion == version
+            && _galleryLoads.TryGetValue(installation.GameId, out var active) && ReferenceEquals(active, cancellation);
+        try
+        {
+            var batch = await _cardArtwork.LoadAsync(installation, row.Cards.Select(card => card.Slot).ToArray(), token);
+            for (var start = 0; start < batch.Images.Count; start += 32)
+            {
+                if (!Current()) return;
+                foreach (var image in batch.Images.Skip(start).Take(32)) row.SetArtwork(image);
+                await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
+            }
+            if (Current()) row.SetGalleryStatus(batch.Images.Count == batch.RequestedCount
+                ? "Original card size. Hover for the card's game; clicking keeps it small."
+                : "Some original card images are unavailable. Ownership counts are still shown.");
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception exception) when (exception is IOException or InvalidDataException or UnauthorizedAccessException
+            or ArgumentException or InvalidOperationException or NotSupportedException or System.Security.SecurityException)
+        {
+            if (Current()) row.SetGalleryStatus("Original card images could not be read. Check this game's location.");
+        }
+        finally
+        {
+            if (_galleryLoads.TryGetValue(installation.GameId, out var active) && ReferenceEquals(active, cancellation))
+            {
+                _galleryLoads.Remove(installation.GameId);
+                cancellation.Dispose();
+            }
+        }
+    }
+
+    private async void BrowseCollectionSave_Click(object? sender, RoutedEventArgs e)
+    {
+        if (!_settingsReady || _savingMod || _pendingLaunch || _closed) return;
+        try
+        {
+            if (!StorageProvider.CanOpen) { CollectionStatus.Text = "Paste the path to system.dat and select Use path."; return; }
+            var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = "Choose your collection save", AllowMultiple = false,
+                FileTypeFilter = [new FilePickerFileType("Power of Chaos save") { Patterns = ["system.dat", "*.dat"] }]
+            });
+            if (_closed || files.Count == 0) return;
+            if (files[0].TryGetLocalPath() is { } path) await SelectCollectionSaveAsync(path);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            if (!_closed) CollectionStatus.Text = "The file picker could not open. Paste the path to system.dat instead.";
+        }
+    }
+
+    private async void UseCollectionSave_Click(object? sender, RoutedEventArgs e)
+        => await SelectCollectionSaveAsync(CollectionSaveInput.Text?.Trim().Trim('"'));
+    private async void AutomaticCollectionSave_Click(object? sender, RoutedEventArgs e)
+        => await SelectCollectionSaveAsync(null);
+
+    private async Task SelectCollectionSaveAsync(string? path)
+    {
+        if (!_settingsReady || _savingMod || _busy || _pendingLaunch || _closed) return;
+        if (!string.IsNullOrWhiteSpace(path) &&
+            (path.Length > 32768 || path.Any(char.IsControl) || !Path.IsPathFullyQualified(path)))
+        {
+            CollectionStatus.Text = "Enter the full path to system.dat.";
+            return;
+        }
+        _savingMod = true;
+        RefreshModControls();
+        try
+        {
+            _settings.CollectionSavePath = string.IsNullOrWhiteSpace(path) ? null : Path.GetFullPath(path);
+            CollectionSaveInput.Text = _settings.CollectionSavePath;
+            await SaveSettingsAsync();
+            if (!_closed) await RefreshCollectionAsync();
+        }
+        catch (Exception ex) when (ex is IOException or ArgumentException or NotSupportedException)
+        {
+            if (!_closed) CollectionStatus.Text = "This save path is not valid.";
+        }
+        finally
+        {
+            _savingMod = false;
+            if (!_closed)
+            {
+                RefreshModControls();
+                if (_closeWhenIdle && !_sessions.AnyRunning && !_pendingLaunch) Close();
+            }
+        }
+    }
     private void Locations_Click(object? sender, RoutedEventArgs e) { RenderLocations(); ShowPage("locations"); }
     private void About_Click(object? sender, RoutedEventArgs e) => ShowPage("about");
 
@@ -406,7 +693,7 @@ public partial class MainWindow : Window
         (PageTitle.Text, PageSubtitle.Text) = page switch
         {
             "mods" => ("Mods", ""),
-            "collection" => ("Collection", "Card collection support is in development."),
+            "collection" => ("Collection", "Your cards across all three games."),
             "locations" => ("Game locations", "Manage the folders searched for games."),
             "about" => ("About", "Power of Chaos Launcher"),
             _ => ("Games", "Your installed Power of Chaos games.")

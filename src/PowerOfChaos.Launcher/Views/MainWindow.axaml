@@ -5,6 +5,20 @@
         Title="Power of Chaos" Icon="avares://PowerOfChaos.Launcher/!__AvaloniaDefaultWindowIcon"
         Width="1100" Height="720" MinWidth="880" MinHeight="600"
         WindowStartupLocation="CenterScreen">
+  <Window.Resources>
+    <DataTemplate x:Key="CollectionCardTemplate" DataType="vm:CollectionCardViewModel">
+      <Border Width="58" Height="80" Padding="3" Margin="0,0,6,6" Background="#171717"
+              BorderBrush="#373737" BorderThickness="1" CornerRadius="3"
+              ToolTip.Tip="{Binding Tooltip}" AutomationProperties.Name="{Binding Tooltip}">
+        <Grid Width="50" Height="72">
+          <TextBlock Text="?" Foreground="#777777" HorizontalAlignment="Center" VerticalAlignment="Center" />
+          <Image Source="{Binding Artwork}" Width="{Binding ArtworkWidth}" Height="{Binding ArtworkHeight}"
+                 Stretch="Uniform" StretchDirection="DownOnly" IsVisible="{Binding HasArtwork}"
+                 Opacity="{Binding ArtworkOpacity}" RenderOptions.BitmapInterpolationMode="HighQuality" />
+        </Grid>
+      </Border>
+    </DataTemplate>
+  </Window.Resources>
   <Grid ColumnDefinitions="190,*">
     <Border BorderBrush="#242424" BorderThickness="0,0,1,0" Background="#101010">
       <Grid RowDefinitions="Auto,*,Auto" Margin="14,28,14,18">
@@ -50,8 +64,13 @@
       </StackPanel>
       <Border x:Name="StatusBanner" Grid.Row="1" Classes="notice" IsVisible="False" Margin="0,0,0,20">
         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="14">
-          <TextBlock x:Name="StatusText" TextWrapping="Wrap" VerticalAlignment="Center" AutomationProperties.Name="Launcher status" />
-          <Button x:Name="CancelRescanButton" Grid.Column="1" Content="Cancel" Classes="secondary" IsVisible="False" Click="CancelRescan_Click" />
+          <ScrollViewer MaxHeight="180" HorizontalScrollBarVisibility="Disabled">
+            <SelectableTextBlock x:Name="StatusText" TextWrapping="Wrap" VerticalAlignment="Center" AutomationProperties.Name="Launcher status" Focusable="True" />
+          </ScrollViewer>
+          <StackPanel Grid.Column="1" Spacing="8" VerticalAlignment="Top">
+            <Button x:Name="CopyStatusButton" Content="Copy" Classes="secondary" Click="CopyStatus_Click" AutomationProperties.Name="Copy launcher message" />
+            <Button x:Name="CancelRescanButton" Content="Cancel" Classes="secondary" IsVisible="False" Click="CancelRescan_Click" />
+          </StackPanel>
         </Grid>
       </Border>
       <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Disabled">
@@ -73,13 +92,14 @@
                 <ItemsControl.ItemTemplate>
                   <DataTemplate DataType="vm:GameCardViewModel">
                     <Border Classes="panel" Margin="0,0,0,10" Padding="16,12">
-                      <Grid ColumnDefinitions="88,*,80,96" ColumnSpacing="20">
-                        <Grid Width="88" Height="80" ClipToBounds="True" VerticalAlignment="Center">
+                      <Grid ColumnDefinitions="112,*,76,80,96" ColumnSpacing="14">
+                        <Grid Width="112" Height="104" ClipToBounds="True" VerticalAlignment="Center">
                           <Border Background="#191919" CornerRadius="4" IsVisible="{Binding ShowPortraitPlaceholder}">
                             <Path Width="24" Height="30" Stroke="#656565" StrokeThickness="1.5"
                                   Data="M3,1 L21,1 L21,29 L3,29 Z M7,7 L17,7 M7,12 L17,12" HorizontalAlignment="Center" VerticalAlignment="Center" />
                           </Border>
                           <Image x:Name="GamePortrait" Source="{Binding Portrait}" Stretch="Uniform" IsVisible="{Binding HasPortrait}"
+                                 RenderOptions.BitmapInterpolationMode="HighQuality"
                                  AutomationProperties.Name="{Binding Title, StringFormat='Portrait of {0}'}" />
                         </Grid>
                         <StackPanel Grid.Column="1" Spacing="8" VerticalAlignment="Center">
@@ -87,10 +107,15 @@
                           <TextBlock Text="{Binding Folder}" Classes="quiet" FontSize="11" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Folder}" />
                         </StackPanel>
                         <StackPanel Grid.Column="2" Spacing="6" VerticalAlignment="Center">
+                          <TextBlock Text="Cards" Classes="caption" FontSize="11" />
+                          <TextBlock Text="{Binding CollectionCount}" FontSize="13" Foreground="#D4D4D4" ToolTip.Tip="{Binding CollectionMessage}"
+                                     AutomationProperties.Name="{Binding Title, StringFormat='Card collection for {0}'}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="3" Spacing="6" VerticalAlignment="Center">
                           <TextBlock Text="Playtime" Classes="caption" FontSize="11" />
                           <TextBlock Text="{Binding Playtime}" FontSize="13" Foreground="#D4D4D4" />
                         </StackPanel>
-                        <Button Grid.Column="3" Content="{Binding PlayLabel}" Classes="primary" HorizontalAlignment="Stretch" VerticalAlignment="Center" HorizontalContentAlignment="Center" Tag="{Binding Installation}" IsEnabled="{Binding CanPlay}" Click="PlayGame_Click" AutomationProperties.Name="{Binding Title, StringFormat='Play {0}'}" />
+                        <Button Grid.Column="4" Content="{Binding PlayLabel}" Classes="primary" HorizontalAlignment="Stretch" VerticalAlignment="Center" HorizontalContentAlignment="Center" Tag="{Binding Installation}" IsEnabled="{Binding CanPlay}" Click="PlayGame_Click" AutomationProperties.Name="{Binding Title, StringFormat='Play {0}'}" />
                       </Grid>
                     </Border>
                   </DataTemplate>
@@ -100,6 +125,17 @@
             <TextBlock Text="Playtime counts sessions started from this launcher." Classes="quiet" FontSize="11" Margin="0,0,0,8" />
           </StackPanel>
           <StackPanel x:Name="ModsView" Spacing="12" IsVisible="False">
+            <StackPanel.Resources>
+              <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillChecked">#0078D4</SolidColorBrush>
+              <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillCheckedPointerOver">#168BE8</SolidColorBrush>
+              <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillCheckedPressed">#005FA3</SolidColorBrush>
+              <SolidColorBrush x:Key="CheckBoxCheckGlyphForegroundChecked">#FFFFFF</SolidColorBrush>
+              <SolidColorBrush x:Key="CheckBoxCheckGlyphForegroundCheckedPointerOver">#FFFFFF</SolidColorBrush>
+              <SolidColorBrush x:Key="CheckBoxCheckGlyphForegroundCheckedPressed">#FFFFFF</SolidColorBrush>
+              <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeUnchecked">#0078D4</SolidColorBrush>
+              <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeUncheckedPointerOver">#168BE8</SolidColorBrush>
+              <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeUncheckedPressed">#005FA3</SolidColorBrush>
+            </StackPanel.Resources>
             <Border Classes="panel" Padding="20">
               <Grid x:Name="SkipSplashScreensRow" ColumnDefinitions="Auto,210,*" ColumnSpacing="20">
                 <CheckBox x:Name="SkipSplashScreensCheckBox" VerticalAlignment="Center" IsEnabled="False"
@@ -147,7 +183,73 @@
             </Border>
           </StackPanel>
           <StackPanel x:Name="CollectionView" Spacing="18" IsVisible="False">
-            <Border Classes="panel" Padding="24"><StackPanel Spacing="16"><TextBlock Text="Collection support is in development" FontSize="18" FontWeight="SemiBold" /><TextBlock Text="Owned cards and separate or shared collections will be available after save support has been validated for all three games." Classes="quiet" LineHeight="22" /><CheckBox Content="Share card collection between games" IsEnabled="False" /></StackPanel></Border>
+            <Border Classes="panel" Padding="24">
+              <StackPanel Spacing="14">
+                <Grid ColumnDefinitions="*,Auto">
+                  <StackPanel Spacing="8">
+                    <TextBlock Text="Unique cards" Classes="caption" />
+                    <TextBlock x:Name="UniqueCardCount" Text="—/771" FontSize="32" FontWeight="SemiBold" AutomationProperties.Name="Unique cards across all games" />
+                  </StackPanel>
+                  <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Top">
+                    <Button Content="Choose save" Classes="secondary" Click="BrowseCollectionSave_Click" />
+                    <Button x:Name="RefreshCollectionButton" Content="Refresh" Classes="secondary" Click="RefreshCollection_Click" />
+                  </StackPanel>
+                </Grid>
+                <ProgressBar x:Name="UniqueCollectionProgress" Minimum="0" Maximum="771" Height="4" Foreground="#D4D4D4" Background="#292929" IsVisible="False" />
+                <TextBlock x:Name="CollectionStatus" Text="Add a game folder to see your collection." Classes="quiet" LineHeight="21" />
+              </StackPanel>
+            </Border>
+            <ItemsControl x:Name="CollectionGames">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="vm:CollectionGameViewModel">
+                  <Border Classes="panel" Padding="12" Margin="0,0,0,10">
+                    <Expander x:Name="CollectionExpander" IsExpanded="{Binding IsExpanded, Mode=TwoWay}"
+                              HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                      <Expander.Header>
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="16" RowSpacing="12">
+                          <StackPanel Spacing="6">
+                            <TextBlock Text="{Binding Title}" FontSize="16" FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding Message}" Classes="quiet" FontSize="12" />
+                          </StackPanel>
+                          <TextBlock Grid.Column="1" Text="{Binding Count}" FontSize="20" VerticalAlignment="Center"
+                                     AutomationProperties.Name="{Binding Title, StringFormat='Collection progress for {0}'}" />
+                          <ProgressBar Grid.Row="1" Grid.ColumnSpan="2" Minimum="0" Maximum="100" Value="{Binding Percentage}"
+                                       Height="3" Foreground="#D4D4D4" Background="#292929" IsVisible="{Binding HasCount}" />
+                        </Grid>
+                      </Expander.Header>
+                      <StackPanel Spacing="12" Margin="8,12,8,4">
+                        <TextBlock Text="{Binding GalleryStatus}" Classes="quiet" FontSize="12" />
+                        <ScrollViewer MaxHeight="420" HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding HasCards}">
+                          <StackPanel Spacing="12">
+                            <TextBlock Text="{Binding OwnedHeading}" FontWeight="SemiBold" />
+                            <ItemsControl ItemsSource="{Binding OwnedCards}" ItemTemplate="{StaticResource CollectionCardTemplate}">
+                              <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                            </ItemsControl>
+                            <TextBlock Text="{Binding MissingHeading}" FontWeight="SemiBold" />
+                            <ItemsControl ItemsSource="{Binding MissingCards}" ItemTemplate="{StaticResource CollectionCardTemplate}">
+                              <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                            </ItemsControl>
+                          </StackPanel>
+                        </ScrollViewer>
+                      </StackPanel>
+                    </Expander>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <StackPanel Spacing="10">
+              <TextBlock Text="Collection save" Classes="caption" />
+              <TextBlock Text="Read your shared system.dat automatically, or choose a save. Your save is never changed." Classes="quiet" FontSize="12" />
+              <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                <TextBox x:Name="CollectionSaveInput" Watermark="Automatic · shared system.dat" AutomationProperties.Name="Collection save path" />
+                <Button Grid.Column="1" Content="Browse…" Click="BrowseCollectionSave_Click" Classes="secondary" />
+                <Button Grid.Column="2" Content="Use path" Click="UseCollectionSave_Click" Classes="secondary" />
+              </Grid>
+              <StackPanel Orientation="Horizontal" Spacing="12">
+                <Button Content="Use automatic location" Click="AutomaticCollectionSave_Click" Classes="secondary" />
+                <TextBlock x:Name="CollectionSaveSource" Classes="quiet" FontSize="11" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+              </StackPanel>
+            </StackPanel>
           </StackPanel>
           <StackPanel x:Name="LocationsView" Spacing="18" IsVisible="False">
             <TextBlock Text="Folders are searched up to six levels deep. Removing a location does not delete your game files." Classes="quiet" LineHeight="22" />

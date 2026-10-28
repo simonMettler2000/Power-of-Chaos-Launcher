@@ -18,6 +18,8 @@ public static class LaunchPlan
         if (!File.Exists(executable) || !File.Exists(installation.DataPath) || !File.Exists(installation.VoicePath))
             throw new FileNotFoundException("Game files are missing. Add or rescan the game path.");
         var preparedExecutable = Path.GetFullPath(preparedExecutablePath);
+        var windows = isWindows ?? OperatingSystem.IsWindows();
+        if (windows) ValidateWindowsPaths(preparedExecutable, Path.GetDirectoryName(executable)!);
         if (!File.Exists(preparedExecutable)
             || !string.Equals(Path.GetFileName(preparedExecutable), definition.ExecutableName, StringComparison.OrdinalIgnoreCase))
             throw new FileNotFoundException("The prepared game executable is missing or invalid.");
@@ -35,7 +37,6 @@ public static class LaunchPlan
             result.Environment.Clear();
             foreach (var entry in inheritedEnvironment) result.Environment[entry.Key] = entry.Value;
         }
-        var windows = isWindows ?? OperatingSystem.IsWindows();
         if (settings.RestoreOriginalAspectRatio) ConfigureDisplayEnvironment(result, windows);
         if (windows)
             result.FileName = preparedExecutable;
@@ -50,6 +51,13 @@ public static class LaunchPlan
             result.ArgumentList.Add(preparedExecutable);
         }
         return result;
+    }
+
+    internal static void ValidateWindowsPaths(string executable, string workingDirectory)
+    {
+        // CreateProcess and legacy games do not share .NET's support for extended-length file paths.
+        if (executable.Length >= 260 || workingDirectory.Length >= 260)
+            throw new InvalidDataException("The game launch path is too long for Windows. Choose a shorter game folder or launcher data folder (POC_LAUNCHER_DATA_DIR), then try again.");
     }
 
     internal static void ConfigureDisplayEnvironment(ProcessStartInfo result, bool isWindows)

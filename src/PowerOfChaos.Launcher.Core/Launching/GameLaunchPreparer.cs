@@ -1,3 +1,6 @@
+using System.Security.Cryptography;
+using System.Text;
+
 namespace PowerOfChaos.Launcher.Core.Launching;
 
 public interface IGameLaunchPreparer
@@ -59,8 +62,13 @@ public sealed class GameLaunchPreparer : IGameLaunchPreparer
             if (options.RestoreOriginalAspectRatio)
                 return await _displayPreparer.PrepareAsync(installation, options, profile, modified, cancellationToken)
                     .ConfigureAwait(false);
-            var directory = Path.Combine(_dataDirectory, "mod-cache", "verified-mods-v2", options.CacheKey,
-                profile.GameId, profile.OriginalHash, profile.ModifiedHash);
+            // Keep a full SHA256 identity without nesting the verbose selection and both full hashes.
+            // .NET can write paths which Windows CreateProcess cannot open (including the old v2 cache).
+            var identity = string.Join('\n', profile.GameId, options.CacheKey, profile.OriginalHash, profile.ModifiedHash);
+            var bucket = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(identity))).ToLowerInvariant();
+            var directory = Path.Combine(_dataDirectory, "mod-cache", "v3", profile.GameId, bucket);
+            var outputPath = Path.Combine(directory, definition.ExecutableName);
+            if (OperatingSystem.IsWindows()) LaunchPlan.ValidateWindowsPaths(outputPath, Path.GetDirectoryName(originalPath)!);
             var installDirectory = Path.GetDirectoryName(originalPath)!;
             if (directory.Equals(installDirectory, PathComparison)
                 || directory.StartsWith(Path.TrimEndingDirectorySeparator(installDirectory) + Path.DirectorySeparatorChar, PathComparison))
@@ -68,7 +76,6 @@ public sealed class GameLaunchPreparer : IGameLaunchPreparer
             RefuseLinks(directory);
             Directory.CreateDirectory(directory);
             RefuseLinks(directory);
-            var outputPath = Path.Combine(directory, definition.ExecutableName);
             RefuseLinks(outputPath);
             var lockPath = Path.Combine(directory, ".prepare.lock");
             RefuseLinks(lockPath);
