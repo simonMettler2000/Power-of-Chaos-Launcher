@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
+using PowerOfChaos.Launcher.Core.Collections;
 
 namespace PowerOfChaos.Launcher.Core.Launching;
 
@@ -27,7 +28,7 @@ public sealed class SystemGameProcessRunner : IGameProcessRunner
     }
 }
 
-/// <summary>Tracks only explicit launcher sessions. It never scans or kills game processes.</summary>
+/// <summary>Tracks explicit launcher sessions; a shared collection guard also checks for games already running.</summary>
 public sealed class GameSessionService : IAsyncDisposable
 {
     private sealed class PlaytimeData
@@ -37,10 +38,12 @@ public sealed class GameSessionService : IAsyncDisposable
         public DateTimeOffset? LastCheckpointUtc { get; set; }
     }
 
-    private sealed record ActiveSession(string GameId, IGameProcess Process, long StartedTimestamp, long PreviousSeconds);
+    private sealed record ActiveSession(string GameId, IGameProcess Process, long StartedTimestamp, long PreviousSeconds,
+        IAsyncDisposable CollectionLease);
     private readonly string _file;
     private readonly IGameProcessRunner _runner;
     private readonly IGameLaunchPreparer _preparer;
+    private readonly TemporaryCollectionService _temporaryCollections;
     private readonly TimeProvider _clock;
     private readonly TimeSpan _checkpointInterval;
     private readonly SemaphoreSlim _gate = new(1, 1);
@@ -54,11 +57,13 @@ public sealed class GameSessionService : IAsyncDisposable
     private const long MaximumSeconds = 100L * 366 * 24 * 60 * 60;
 
     public GameSessionService(string? dataDirectory = null, IGameProcessRunner? runner = null,
-        TimeProvider? clock = null, TimeSpan? checkpointInterval = null, IGameLaunchPreparer? preparer = null)
+        TimeProvider? clock = null, TimeSpan? checkpointInterval = null, IGameLaunchPreparer? preparer = null,
+        TemporaryCollectionService? temporaryCollections = null)
     {
         _file = Path.Combine(dataDirectory ?? LauncherPaths.DataDirectory, "playtime.json");
         _runner = runner ?? new SystemGameProcessRunner();
         _preparer = preparer ?? new GameLaunchPreparer(dataDirectory);
+        _temporaryCollections = temporaryCollections ?? new TemporaryCollectionService();
         _clock = clock ?? TimeProvider.System;
         _checkpointInterval = checkpointInterval ?? TimeSpan.FromSeconds(30);
         if (_checkpointInterval <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(checkpointInterval));
@@ -88,6 +93,8 @@ public sealed class GameSessionService : IAsyncDisposable
         // Capture before the first await, including when another launch owns the gate.
         var options = new GameModOptions(settings.SkipSplashScreens, settings.SkipCharacterInteractions,
             settings.RestoreOriginalAspectRatio);
+        var installations = new[] { installation }.Concat(settings.Installations)
+            .DistinctBy(game => game.GameId).ToArray();
         var launchSettings = new LauncherSettings
         {
             SkipSplashScreens = options.SkipSplashScreens,
@@ -104,6 +111,7 @@ public sealed class GameSessionService : IAsyncDisposable
         }
         using var preparationCancellation = pendingCancellation;
         var enteredGate = false;
+        IAsyncDisposable? collectionLease = null;
         try
         {
             await _gate.WaitAsync(preparationCancellation.Token);
@@ -111,6 +119,8 @@ public sealed class GameSessionService : IAsyncDisposable
             ObjectDisposedException.ThrowIf(_disposed, this);
             if (_active is not null) return new(false, "Close the running game before launching another.");
             _ = LaunchPlan.Create(installation, launchSettings); // Validate installed files before cache work.
+            collectionLease = await _temporaryCollections.AcquireSessionLeaseAsync(installations,
+                preparationCancellation.Token);
             var executable = await _preparer.PrepareExecutableAsync(installation, options,
                 preparationCancellation.Token);
             var plan = LaunchPlan.CreatePrepared(installation, launchSettings, executable);
@@ -120,7 +130,8 @@ public sealed class GameSessionService : IAsyncDisposable
             preparationCancellation.Token.ThrowIfCancellationRequested();
             var process = _runner.Start(plan);
             _active = new ActiveSession(installation.GameId, process, _clock.GetTimestamp(),
-                _data!.Totals.GetValueOrDefault(installation.GameId));
+                _data!.Totals.GetValueOrDefault(installation.GameId), collectionLease);
+            collectionLease = null; // The monitor now owns the cross-launcher session lease.
             _data.ActiveGameId = installation.GameId;
             _data.LastCheckpointUtc = _clock.GetUtcNow();
             try { await SaveAsync(); }
@@ -141,7 +152,11 @@ public sealed class GameSessionService : IAsyncDisposable
         {
             return new(false, "Could not start the game: " + exception.Message);
         }
-        finally { if (enteredGate) _gate.Release(); }
+        finally
+        {
+            if (collectionLease is not null) await collectionLease.DisposeAsync();
+            if (enteredGate) _gate.Release();
+        }
         NotifyChanged();
         return new(true);
     }
@@ -175,8 +190,14 @@ public sealed class GameSessionService : IAsyncDisposable
         finally
         {
             await checkpointCancellation.CancelAsync();
-            await RecordAsync(session, true);
-            session.Process.Dispose();
+            try { await RecordAsync(session, true); }
+            finally
+            {
+                // Disposing tracking can cancel the wait while the game is alive. Never restore
+                // a save here; the durable mod state and OS process guard survive this handle.
+                try { session.Process.Dispose(); }
+                finally { await session.CollectionLease.DisposeAsync(); }
+            }
         }
     }
 

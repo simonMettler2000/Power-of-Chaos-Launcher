@@ -168,7 +168,7 @@ internal static class SplashChecks
             var root = Path.Combine(fixtures, "mod-unsupported-session");
             var game = await Installation(root, "yugi", SyntheticImage());
             var runner = new FakeRunner();
-            await using var service = new GameSessionService(Path.Combine(root, "launcher-data"), runner);
+            await using var service = new GameSessionService(Path.Combine(root, "launcher-data"), runner, temporaryCollections: TestCollectionProfiles.Create());
             var result = await service.LaunchAsync(game, new LauncherSettings { SkipSplashScreens = true });
             Require(!result.Success && runner.Starts == 0 && !service.AnyRunning, "Unsupported executable was launched.");
             Require(result.Error?.Contains("Untick", StringComparison.Ordinal) == true, "Unsupported-version error does not explain recovery.");
@@ -184,7 +184,7 @@ internal static class SplashChecks
             var runner = new FakeRunner();
             var preparer = new PausingPreparer(cached);
             var settings = new LauncherSettings { SkipSplashScreens = true };
-            await using var service = new GameSessionService(Path.Combine(root, "launcher-data"), runner, preparer: preparer);
+            await using var service = new GameSessionService(Path.Combine(root, "launcher-data"), runner, preparer: preparer, temporaryCollections: TestCollectionProfiles.Create());
             var launch = service.LaunchAsync(game, settings);
             await preparer.Entered.Task.WaitAsync(TimeSpan.FromSeconds(3));
             settings.SkipSplashScreens = false;
@@ -203,7 +203,7 @@ internal static class SplashChecks
             var runner = new FakeRunner();
             var preparer = new PausingPreparer(game.ExecutablePath);
             using var cancellation = new CancellationTokenSource();
-            await using var service = new GameSessionService(Path.Combine(root, "launcher-data"), runner, preparer: preparer);
+            await using var service = new GameSessionService(Path.Combine(root, "launcher-data"), runner, preparer: preparer, temporaryCollections: TestCollectionProfiles.Create());
             var launch = service.LaunchAsync(game, new LauncherSettings { SkipSplashScreens = true }, cancellation.Token);
             await preparer.Entered.Task.WaitAsync(TimeSpan.FromSeconds(3));
             cancellation.Cancel();
@@ -216,7 +216,7 @@ internal static class SplashChecks
             var game = await Installation(root, "yugi", SyntheticImage());
             var runner = new FakeRunner();
             var preparer = new PausingPreparer(game.ExecutablePath);
-            var service = new GameSessionService(Path.Combine(root, "launcher-data"), runner, preparer: preparer);
+            var service = new GameSessionService(Path.Combine(root, "launcher-data"), runner, preparer: preparer, temporaryCollections: TestCollectionProfiles.Create());
             var launch = service.LaunchAsync(game, new LauncherSettings { SkipSplashScreens = true });
             await preparer.Entered.Task.WaitAsync(TimeSpan.FromSeconds(3));
             var first = service.DisposeAsync().AsTask();
@@ -234,7 +234,7 @@ internal static class SplashChecks
             var game = await Installation(root, "yugi", SyntheticImage());
             var runner = new FakeRunner();
             var preparer = new PausingPreparer(game.ExecutablePath);
-            var service = new GameSessionService(Path.Combine(root, "launcher-data"), runner, preparer: preparer);
+            var service = new GameSessionService(Path.Combine(root, "launcher-data"), runner, preparer: preparer, temporaryCollections: TestCollectionProfiles.Create());
             var first = service.LaunchAsync(game, new LauncherSettings { SkipSplashScreens = true });
             await preparer.Entered.Task.WaitAsync(TimeSpan.FromSeconds(3));
             using var cancellation = new CancellationTokenSource();

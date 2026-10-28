@@ -7,3 +7,5 @@ Only launcher-authored text source, configuration, documentation and original ve
 Use independent review before publishing. Only the coordinator stages explicit inspected paths, commits and pushes. Run `tools/publication_guard.py` on the working tree and exact commit. Audit that exact commit independently before pushing. Private visibility does not change the source-only publication rule.
 
 Discovery must remain read-only, cancellable and bounded. Do not follow directory links outside the selected tree. Tests generate synthetic PE/archive headers, not copies of game bytes. Preserve launcher settings and playtime atomically; do not modify installed files or game saves. Mark unavailable mods honestly.
+
+The user-authorized Temporary all cards feature may replace the active shared system.dat only at runtime after explicit activation, with a durable original backup, session exclusion and exact restoration on deactivation. This exception does not permit development or automated tests to write real saves or registry values; use synthetic fixtures. Other installed files remain inspection inputs.

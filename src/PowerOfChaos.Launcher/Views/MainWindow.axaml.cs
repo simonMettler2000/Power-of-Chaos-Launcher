@@ -20,7 +20,9 @@ public partial class MainWindow : Window
 {
     private readonly SettingsStore _store = new();
     private readonly GameDiscovery _discovery = new();
-    private readonly GameSessionService _sessions = new();
+    private readonly GameSessionService _sessions;
+    private readonly TemporaryCollectionService _temporaryCollections;
+    private TemporaryCollectionState _temporaryState = new(false, true, null, "Checking temporary collection…");
     private readonly GamePortraitLoader _portraits = new();
     private readonly CardCollectionReader _collections = new();
     private readonly NativeCardArtworkReader _cardArtwork = new();
@@ -50,8 +52,13 @@ public partial class MainWindow : Window
     private static LauncherText Texts => LauncherText.Current;
     private static StringComparison PathComparison => OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
 
-    public MainWindow()
+    public MainWindow() : this(new TemporaryCollectionService()) { }
+
+    public MainWindow(TemporaryCollectionService temporaryCollections)
     {
+        ArgumentNullException.ThrowIfNull(temporaryCollections);
+        _temporaryCollections = temporaryCollections;
+        _sessions = new GameSessionService(temporaryCollections: temporaryCollections);
         InitializeComponent();
         CardLanguageSelector.ItemsSource = CardLanguages.All;
         GameCards.ItemsSource = _cards;
@@ -66,7 +73,14 @@ public partial class MainWindow : Window
         _sessions.SessionsChanged += SessionsChanged;
         Opened += async (_, _) => await InitializeAsync();
         ScalingChanged += (_, _) => RefreshPortraitThumbnails();
-        Activated += async (_, _) => { if (_settingsReady && !_closed) await RefreshCollectionAsync(); };
+        Activated += async (_, _) =>
+        {
+            if (_settingsReady && !_closed && !_savingMod)
+            {
+                await RefreshTemporaryCollectionAsync();
+                await RefreshCollectionAsync();
+            }
+        };
         Closing += (_, e) =>
         {
             if (_pendingLaunch || _savingMod || GameCatalog.All.Any(g => _sessions.IsRunning(g.Id)))
@@ -110,6 +124,8 @@ public partial class MainWindow : Window
             _settings = loaded;
             Texts.SetLanguage(_settings.CardLanguage);
             CollectionSaveInput.Text = _settings.CollectionSavePath;
+            await RefreshTemporaryCollectionAsync();
+            if (_closed) return;
             RenderLibrary();
             RenderLocations();
             await RefreshSessionsAsync();
@@ -147,7 +163,7 @@ public partial class MainWindow : Window
             if (installed is not null)
             {
                 var card = new GameCardViewModel(installed);
-                card.SetLaunchPending(!_settingsReady || _savingMod || _pendingLaunch);
+                card.SetLaunchPending(LaunchBlocked);
                 _cards.Add(card);
             }
         }
@@ -244,10 +260,14 @@ public partial class MainWindow : Window
     private async Task RemoveLocationAsync(string root)
     {
         if (!_settingsReady || _savingMod || _busy || _pendingLaunch || _closed) return;
+        if (CollectionProfileBindsLocations()) return;
         if (GameCatalog.All.Any(g => _sessions.IsRunning(g.Id))) { Notice("Game locations can be changed after the current session ends."); return; }
         var confirm = new ConfirmDialog("Remove this game location?", "This removes the folder and its games from this launcher. Your installed files stay where they are.", "Remove location");
         var confirmed = await confirm.ShowDialog<bool>(this);
         if (_closed || !confirmed) return;
+        await RefreshTemporaryCollectionAsync();
+        if (_closed || _savingMod || _pendingLaunch || _busy || CollectionProfileBindsLocations()) return;
+        if (_sessions.AnyRunning) { Notice("Game locations can be changed after the current session ends."); return; }
         _settings.SearchRoots.RemoveAll(p => string.Equals(p, root, PathComparison));
         _settings.Installations.RemoveAll(g => string.Equals(g.DiscoveryRoot, root, PathComparison));
         var saved = await SaveSettingsAsync();
@@ -258,8 +278,11 @@ public partial class MainWindow : Window
     private async void AddPath_Click(object? sender, RoutedEventArgs e)
     {
         if (!_settingsReady || _savingMod || _busy || _pendingLaunch || _closed) return;
+        if (CollectionProfileBindsLocations()) return;
         var result = await new AddGamePathDialog().ShowDialog<AddPathResult?>(this);
         if (result is null || _closed) return;
+        await RefreshTemporaryCollectionAsync();
+        if (_closed || _savingMod || _pendingLaunch || _busy || CollectionProfileBindsLocations()) return;
         foreach (var group in result.Result.Games.GroupBy(i => i.GameId))
         {
             if (_sessions.IsRunning(group.Key)) continue;
@@ -281,6 +304,7 @@ public partial class MainWindow : Window
     private async void Rescan_Click(object? sender, RoutedEventArgs e)
     {
         if (!_settingsReady || _savingMod || _busy || _pendingLaunch || _closed || _settings.SearchRoots.Count == 0) return;
+        if (CollectionProfileBindsLocations()) return;
         if (GameCatalog.All.Any(g => _sessions.IsRunning(g.Id))) { Notice("Rescan is available after the current game session ends."); return; }
         _busy = true;
         RefreshModControls();
@@ -298,6 +322,8 @@ public partial class MainWindow : Window
                 if (_closed) return;
                 found.AddRange(result.Games); skipped += result.SkippedDirectories; limited |= result.LimitReached;
             }
+            await RefreshTemporaryCollectionAsync();
+            if (_closed || CollectionProfileBindsLocations()) return;
             _settings.Installations = found.GroupBy(i => i.GameId).Select(g => g.First()).ToList();
             var saved = await SaveSettingsAsync();
             RenderLibrary(); RenderLocations(); await RefreshSessionsAsync();
@@ -335,6 +361,9 @@ public partial class MainWindow : Window
         NoticeFormat("Starting {0}…", GameCatalog.Get(installation.GameId).Title);
         try
         {
+            await RefreshTemporaryCollectionAsync();
+            if (_closed) return;
+            if (_temporaryState.RecoveryRequired) { Notice(_temporaryState.Message); return; }
             var result = await _sessions.LaunchAsync(installation, _settings);
             if (!result.Success) { Notice(result.Error ?? "The game could not be started."); return; }
             await RefreshSessionsAsync();
@@ -362,6 +391,7 @@ public partial class MainWindow : Window
         if (_closed) return;
         try
         {
+            await RefreshTemporaryCollectionAsync();
             await RefreshSessionsAsync();
             await RefreshCollectionAsync();
             if (ShowSessionWarning()) return;
@@ -392,7 +422,7 @@ public partial class MainWindow : Window
         {
             var running = _sessions.IsRunning(card.Installation.GameId);
             card.Refresh(totals.GetValueOrDefault(card.Installation.GameId), running, anyRunning && !running);
-            card.SetLaunchPending(!_settingsReady || _savingMod || _pendingLaunch);
+            card.SetLaunchPending(LaunchBlocked);
         }
     }
 
@@ -408,7 +438,78 @@ public partial class MainWindow : Window
         try { CardLanguageSelector.SelectedItem = CardLanguages.Get(_settings.CardLanguage); }
         finally { _renderingCardLanguage = false; }
         CardLanguageSelector.IsEnabled = SkipSplashScreensCheckBox.IsEnabled;
-        foreach (var card in _cards) card.SetLaunchPending(!_settingsReady || _savingMod || _pendingLaunch);
+        TemporaryAllCardsCheckBox.IsChecked = _temporaryState.Enabled;
+        TemporaryAllCardsCheckBox.IsEnabled = SkipSplashScreensCheckBox.IsEnabled && !_sessions.AnyRunning
+            && !_temporaryState.RecoveryRequired && OperatingSystem.IsWindows();
+        RestoreCollectionButton.IsVisible = _temporaryState.RecoveryRequired;
+        RestoreCollectionButton.IsEnabled = SkipSplashScreensCheckBox.IsEnabled && !_sessions.AnyRunning;
+        RenderTemporaryCollectionStatus();
+        foreach (var card in _cards) card.SetLaunchPending(LaunchBlocked);
+    }
+
+    private bool LaunchBlocked => !_settingsReady || _savingMod || _pendingLaunch || _temporaryState.RecoveryRequired;
+
+    private bool CollectionProfileBindsLocations()
+    {
+        if (!_temporaryState.Enabled && !_temporaryState.RecoveryRequired) return false;
+        Notice("Turn off Temporary all cards and restore your collection before changing game locations.");
+        return true;
+    }
+
+    private async Task RefreshTemporaryCollectionAsync()
+    {
+        try { _temporaryState = await _temporaryCollections.ReadStateAsync(); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or System.Security.SecurityException)
+        {
+            _temporaryState = new(false, true, null, "Temporary collection recovery is required before playing.");
+        }
+        if (!_closed) RefreshModControls();
+    }
+
+    private void RenderTemporaryCollectionStatus()
+    {
+        TemporaryCollectionStatus.Text = Texts.Translate(OperatingSystem.IsWindows()
+            ? _temporaryState.Message : "Temporary all cards is available on Windows only.");
+        TemporaryCollectionBackups.Text = Texts.Format("Backups: {0}", _temporaryCollections.VaultDirectory);
+    }
+
+    private async void TemporaryAllCards_Click(object? sender, RoutedEventArgs e)
+        => await ChangeTemporaryCollectionAsync(TemporaryAllCardsCheckBox.IsChecked == true);
+
+    private async void RestoreCollection_Click(object? sender, RoutedEventArgs e)
+        => await ChangeTemporaryCollectionAsync(false);
+
+    private async Task ChangeTemporaryCollectionAsync(bool enabled)
+    {
+        if (!_settingsReady || _savingMod || _pendingLaunch || _busy || _closed || _sessions.AnyRunning)
+        {
+            if (!_closed) RefreshModControls();
+            return;
+        }
+        _savingMod = true;
+        RefreshModControls();
+        Notice(enabled ? "Preparing a backed-up temporary collection…" : "Restoring your original collection…");
+        try
+        {
+            _temporaryState = await _temporaryCollections.SetEnabledAsync(enabled, _settings.Installations.ToArray());
+            if (!_closed) Notice(_temporaryState.Message);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException
+            or ArgumentException or InvalidOperationException or NotSupportedException or System.Security.SecurityException)
+        {
+            NoticeFormat("Temporary collection could not be changed: {0}", new LocalizedTextArgument(ex.Message));
+        }
+        finally
+        {
+            await RefreshTemporaryCollectionAsync();
+            _savingMod = false;
+            if (!_closed)
+            {
+                RefreshModControls();
+                await RefreshCollectionAsync();
+                if (_closeWhenIdle && !_sessions.AnyRunning && !_pendingLaunch) Close();
+            }
+        }
     }
 
     private async void CardLanguage_SelectionChanged(object? sender, SelectionChangedEventArgs e)
@@ -577,6 +678,7 @@ public partial class MainWindow : Window
             StatusText.ClearSelection();
         }
         SetCopyCaption(_copyCaption);
+        RenderTemporaryCollectionStatus();
         CollectionStatus.Text = Texts.Translate(_collectionStatusEnglish);
         CollectionSaveSource.Text = _collectionSaveName ?? Texts.Translate("Automatic location");
         RenderLocations();
@@ -600,7 +702,11 @@ public partial class MainWindow : Window
         }
     }
     private void Library_Click(object? sender, RoutedEventArgs e) => ShowPage("library");
-    private void Mods_Click(object? sender, RoutedEventArgs e) => ShowPage("mods");
+    private async void Mods_Click(object? sender, RoutedEventArgs e)
+    {
+        ShowPage("mods");
+        if (_settingsReady && !_closed && !_savingMod) await RefreshTemporaryCollectionAsync();
+    }
     private async void Collection_Click(object? sender, RoutedEventArgs e)
     {
         ShowPage("collection");
@@ -622,7 +728,7 @@ public partial class MainWindow : Window
         try
         {
             var snapshot = await _collections.ReadAsync(_settings.Installations.ToArray(),
-                _settings.CollectionSavePath, cancellation.Token);
+                _temporaryState.Enabled ? _temporaryState.SavePath : _settings.CollectionSavePath, cancellation.Token);
             if (_closed || cancellation.IsCancellationRequested) return;
             foreach (var row in _collectionRows)
             {

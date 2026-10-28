@@ -514,7 +514,8 @@ internal static class Program
             window.Close();
             Pump(TimeSpan.FromMilliseconds(80));
             File.WriteAllText(Path.Combine(data, "launcher-settings.json"), legacySettings);
-            window = new MainWindow();
+            window = new MainWindow(new TemporaryCollectionService(Path.Combine(
+            Environment.GetEnvironmentVariable("POC_LAUNCHER_DATA_DIR")!, "temporary-profiles"), hasRunningGames: () => false));
             var loadingGate = SettingsGate(window);
             loadingGate.Wait();
             Check("loading legacy settings keeps every mod disabled until settings are ready", () =>
@@ -583,6 +584,7 @@ internal static class Program
                 Require(loads.Count == 0, "Window close retained active gallery loads.");
             });
 
+            TemporaryCollectionUiChecks.RunAll(runRoot, Check, Pump, WaitUntil, Capture);
             Console.WriteLine($"PASS {passed} real-component headless UI checks. No Play action or game process was invoked.");
             Console.WriteLine("Rendered frames: " + artifacts);
             return 0;
@@ -766,7 +768,8 @@ internal static class Program
 
     private static MainWindow OpenWindow()
     {
-        var window = new MainWindow();
+        var window = new MainWindow(new TemporaryCollectionService(Path.Combine(
+            Environment.GetEnvironmentVariable("POC_LAUNCHER_DATA_DIR")!, "temporary-profiles"), hasRunningGames: () => false));
         // Ordinary UI checks use authored saves only, regardless of the user's real registry CommonDir.
         typeof(MainWindow).GetField("_collections", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(window, new PowerOfChaos.Launcher.Core.Collections.CardCollectionReader(_ => []));

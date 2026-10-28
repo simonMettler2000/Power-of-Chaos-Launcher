@@ -21,6 +21,7 @@ internal static class Program
             return 0;
         }
         using var fixtures = new FixtureScope();
+        TestCollectionProfiles.Root = fixtures.Folder("session-profile-locks");
         try
         {
             await Run("new settings begin without game paths", async () =>
@@ -256,6 +257,8 @@ internal static class Program
             await PortraitChecks.RunAll(fixtures.Root, Run);
             await PortraitThumbnailChecks.RunAll(fixtures.Root, Run);
             await CollectionChecks.RunAll(fixtures.Root, Run);
+            await TemporaryUnlockCodecChecks.RunAll(fixtures.Root, Run);
+            await TemporaryCollectionChecks.RunAll(fixtures.Root, Run);
             await NativeCardArtworkChecks.RunAll(fixtures.Root, Run);
             await NativeCardNameChecks.RunAll(fixtures.Root, Run);
             await CardLanguagePreferenceChecks.RunAll(fixtures.Root, Run);

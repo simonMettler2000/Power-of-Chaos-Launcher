@@ -224,7 +224,7 @@ internal static class AspectRatioChecks
             Require(Hash(await File.ReadAllBytesAsync(path)) == Hash(fixture.Original), "Bad source component changed an existing verified cache.");
             var missing = new GameLaunchPreparer(Path.Combine(fixture.Root, "missing-data"), fixture.Profiles, Path.Combine(fixture.Root, "absent"), fixture.Components);
             var runner = new FakeRunner();
-            await using var service = new GameSessionService(Path.Combine(fixture.Root, "session"), runner, preparer: missing);
+            await using var service = new GameSessionService(Path.Combine(fixture.Root, "session"), runner, preparer: missing, temporaryCollections: TestCollectionProfiles.Create());
             var result = await service.LaunchAsync(fixture.Game, Settings(options));
             Require(!result.Success && runner.Starts == 0 && result.Error!.Contains("component setup", StringComparison.Ordinal), "Missing components did not give actionable recovery advice.");
         });
@@ -335,7 +335,7 @@ internal static class AspectRatioChecks
                 Expect<InvalidDataException>(() => OriginalAspectRatioPreparer.CreateConfiguration(Path.Combine(data, "screenshots")));
                 var runner = new FakeRunner();
                 var sessionDirectory = Path.Combine(fixture.Root, "session");
-                await using var service = new GameSessionService(sessionDirectory, runner, preparer: preparer);
+                await using var service = new GameSessionService(sessionDirectory, runner, preparer: preparer, temporaryCollections: TestCollectionProfiles.Create());
                 var result = await service.LaunchAsync(fixture.Game, Settings(new(false, false, true)));
                 Require(!result.Success && runner.Starts == 0 && !Directory.Exists(data) && !Directory.Exists(sessionDirectory),
                     "Rejected Unicode path started a process or wrote runtime state.");
@@ -434,7 +434,7 @@ internal static class AspectRatioChecks
             var fixture = await Fixture.Create(Path.Combine(fixtures, "aq"));
             var preparer = new PausingPreparer(fixture.Game.ExecutablePath);
             var runner = new FakeRunner();
-            var service = new GameSessionService(Path.Combine(fixture.Root, "session"), runner, preparer: preparer);
+            var service = new GameSessionService(Path.Combine(fixture.Root, "session"), runner, preparer: preparer, temporaryCollections: TestCollectionProfiles.Create());
             var settings = Settings(new(true, true, true));
             var launch = service.LaunchAsync(fixture.Game, settings);
             await preparer.Entered.Task.WaitAsync(TimeSpan.FromSeconds(3));
@@ -445,7 +445,7 @@ internal static class AspectRatioChecks
             await service.DisposeAsync();
             var queuedPreparer = new FirstFailsPreparer(fixture.Game.ExecutablePath);
             var queuedRunner = new FakeRunner();
-            await using (var queuedService = new GameSessionService(Path.Combine(fixture.Root, "queued"), queuedRunner, preparer: queuedPreparer))
+            await using (var queuedService = new GameSessionService(Path.Combine(fixture.Root, "queued"), queuedRunner, preparer: queuedPreparer, temporaryCollections: TestCollectionProfiles.Create()))
             {
                 var first = queuedService.LaunchAsync(fixture.Game, Settings(new(true, false, false)));
                 await queuedPreparer.Entered.Task.WaitAsync(TimeSpan.FromSeconds(3));
@@ -458,7 +458,7 @@ internal static class AspectRatioChecks
             }
             var cancelling = new PausingPreparer(fixture.Game.ExecutablePath);
             var cancelledRunner = new FakeRunner();
-            var cancelledService = new GameSessionService(Path.Combine(fixture.Root, "cancel-session"), cancelledRunner, preparer: cancelling);
+            var cancelledService = new GameSessionService(Path.Combine(fixture.Root, "cancel-session"), cancelledRunner, preparer: cancelling, temporaryCollections: TestCollectionProfiles.Create());
             var pending = cancelledService.LaunchAsync(fixture.Game, Settings(new(false, false, true)));
             await cancelling.Entered.Task.WaitAsync(TimeSpan.FromSeconds(3));
             await cancelledService.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(3));

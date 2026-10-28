@@ -2,6 +2,8 @@ using System.Diagnostics;
 using System.Text.Json;
 using PowerOfChaos.Launcher.Core;
 using PowerOfChaos.Launcher.Core.Launching;
+using PowerOfChaos.Launcher.Core.Collections;
+using PowerOfChaos.Launcher.TestFixtures;
 
 namespace PowerOfChaos.Launcher.Tests;
 
@@ -44,7 +46,7 @@ internal static class SessionChecks
             var folder = Path.Combine(fixtures, "fake-session-state");
             var clock = new ManualClock();
             var runner = new FakeRunner();
-            await using (var service = new GameSessionService(folder, runner, clock, TimeSpan.FromHours(1)))
+            await using (var service = new GameSessionService(folder, runner, clock, TimeSpan.FromHours(1), temporaryCollections: TestCollectionProfiles.Create()))
             {
                 var finished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
                 service.SessionsChanged += (_, _) => { if (!service.AnyRunning) finished.TrySetResult(); };
@@ -61,7 +63,7 @@ internal static class SessionChecks
                 Check(!service.AnyRunning, "Completed fake process remains active.");
                 Check((await service.GetPlaytimeSecondsAsync())["yugi"] == 97, "Final total changed unexpectedly.");
             }
-            await using var reloaded = new GameSessionService(folder, new FakeRunner(), clock);
+            await using var reloaded = new GameSessionService(folder, new FakeRunner(), clock, temporaryCollections: TestCollectionProfiles.Create());
             Check((await reloaded.GetPlaytimeSecondsAsync())["yugi"] == 97, "Total did not survive service recreation.");
         });
 
@@ -76,7 +78,7 @@ internal static class SessionChecks
                 LastCheckpointUtc = new DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero)
             }));
             var runner = new FakeRunner();
-            await using var service = new GameSessionService(folder, runner, new ManualClock());
+            await using var service = new GameSessionService(folder, runner, new ManualClock(), temporaryCollections: TestCollectionProfiles.Create());
             Check((await service.GetPlaytimeSecondsAsync())["kaiba"] == 42, "Offline interval was incorrectly counted.");
             Check(!service.AnyRunning && runner.Starts == 0, "Recovery unexpectedly starts a game or invents an active session.");
         });
@@ -86,7 +88,7 @@ internal static class SessionChecks
             var blockedDirectory = Path.Combine(fixtures, "blocked-session-directory");
             await File.WriteAllTextAsync(blockedDirectory, "This is a file, not a directory.");
             var runner = new FakeRunner();
-            await using var service = new GameSessionService(blockedDirectory, runner);
+            await using var service = new GameSessionService(blockedDirectory, runner, temporaryCollections: TestCollectionProfiles.Create());
             var result = await service.LaunchAsync(game, new LauncherSettings());
             Check(!result.Success && runner.Starts == 0 && !service.AnyRunning, "Untracked process started after storage failure.");
         });
@@ -96,13 +98,13 @@ internal static class SessionChecks
             var folder = Path.Combine(fixtures, "disposed-session-state");
             var runner = new FakeRunner();
             var clock = new ManualClock();
-            var service = new GameSessionService(folder, runner, clock, TimeSpan.FromHours(1));
+            var service = new GameSessionService(folder, runner, clock, TimeSpan.FromHours(1), temporaryCollections: TestCollectionProfiles.Create());
             Check((await service.LaunchAsync(game, new LauncherSettings())).Success, "Fake process did not start.");
             clock.Advance(TimeSpan.FromSeconds(13));
             await service.DisposeAsync();
             Check(runner.Process.Disposed, "Tracking process handle was not released.");
             Check(!runner.Process.Completed, "Tracking disposal must not terminate a game.");
-            await using var reloaded = new GameSessionService(folder, new FakeRunner(), clock);
+            await using var reloaded = new GameSessionService(folder, new FakeRunner(), clock, temporaryCollections: TestCollectionProfiles.Create());
             Check((await reloaded.GetPlaytimeSecondsAsync())["yugi"] == 13, "Disposal lost elapsed playtime.");
         });
 
@@ -113,10 +115,59 @@ internal static class SessionChecks
             var path = Path.Combine(folder, "playtime.json");
             await File.WriteAllTextAsync(path, "not JSON");
             var runner = new FakeRunner();
-            await using var service = new GameSessionService(folder, runner);
+            await using var service = new GameSessionService(folder, runner, temporaryCollections: TestCollectionProfiles.Create());
             Check((await service.GetPlaytimeSecondsAsync()).Count == 0, "Malformed state did not reset totals.");
             Check(Directory.EnumerateFiles(folder, "playtime.json.corrupt-*").Any(), "Malformed playtime was not preserved.");
             Check(runner.Starts == 0, "Reading corrupt playtime started a process.");
+        });
+
+        await run("all launch modes hold the shared collection lease until their fake session ends", async () =>
+        {
+            var folder = Path.Combine(fixtures, "shared-profile-session");
+            var profiles = new TemporaryCollectionService(Path.Combine(folder, "profiles"), hasRunningGames: () => false);
+            var firstRunner = new FakeRunner();
+            var secondRunner = new FakeRunner();
+            var first = new GameSessionService(Path.Combine(folder, "first"), firstRunner, temporaryCollections: profiles);
+            await using var second = new GameSessionService(Path.Combine(folder, "second"), secondRunner, temporaryCollections: profiles);
+            try
+            {
+                Check((await first.LaunchAsync(game, new LauncherSettings())).Success, "First synthetic session failed.");
+                var blocked = await second.LaunchAsync(game, new LauncherSettings());
+                Check(!blocked.Success && secondRunner.Starts == 0, "Another launcher bypassed the shared session lease.");
+                try { await profiles.SetEnabledAsync(false, [game]); throw new Exception("A live session allowed a profile transition."); }
+                catch (InvalidOperationException) { }
+                firstRunner.Process.Complete();
+                await first.DisposeAsync();
+                Check((await second.LaunchAsync(game, new LauncherSettings())).Success, "Completed session retained its lease.");
+                secondRunner.Process.Complete();
+            }
+            finally { await first.DisposeAsync(); }
+        });
+
+        await run("tracking cancellation never restores temporary cards underneath a still-running fake game", async () =>
+        {
+            var folder = Path.Combine(fixtures, "temporary-session-disposal");
+            var temporaryGame = Installation(folder, "game", "yugi");
+            File.Delete(temporaryGame.DataPath);
+            CollectionFixtures.WriteArchive(temporaryGame.DataPath);
+            var save = Path.Combine(folder, "system.dat");
+            var original = CollectionFixtures.Save([(CollectionFixtures.Slot(1), (byte)2)]);
+            await File.WriteAllBytesAsync(save, original);
+            var runner = new FakeRunner();
+            var profiles = new TemporaryCollectionService(Path.Combine(folder, "vault"), new CardCollectionReader(_ => [save]),
+                () => runner.Starts > 0 && !runner.Process.Completed);
+            await profiles.SetEnabledAsync(true, [temporaryGame]);
+            var unlocked = await File.ReadAllBytesAsync(save);
+            var session = new GameSessionService(Path.Combine(folder, "tracking"), runner, temporaryCollections: profiles);
+            Check((await session.LaunchAsync(temporaryGame, new LauncherSettings())).Success, "Temporary synthetic session failed.");
+            await session.DisposeAsync();
+            Check(!runner.Process.Completed && (await profiles.ReadStateAsync()).Enabled, "Tracking cancellation ended the game or temporary profile.");
+            Check((await File.ReadAllBytesAsync(save)).SequenceEqual(unlocked), "Tracking cancellation restored a save under a live game.");
+            try { await profiles.SetEnabledAsync(false, [temporaryGame]); throw new Exception("OS game guard was bypassed after tracking disposal."); }
+            catch (InvalidOperationException) { }
+            runner.Process.Complete();
+            await profiles.SetEnabledAsync(false, [temporaryGame]);
+            Check((await File.ReadAllBytesAsync(save)).SequenceEqual(original), "Original was not restored after the actual fake exit.");
         });
     }
 

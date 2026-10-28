@@ -189,7 +189,7 @@ internal static class InteractionChecks
             foreach (var options in Selections.Where(options => options.AnyEnabled))
             {
                 var runner = new FakeRunner();
-                await using var service = new GameSessionService(Path.Combine(root, options.CacheKey), runner);
+                await using var service = new GameSessionService(Path.Combine(root, options.CacheKey), runner, temporaryCollections: TestCollectionProfiles.Create());
                 var result = await service.LaunchAsync(game, new LauncherSettings
                 { SkipSplashScreens = options.SkipSplashScreens, SkipCharacterInteractions = options.SkipCharacterInteractions });
                 Require(!result.Success && runner.Starts == 0 && !service.AnyRunning && result.Error!.Contains("Untick", StringComparison.Ordinal),
@@ -204,7 +204,7 @@ internal static class InteractionChecks
             var runner = new FakeRunner();
             var preparer = new PausingPreparer(game.ExecutablePath);
             var settings = new LauncherSettings { SkipSplashScreens = true, SkipCharacterInteractions = true };
-            await using var service = new GameSessionService(Path.Combine(root, "data"), runner, preparer: preparer);
+            await using var service = new GameSessionService(Path.Combine(root, "data"), runner, preparer: preparer, temporaryCollections: TestCollectionProfiles.Create());
             var launch = service.LaunchAsync(game, settings);
             await preparer.Entered.Task.WaitAsync(TimeSpan.FromSeconds(3));
             settings.SkipSplashScreens = false; settings.SkipCharacterInteractions = false;
@@ -221,7 +221,7 @@ internal static class InteractionChecks
             var game = await SplashChecks.Installation(root, "yugi", Image());
             var preparer = new FirstFailsPreparer(game.ExecutablePath);
             var runner = new FakeRunner();
-            await using var service = new GameSessionService(Path.Combine(root, "data"), runner, preparer: preparer);
+            await using var service = new GameSessionService(Path.Combine(root, "data"), runner, preparer: preparer, temporaryCollections: TestCollectionProfiles.Create());
             var first = service.LaunchAsync(game, new LauncherSettings { SkipSplashScreens = true });
             await preparer.Entered.Task.WaitAsync(TimeSpan.FromSeconds(3));
             var queuedSettings = new LauncherSettings { SkipCharacterInteractions = true };
@@ -239,7 +239,7 @@ internal static class InteractionChecks
                 var root = Path.Combine(fixtures, "interaction-cancel-" + options.CacheKey);
                 var game = await SplashChecks.Installation(root, "yugi", Image());
                 var runner = new FakeRunner(); var preparer = new PausingPreparer(game.ExecutablePath);
-                var service = new GameSessionService(Path.Combine(root, "data"), runner, preparer: preparer);
+                var service = new GameSessionService(Path.Combine(root, "data"), runner, preparer: preparer, temporaryCollections: TestCollectionProfiles.Create());
                 var launch = service.LaunchAsync(game, new LauncherSettings
                 { SkipSplashScreens = options.SkipSplashScreens, SkipCharacterInteractions = options.SkipCharacterInteractions });
                 await preparer.Entered.Task.WaitAsync(TimeSpan.FromSeconds(3));

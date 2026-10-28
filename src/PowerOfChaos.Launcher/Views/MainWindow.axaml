@@ -172,6 +172,19 @@
               </Grid>
             </Border>
             <Border Classes="panel" Padding="20">
+              <Grid x:Name="TemporaryAllCardsRow" ColumnDefinitions="Auto,210,*" ColumnSpacing="20">
+                <CheckBox x:Name="TemporaryAllCardsCheckBox" VerticalAlignment="Center" IsEnabled="False"
+                          AutomationProperties.Name="{loc:Tr Text='Temporary all cards for all three games'}" Click="TemporaryAllCards_Click" />
+                <TextBlock Grid.Column="1" Text="{loc:Tr Text='Temporary all cards'}" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
+                <StackPanel Grid.Column="2" Spacing="10">
+                  <TextBlock Text="{loc:Tr Text='Use three copies of every supported card in the added games. Untick to restore your complete original collection save, including decks and statistics. Progress in the temporary save is archived separately. Close all games before switching.'}" Classes="quiet" TextWrapping="Wrap" LineHeight="21" />
+                  <SelectableTextBlock x:Name="TemporaryCollectionStatus" TextWrapping="Wrap" FontSize="12" />
+                  <SelectableTextBlock x:Name="TemporaryCollectionBackups" TextWrapping="Wrap" Classes="quiet" FontSize="11" />
+                  <Button x:Name="RestoreCollectionButton" Content="{loc:Tr Text='Restore original collection'}" Classes="secondary" IsVisible="False" Click="RestoreCollection_Click" />
+                </StackPanel>
+              </Grid>
+            </Border>
+            <Border Classes="panel" Padding="20">
               <Grid ColumnDefinitions="Auto,210,*" ColumnSpacing="20">
                 <CheckBox IsEnabled="False" VerticalAlignment="Center" AutomationProperties.Name="{loc:Tr Text='Custom opponent decks, in development'}" />
                 <TextBlock Grid.Column="1" Text="{loc:Tr Text='Custom opponent decks'}" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
@@ -251,7 +264,7 @@
             </ItemsControl>
             <StackPanel Spacing="10">
               <TextBlock Text="{loc:Tr Text='Collection save'}" Classes="caption" />
-              <TextBlock Text="{loc:Tr Text='Read your shared system.dat automatically, or choose a save. Your save is never changed.'}" Classes="quiet" FontSize="12" />
+              <TextBlock Text="{loc:Tr Text='Read your shared system.dat automatically, or choose a save to inspect. While Temporary all cards is active, the game’s temporary save is shown.'}" Classes="quiet" FontSize="12" />
               <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
                 <TextBox x:Name="CollectionSaveInput" Watermark="{loc:Tr Text='Automatic · shared system.dat'}" AutomationProperties.Name="{loc:Tr Text='Collection save path'}" />
                 <Button Grid.Column="1" Content="{loc:Tr Text='Browse…'}" Click="BrowseCollectionSave_Click" Classes="secondary" />
