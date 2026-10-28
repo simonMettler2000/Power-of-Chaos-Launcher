@@ -21,10 +21,13 @@ jobs:
       - run: dotnet restore PowerOfChaos.Launcher.sln --locked-mode
       - run: dotnet build PowerOfChaos.Launcher.sln -c Release --no-restore
       - run: dotnet run --project tests/PowerOfChaos.Launcher.Tests -c Release --no-build
+        env:
+          POC_LAUNCHER_TEST_ROOT: ${{ runner.temp }}/poc-core
       - run: dotnet run --project tests/PowerOfChaos.Launcher.UiChecks -c Release --no-build
+        env:
+          POC_LAUNCHER_TEST_ROOT: ${{ runner.temp }}/poc-core
       - run: python tools/publication_guard.py --commit HEAD
     env:
       DOTNET_CLI_TELEMETRY_OPTOUT: '1'
       DOTNET_GENERATE_ASPNET_CERTIFICATE: 'false'
       DOTNET_ADD_GLOBAL_TOOLS_TO_PATH: 'false'
-      POC_LAUNCHER_TEST_ROOT: ${{ runner.temp }}/poc-core
