@@ -269,5 +269,8 @@
   "Collection save checksum failed.": "Die Prüfsumme des Sammlungsspielstands ist ungültig.",
   "Unsupported collection save encoding.": "Die Codierung des Sammlungsspielstands wird nicht unterstützt.",
   "Unsupported collection save signature.": "Die Signatur des Sammlungsspielstands wird nicht unterstützt.",
-  "Collection data checksum failed.": "Die Prüfsumme der Sammlungsdaten ist ungültig."
+  "Collection data checksum failed.": "Die Prüfsumme der Sammlungsdaten ist ungültig.",
+  "Version {0}": "Version {0}",
+  "A secure short ASCII display cache could not be created. Check access to ProgramData, or choose a short ASCII launcher data folder.": "Ein sicherer kurzer ASCII-Anzeigecache konnte nicht erstellt werden. Prüfe den Zugriff auf ProgramData oder wähle einen kurzen ASCII-Datenordner für den Launcher.",
+  "The display paths could not be resolved safely. Select ordinary existing game and component folders.": "Die Anzeigepfade konnten nicht sicher aufgelöst werden. Wähle gewöhnliche vorhandene Spiel- und Komponentenordner."
 }

@@ -269,5 +269,8 @@
   "Collection save checksum failed.": "コレクションのセーブのチェックサムが一致しません。",
   "Unsupported collection save encoding.": "コレクションのセーブのエンコードには対応していません。",
   "Unsupported collection save signature.": "コレクションのセーブの署名には対応していません。",
-  "Collection data checksum failed.": "コレクションのデータのチェックサムが一致しません。"
+  "Collection data checksum failed.": "コレクションのデータのチェックサムが一致しません。",
+  "Version {0}": "バージョン {0}",
+  "A secure short ASCII display cache could not be created. Check access to ProgramData, or choose a short ASCII launcher data folder.": "安全で短いASCIIパスの表示キャッシュを作成できませんでした。ProgramDataへのアクセスを確認するか、短いASCIIパスのランチャーデータフォルダーを選んでください。",
+  "The display paths could not be resolved safely. Select ordinary existing game and component folders.": "表示用のパスを安全に解決できませんでした。通常のパスで既存のゲームとコンポーネントのフォルダーを選択してください。"
 }

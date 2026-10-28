@@ -1,0 +1,13 @@
+Power of Chaos Launcher redistribution notices
+
+The launcher's own code is MIT licensed; PowerOfChaosLauncher-LICENSE.txt applies only to that code.
+The .NET runtime, Avalonia, ANGLE, SkiaSharp, HarfBuzzSharp, MicroCom, Tmds.DBus, Inter and display components retain their separate notices. Full provided notices are preserved, not summarized as a single license.
+
+For the unmodified libgifcodec SkGifImageReader.cpp and SkGifImageReader.h from commit d06d2a6d42baf6c0c91cacc28df2542a911d05fe, distribution selects the Mozilla Public License1.1 option from their tri-license. Their complete corresponding original codec source, license, interface/build context and source provenance accompany this program in CorrespondingSource-libgifcodec-d06d2a6.zip. Covered Code source is thus supplied with the executable on the same electronic media. See that archive's README and MPL-1.1 license; the full native notices remain applicable. This source archive is not represented as a complete rebuild of every third-party native library.
+
+The display component is the documented locally adapted cnc-ddraw profile: no codec registration/deletion, no global screensaver/process-affinity changes, authored workarea maximize adaptation. Required notices accompany the two pinned x86 display DLLs under Components/original-aspect-ratio-v1. Exact reviewed setup scripts and input pins are in the source repository.
+
+No Power of Chaos game executable, archive, save, artwork, card database or game-derived cached patch belongs to this download. Those remain local inputs supplied by each user.
+
+Project source and build recipes: https://github.com/simonMettler2000/Power-of-Chaos-Launcher
+Exact dependency source identities and all notice hashes are in release-settings.json and component-pins.json; resolved package versions are in package-manifest.json and the application's .deps.json.

@@ -254,11 +254,13 @@ internal static class Program
             await LaunchPathChecks.RunAll(fixtures.Root, Run);
             await InteractionChecks.RunAll(fixtures.Root, Run);
             await AspectRatioChecks.RunAll(fixtures.Root, Run);
+            await PortableDisplayCacheChecks.RunAll(fixtures.Root, Run);
             await PortraitChecks.RunAll(fixtures.Root, Run);
             await PortraitThumbnailChecks.RunAll(fixtures.Root, Run);
             await CollectionChecks.RunAll(fixtures.Root, Run);
             await TemporaryUnlockCodecChecks.RunAll(fixtures.Root, Run);
             await TemporaryCollectionChecks.RunAll(fixtures.Root, Run);
+            await TemporaryProfileIdentityChecks.RunAll(fixtures.Root, Run);
             await NativeCardArtworkChecks.RunAll(fixtures.Root, Run);
             await NativeCardNameChecks.RunAll(fixtures.Root, Run);
             await CardLanguagePreferenceChecks.RunAll(fixtures.Root, Run);

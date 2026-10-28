@@ -4,6 +4,16 @@ A lightweight, cross-platform desktop launcher for your own installations of **Y
 
 This repository contains launcher source and original vector UI assets. It does not contain, download or distribute the games or their executables, archives, saves, card databases, artwork, voices, music or mod packs.
 
+## Windows download
+
+Get the complete Windows ZIP from [Releases](https://github.com/simonMettler2000/Power-of-Chaos-Launcher/releases/latest). Choose **win-x64** for a 64-bit Windows PC, or **win-x86** for 32-bit Windows. Extract the entire ZIP into a new folder and open **PowerOfChaos.Launcher.exe**. Keep its other files beside it. The download includes the pinned .NET10 LTS runtime, application graphics/font dependencies and verified display components, so no separate .NET installation or mod setup is needed.
+
+Choose **Settings → Add Game path**, then select an installed game folder or a parent containing the three games. Collection counts, original card images and localized names come from those local installations. The launcher does not upload your games, settings or saves. Windows10/11 editions supported by .NET10 are the target; Windows7/8.1 and native ARM64 game compatibility are not established.
+
+The four available mods are **Skip Splash Screens**, **Skip character interactions**, **Original aspect ratio**, and **Temporary all cards**. Executable mods require the exact supported game revisions listed in [mod compatibility](docs/mods.md); finding a folder alone does not prove that revision is supported. Unknown revisions are refused rather than patched speculatively. Temporary all cards requires an existing unambiguous, writable shared save and the supported native card tables. Its switch must be changed with all games closed.
+
+HD Cards, opponent-deck packs and guaranteed-new rewards remain in development and disabled. Development/test builds are not part of this stable download. Future built-in mods are delivered through reviewed launcher updates; see [release and extension workflow](docs/releases.md).
+
 ## First run
 
 The library starts with **no game path added**. Click **Settings** beneath **About** in the sidebar, then **Add Game path**. Browse to a folder or paste its path. You can select a single game's directory or a parent directory containing all three installations.
@@ -74,14 +84,14 @@ The three inspected games use **800 x 600**, a **4:3** picture. Tick **Original 
 
 The mod preserves the game's existing timing and adds no frame-rate selection. Resizing can temporarily pause presentation while the window is being dragged. The game's own short catch-up behavior remains unchanged.
 
-This option needs a separately prepared, verified local display component. [Display setup and validation](docs/display.md) explains how to build it and put it beside your launcher. Missing or changed components produce an error before starting a game. The repository supplies authored build tools and factual pins; compiled components and game files stay local. Windows synthetic tests cover the display path; actual gameplay and Wine compatibility remain manual checks.
+The complete Windows download includes the required verified display component. Source builds can acquire the pinned release inputs or rebuild it using [display setup and validation](docs/display.md). Missing or changed components produce an error before starting a game. Installed game files stay local and unchanged. Windows synthetic tests cover the display path; actual gameplay and Wine compatibility remain manual checks.
 
 ## Build and run
 
-Install the .NET 8 SDK. `global.json` requests 8.0.400 with feature-band roll-forward. NuGet restores Avalonia 11.3.22 and its dependencies.
+Source developers need the .NET10 SDK requested by `global.json` (currently10.0.403). The target runtime is pinned to10.0.14; full Windows downloads contain it. C#12 language semantics are retained. NuGet restores the committed dependency locks for Avalonia11.3.22 and its dependencies.
 
 ```sh
-dotnet restore PowerOfChaos.Launcher.sln
+dotnet restore PowerOfChaos.Launcher.sln --locked-mode
 dotnet build PowerOfChaos.Launcher.sln -c Release --no-restore
 dotnet run --project src/PowerOfChaos.Launcher -c Release --no-build
 ```
@@ -107,6 +117,8 @@ On a machine with the supported installations, `dotnet run --project tests/Power
 The publication guard admits a narrow set of authored text source/configuration paths. It rejects binaries, game-file extensions, unexpected paths, oversized files and suspicious embedded content. Run it against the working tree and exact commit before publishing. Explicitly stage inspected files; never force-add ignored content. Build products, runtime configuration, tests' generated fixtures and mod packs remain ignored.
 
 The launcher requires separately obtained game installations. Private repository visibility does not authorize redistribution of game content. [Publication rules](docs/publication.md) describe this project's source-only boundary.
+
+The authored launcher is [MIT licensed](LICENSE). Third-party dependencies keep their own licenses and notices. Complete Windows Release assets are separately inspected and include those notices and required corresponding library source; they never include game files or personal data.
 
 ## Platform scope
 

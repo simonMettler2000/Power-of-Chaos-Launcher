@@ -1,0 +1,183 @@
+{
+  "schemaVersion": 1,
+  "sdkVersion": "10.0.403",
+  "targetFramework": "net10.0",
+  "runtimeVersion": "10.0.14",
+  "runtimeReleaseDate": "2026-10-25",
+  "runtimeEndOfSupport": "2028-11-14",
+  "supportedRuntimeIdentifiers": [
+    "win-x64",
+    "win-x86"
+  ],
+  "sourceRepository": "https://github.com/simonMettler2000/Power-of-Chaos-Launcher",
+  "notices": [
+    {
+      "length": 1096,
+      "sha256": "213814d306090074d234d760239ff0f67eb9b8d20eefb4d5631bb39dbe0b769b",
+      "url": "https://raw.githubusercontent.com/AvaloniaUI/Avalonia/627ae9ef921621e27e7aa58df2796fbadb50af88/licence.md",
+      "name": "Avalonia-LICENSE.md"
+    },
+    {
+      "length": 1675,
+      "sha256": "54aff7276217df9f6b5181613999d208c9e40d2b1d51bf55217837e6871a4a63",
+      "url": "https://api.nuget.org/v3-flatcontainer/avalonia.angle.windows.natives/2.1.25547.20250602/avalonia.angle.windows.natives.2.1.25547.20250602.nupkg",
+      "archiveEntry": "LICENSE",
+      "archiveSha256": "2c4fe510d007a6d9b3eaddd3fc0a09c2786975afb1b3b3eaae2346cdd71f83c3",
+      "packageId": "Avalonia.Angle.Windows.Natives",
+      "packageVersion": "2.1.25547.20250602",
+      "name": "Avalonia.Angle.Windows.Natives-2.1.25547.20250602-LICENSE.txt"
+    },
+    {
+      "name": "CorrespondingSource-libgifcodec-d06d2a6.zip",
+      "length": 63573,
+      "sha256": "5b8d412a6be737372109378c74c8d726aca7462bb685c6e556410cc00c82ba59",
+      "url": "https://github.com/simonMettler2000/Power-of-Chaos-Launcher/releases/download/v0.2.0/CorrespondingSource-libgifcodec-d06d2a6.zip"
+    },
+    {
+      "length": 1129,
+      "sha256": "89101e35a8c66fd4d6dffc1763259161d35cb564c169714ec227a768c89f2938",
+      "url": "https://api.nuget.org/v3-flatcontainer/harfbuzzsharp/8.3.1.1/harfbuzzsharp.8.3.1.1.nupkg",
+      "archiveEntry": "LICENSE.txt",
+      "archiveSha256": "eb5e32bfa6caf729e17549ef5b8c08920a417b6b2a4e1dbc53d7036737613dcd",
+      "packageId": "HarfBuzzSharp",
+      "packageVersion": "8.3.1.1",
+      "name": "HarfBuzzSharp-8.3.1.1-LICENSE.txt"
+    },
+    {
+      "length": 1129,
+      "sha256": "89101e35a8c66fd4d6dffc1763259161d35cb564c169714ec227a768c89f2938",
+      "url": "https://api.nuget.org/v3-flatcontainer/harfbuzzsharp.nativeassets.win32/8.3.1.1/harfbuzzsharp.nativeassets.win32.8.3.1.1.nupkg",
+      "archiveEntry": "LICENSE.txt",
+      "archiveSha256": "526e22c0b773f57b5a0d202cb6135975ebfa74c8b2ece0681ceae8accacc632a",
+      "packageId": "HarfBuzzSharp.NativeAssets.Win32",
+      "packageVersion": "8.3.1.1",
+      "name": "HarfBuzzSharp.NativeAssets.Win32-8.3.1.1-LICENSE.txt"
+    },
+    {
+      "length": 139775,
+      "sha256": "21504c46c4c58aa64c1055bd2dcbc5f9a136b4b8c412ed3cc6740e22c5b127f5",
+      "url": "https://api.nuget.org/v3-flatcontainer/harfbuzzsharp.nativeassets.win32/8.3.1.1/harfbuzzsharp.nativeassets.win32.8.3.1.1.nupkg",
+      "archiveEntry": "THIRD-PARTY-NOTICES.txt",
+      "archiveSha256": "526e22c0b773f57b5a0d202cb6135975ebfa74c8b2ece0681ceae8accacc632a",
+      "packageId": "HarfBuzzSharp.NativeAssets.Win32",
+      "packageVersion": "8.3.1.1",
+      "name": "HarfBuzzSharp.NativeAssets.Win32-8.3.1.1-THIRD-PARTY-NOTICES.txt"
+    },
+    {
+      "length": 4426,
+      "sha256": "4d7d9c95e7d7f2f0ebf76d5e0b344826b74e903a34028ee18ab54bb639e45906",
+      "url": "https://raw.githubusercontent.com/rsms/inter/v3.19/LICENSE.txt",
+      "name": "Inter-v3.19-OFL.txt"
+    },
+    {
+      "length": 1072,
+      "sha256": "6ee769c9ac4dac9abb16b98b1341e9528ff9f4ab685481410d3376d14148f3a9",
+      "url": "https://raw.githubusercontent.com/kekekeks/MicroCom/4b8a38f773c109bad558ee3713d9f16d80776e42/LICENSE",
+      "name": "MicroCom-LICENSE.txt"
+    },
+    {
+      "name": "PowerOfChaosLauncher-LICENSE.txt",
+      "length": 1093,
+      "sha256": "91f036fc65d3f64c48124a309ed0de8899da66d8f8459194c90d0ed1b2380858",
+      "repositoryPath": "LICENSE"
+    },
+    {
+      "name": "SOURCE-PROVENANCE.txt",
+      "length": 1873,
+      "sha256": "cc247299b8458979d4090665e99af7154c4846274d53463404fa763936e2dccf",
+      "repositoryPath": "tools/Release/SOURCE-PROVENANCE.txt"
+    },
+    {
+      "length": 1507,
+      "sha256": "5f787c1dee3c56547f09ccc2906ab5f5293c4d8dd6c8654e573216c38e908dbd",
+      "url": "https://raw.githubusercontent.com/mono/skia/4bed689c9c9eb77a120c6a9d54af6a572c85d1c2/LICENSE",
+      "name": "Skia-native-LICENSE.txt"
+    },
+    {
+      "length": 1129,
+      "sha256": "89101e35a8c66fd4d6dffc1763259161d35cb564c169714ec227a768c89f2938",
+      "url": "https://api.nuget.org/v3-flatcontainer/skiasharp/2.88.9/skiasharp.2.88.9.nupkg",
+      "archiveEntry": "LICENSE.txt",
+      "archiveSha256": "8d9ff89d55d826daf3f5205feac61cfecd05c52ed178860ce24324ae1652fb6e",
+      "packageId": "SkiaSharp",
+      "packageVersion": "2.88.9",
+      "name": "SkiaSharp-2.88.9-LICENSE.txt"
+    },
+    {
+      "length": 139775,
+      "sha256": "21504c46c4c58aa64c1055bd2dcbc5f9a136b4b8c412ed3cc6740e22c5b127f5",
+      "url": "https://api.nuget.org/v3-flatcontainer/skiasharp/2.88.9/skiasharp.2.88.9.nupkg",
+      "archiveEntry": "THIRD-PARTY-NOTICES.txt",
+      "archiveSha256": "8d9ff89d55d826daf3f5205feac61cfecd05c52ed178860ce24324ae1652fb6e",
+      "packageId": "SkiaSharp",
+      "packageVersion": "2.88.9",
+      "name": "SkiaSharp-2.88.9-THIRD-PARTY-NOTICES.txt"
+    },
+    {
+      "length": 1129,
+      "sha256": "89101e35a8c66fd4d6dffc1763259161d35cb564c169714ec227a768c89f2938",
+      "url": "https://api.nuget.org/v3-flatcontainer/skiasharp.nativeassets.win32/2.88.9/skiasharp.nativeassets.win32.2.88.9.nupkg",
+      "archiveEntry": "LICENSE.txt",
+      "archiveSha256": "90fe573391a0c0719f3497dee13db23b934866d885ef50dda74a5dd6f1b957fe",
+      "packageId": "SkiaSharp.NativeAssets.Win32",
+      "packageVersion": "2.88.9",
+      "name": "SkiaSharp.NativeAssets.Win32-2.88.9-LICENSE.txt"
+    },
+    {
+      "length": 139775,
+      "sha256": "21504c46c4c58aa64c1055bd2dcbc5f9a136b4b8c412ed3cc6740e22c5b127f5",
+      "url": "https://api.nuget.org/v3-flatcontainer/skiasharp.nativeassets.win32/2.88.9/skiasharp.nativeassets.win32.2.88.9.nupkg",
+      "archiveEntry": "THIRD-PARTY-NOTICES.txt",
+      "archiveSha256": "90fe573391a0c0719f3497dee13db23b934866d885ef50dda74a5dd6f1b957fe",
+      "packageId": "SkiaSharp.NativeAssets.Win32",
+      "packageVersion": "2.88.9",
+      "name": "SkiaSharp.NativeAssets.Win32-2.88.9-THIRD-PARTY-NOTICES.txt"
+    },
+    {
+      "length": 1139,
+      "sha256": "d7a68596ab69b06f51ca278a6545148e4269a9381c26d597c13df5d88e08cf5b",
+      "url": "https://api.nuget.org/v3-flatcontainer/system.io.pipelines/8.0.0/system.io.pipelines.8.0.0.nupkg",
+      "archiveEntry": "LICENSE.TXT",
+      "archiveSha256": "2dda41d6ce2f433b0e3836b188ab2d2e4b39ed7f434c3e43e9c3f1f03135c301",
+      "packageId": "System.IO.Pipelines",
+      "packageVersion": "8.0.0",
+      "name": "System.IO.Pipelines-8.0.0-LICENSE.TXT"
+    },
+    {
+      "length": 68911,
+      "sha256": "19c19dcac9f3ee6302cfbc6745bb8e79f08efc4c933eb8dc5509bf14b88347ec",
+      "url": "https://api.nuget.org/v3-flatcontainer/system.io.pipelines/8.0.0/system.io.pipelines.8.0.0.nupkg",
+      "archiveEntry": "THIRD-PARTY-NOTICES.TXT",
+      "archiveSha256": "2dda41d6ce2f433b0e3836b188ab2d2e4b39ed7f434c3e43e9c3f1f03135c301",
+      "packageId": "System.IO.Pipelines",
+      "packageVersion": "8.0.0",
+      "name": "System.IO.Pipelines-8.0.0-THIRD-PARTY-NOTICES.TXT"
+    },
+    {
+      "length": 1151,
+      "sha256": "aca3b49277abcc7886ccb2f115603a9f5b15fc3f96019a10c00f2974098b210c",
+      "url": "https://raw.githubusercontent.com/tmds/Tmds.DBus/8cb04f66c330b64244e996ff68f685f27f7381a0/COPYING",
+      "name": "Tmds.DBus-COPYING.txt"
+    },
+    {
+      "length": 1116,
+      "sha256": "cfc21f5e8bd655ae997eec916138b707b1d290b83272c02a95c9f821b8c87310",
+      "url": "https://raw.githubusercontent.com/dotnet/runtime/v10.0.14/LICENSE.TXT",
+      "name": "dotnet10-LICENSE.TXT"
+    },
+    {
+      "length": 76623,
+      "sha256": "66f1d4e44973185519bb4aa8a9718eb22fc7af2cc532e3ae9cfc4c127ee7fc54",
+      "url": "https://raw.githubusercontent.com/dotnet/runtime/v10.0.14/THIRD-PARTY-NOTICES.TXT",
+      "name": "dotnet10-THIRD-PARTY-NOTICES.TXT"
+    }
+  ],
+  "runtimeMetadataUrl": "https://builds.dotnet.microsoft.com/dotnet/release-metadata/10.0/releases.json",
+  "componentsProfile": "original-aspect-ratio-v1",
+  "componentBundle": {
+    "name": "PowerOfChaosLauncher-display-components-v1.zip",
+    "length": 256275,
+    "sha256": "bae9009322889343d17eb6e81dfdc92662ba2fafd45807def64e43b1ca0d59d9",
+    "url": "https://github.com/simonMettler2000/Power-of-Chaos-Launcher/releases/download/v0.2.0/PowerOfChaosLauncher-display-components-v1.zip"
+  }
+}

@@ -64,7 +64,7 @@
                       DisplayMemberBinding="{Binding DisplayName}" SelectionChanged="CardLanguage_SelectionChanged"
                       AutomationProperties.Name="{loc:Tr Text='Language'}" ToolTip.Tip="{loc:Tr Text='Language of the launcher and card names'}" />
           </StackPanel>
-          <TextBlock Text="{loc:Tr Text='Version 0.1'}" Classes="caption" FontSize="11" Margin="12,0,0,0" />
+          <TextBlock x:Name="AppVersionCaption" Classes="caption" FontSize="11" Margin="12,0,0,0" />
         </StackPanel>
       </Grid>
     </Border>
@@ -282,7 +282,7 @@
             <StackPanel Orientation="Horizontal" Spacing="10"><Button Content="{loc:Tr Text='Add Game path'}" Classes="primary" Click="AddPath_Click" /><Button x:Name="RescanButton" Content="{loc:Tr Text='Rescan folders'}" Classes="secondary" Click="Rescan_Click" /></StackPanel>
           </StackPanel>
           <StackPanel x:Name="AboutView" Spacing="18" IsVisible="False">
-            <Border Classes="panel" Padding="24"><StackPanel Spacing="16"><TextBlock Text="Power of Chaos Launcher" FontSize="20" FontWeight="SemiBold" /><TextBlock Text="{loc:Tr Text='Version 0.1'}" Classes="caption" /><TextBlock Text="{loc:Tr Text='A launcher for Yugi the Destiny, Kaiba the Revenge and Joey the Passion. Built with C# and Avalonia for Windows, Linux and macOS.'}" Classes="quiet" LineHeight="22" /><TextBlock Text="{loc:Tr Text='Linux and macOS require a compatible Wine runner, set in Preferences. Game and mod compatibility must be tested on each platform.'}" Classes="quiet" LineHeight="22" /><TextBlock Text="{loc:Tr Text='This independent project includes no original game executables, archives, artwork, music or saves.'}" Classes="quiet" FontSize="12" LineHeight="22" /></StackPanel></Border>
+            <Border Classes="panel" Padding="24"><StackPanel Spacing="16"><TextBlock Text="Power of Chaos Launcher" FontSize="20" FontWeight="SemiBold" /><TextBlock x:Name="AboutVersionCaption" Classes="caption" /><TextBlock Text="{loc:Tr Text='A launcher for Yugi the Destiny, Kaiba the Revenge and Joey the Passion. Built with C# and Avalonia for Windows, Linux and macOS.'}" Classes="quiet" LineHeight="22" /><TextBlock Text="{loc:Tr Text='Linux and macOS require a compatible Wine runner, set in Preferences. Game and mod compatibility must be tested on each platform.'}" Classes="quiet" LineHeight="22" /><TextBlock Text="{loc:Tr Text='This independent project includes no original game executables, archives, artwork, music or saves.'}" Classes="quiet" FontSize="12" LineHeight="22" /></StackPanel></Border>
           </StackPanel>
         </Grid>
       </ScrollViewer>

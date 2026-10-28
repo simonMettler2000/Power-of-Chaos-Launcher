@@ -269,5 +269,8 @@
   "Collection save checksum failed.": "Il checksum del salvataggio della collezione non è valido.",
   "Unsupported collection save encoding.": "La codifica del salvataggio della collezione non è supportata.",
   "Unsupported collection save signature.": "La firma del salvataggio della collezione non è supportata.",
-  "Collection data checksum failed.": "Il checksum dei dati della collezione non è valido."
+  "Collection data checksum failed.": "Il checksum dei dati della collezione non è valido.",
+  "Version {0}": "Versione {0}",
+  "A secure short ASCII display cache could not be created. Check access to ProgramData, or choose a short ASCII launcher data folder.": "Impossibile creare una cache grafica sicura con un percorso ASCII breve. Controlla l’accesso a ProgramData o scegli una cartella dati del launcher con un percorso ASCII breve.",
+  "The display paths could not be resolved safely. Select ordinary existing game and component folders.": "Impossibile risolvere in sicurezza i percorsi grafici. Seleziona normali cartelle di gioco e componenti esistenti."
 }

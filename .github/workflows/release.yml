@@ -1,0 +1,117 @@
+name: Windows download release
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Reviewed release version, for example 0.2.1
+        required: true
+        type: string
+      independent_audit_confirmed:
+        description: This exact main commit passed independent reviews and a fresh commit audit
+        required: true
+        default: false
+        type: boolean
+permissions:
+  contents: read
+concurrency:
+  group: windows-release
+  cancel-in-progress: false
+jobs:
+  package:
+    if: github.ref == 'refs/heads/main' && inputs.independent_audit_confirmed
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        rid: [win-x64, win-x86]
+    env:
+      RELEASE_VERSION: ${{ inputs.version }}
+      SOURCE_COMMIT: ${{ github.sha }}
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_GENERATE_ASPNET_CERTIFICATE: 'false'
+      DOTNET_ADD_GLOBAL_TOOLS_TO_PATH: 'false'
+      MSBuildEnableWorkloadResolver: 'false'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.x'
+      - name: Refuse unsupported source or an existing release tag
+        shell: pwsh
+        run: |
+          if ($env:RELEASE_VERSION -cnotmatch '^\d+\.\d+\.\d+(?:-[0-9A-Za-z][0-9A-Za-z.-]*)?$') { throw 'Invalid version' }
+          git show-ref --verify --quiet ('refs/tags/v' + $env:RELEASE_VERSION)
+          if ($LASTEXITCODE -eq 0) { throw 'Release tag already exists' }
+          python -B tools/publication_guard.py --commit $env:SOURCE_COMMIT
+          if ($LASTEXITCODE -ne 0) { throw 'Source publication guard failed' }
+      - name: Restore and verify authored launcher
+        shell: pwsh
+        run: |
+          dotnet restore PowerOfChaos.Launcher.sln --locked-mode
+          if ($LASTEXITCODE -ne 0) { throw 'Restore failed' }
+          dotnet build PowerOfChaos.Launcher.sln -c Release --no-restore -m:1 -nodeReuse:false -p:UseSharedCompilation=false
+          if ($LASTEXITCODE -ne 0) { throw 'Build failed' }
+          $env:POC_LAUNCHER_TEST_ROOT = Join-Path $env:RUNNER_TEMP 'poc-core'
+          dotnet tests/PowerOfChaos.Launcher.Tests/bin/Release/net10.0/PowerOfChaos.Launcher.Tests.dll
+          if ($LASTEXITCODE -ne 0) { throw 'Core checks failed' }
+          dotnet tests/PowerOfChaos.Launcher.UiChecks/bin/Release/net10.0/PowerOfChaos.Launcher.UiChecks.dll
+          if ($LASTEXITCODE -ne 0) { throw 'UI checks failed' }
+      - name: Acquire pinned licensed inputs
+        shell: pwsh
+        run: |
+          ./tools/Release/Acquire-ReleaseInputs.ps1 -Destination (Join-Path $env:RUNNER_TEMP 'release-inputs')
+      - name: Build and exercise self-contained download
+        shell: pwsh
+        env:
+          RELEASE_RID: ${{ matrix.rid }}
+        run: |
+          $inputs = Join-Path $env:RUNNER_TEMP 'release-inputs'
+          $output = Join-Path $env:RUNNER_TEMP 'release-output'
+          ./tools/Release/Build-WindowsPackage.ps1 -Version $env:RELEASE_VERSION -RuntimeIdentifier $env:RELEASE_RID -SourceCommit $env:SOURCE_COMMIT -DisplayComponentsDirectory (Join-Path $inputs 'original-aspect-ratio-v1') -NoticesDirectory (Join-Path $inputs 'notices') -PackageOutputDirectory $output
+          $zip = Get-ChildItem -LiteralPath $output -Filter '*.zip' -File
+          if (@($zip).Count -ne 1) { throw 'Expected one architecture download' }
+          ./tools/Release/Test-WindowsPackage.ps1 -PackagePath $zip.FullName -ValidationDirectory (Join-Path $env:RUNNER_TEMP 'release-validation') -ExpectedVersion $env:RELEASE_VERSION -ExpectedSourceCommit $env:SOURCE_COMMIT -ExpectedRuntimeIdentifier $env:RELEASE_RID
+          python -B tools/release_guard.py --package $zip.FullName
+          if ($LASTEXITCODE -ne 0) { throw 'Download publication guard failed' }
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: Windows-${{ matrix.rid }}
+          path: |
+            ${{ runner.temp }}/release-output/*.zip
+            ${{ runner.temp }}/release-output/*.SHA256SUMS
+            ${{ runner.temp }}/release-output/*.manifest.json
+          if-no-files-found: error
+          retention-days: 14
+  publish:
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_VERSION: ${{ inputs.version }}
+      SOURCE_COMMIT: ${{ github.sha }}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: Windows-*
+          path: release
+          merge-multiple: true
+      - name: Publish a new versioned download
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "v${RELEASE_VERSION}" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo 'Release already exists; refusing overwrite.' >&2
+            exit 1
+          fi
+          cat release/*.SHA256SUMS > release/SHA256SUMS
+          gh release create "v${RELEASE_VERSION}" release/*.zip release/*.manifest.json release/SHA256SUMS \
+            --repo "$GITHUB_REPOSITORY" --target "$SOURCE_COMMIT" --title "Power of Chaos Launcher ${RELEASE_VERSION}" \
+            --notes 'Complete Windows downloads. Extract the entire x64 or x86 ZIP, open PowerOfChaos.Launcher.exe, then select your installed game folders. No separate .NET or mod installation is needed. Executable mods require the supported game revisions; see the README. HD Cards and other unfinished mods remain disabled.'

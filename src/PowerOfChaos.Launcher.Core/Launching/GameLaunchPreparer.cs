@@ -22,11 +22,12 @@ public sealed class GameLaunchPreparer : IGameLaunchPreparer
     public GameLaunchPreparer(string? dataDirectory = null, string? componentDirectory = null)
         : this(dataDirectory, GameModProfiles.Profiles, componentDirectory) { }
     internal GameLaunchPreparer(string? dataDirectory, IReadOnlyList<SplashProfile> profiles,
-        string? componentDirectory = null, IReadOnlyList<DisplayComponent>? components = null)
+        string? componentDirectory = null, IReadOnlyList<DisplayComponent>? components = null,
+        WindowsDisplayCacheLocation? displayCache = null)
     {
         _dataDirectory = Path.GetFullPath(dataDirectory ?? LauncherPaths.DataDirectory);
         _profiles = profiles;
-        _displayPreparer = new OriginalAspectRatioPreparer(_dataDirectory, componentDirectory, components);
+        _displayPreparer = new OriginalAspectRatioPreparer(_dataDirectory, componentDirectory, components, displayCache);
     }
 
     public Task<string> PrepareExecutableAsync(GameInstallation installation, bool skipSplashScreens,

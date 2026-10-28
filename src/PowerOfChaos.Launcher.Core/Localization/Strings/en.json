@@ -269,5 +269,8 @@
   "Collection save checksum failed.": "Collection save checksum failed.",
   "Unsupported collection save encoding.": "Unsupported collection save encoding.",
   "Unsupported collection save signature.": "Unsupported collection save signature.",
-  "Collection data checksum failed.": "Collection data checksum failed."
+  "Collection data checksum failed.": "Collection data checksum failed.",
+  "Version {0}": "Version {0}",
+  "A secure short ASCII display cache could not be created. Check access to ProgramData, or choose a short ASCII launcher data folder.": "A secure short ASCII display cache could not be created. Check access to ProgramData, or choose a short ASCII launcher data folder.",
+  "The display paths could not be resolved safely. Select ordinary existing game and component folders.": "The display paths could not be resolved safely. Select ordinary existing game and component folders."
 }

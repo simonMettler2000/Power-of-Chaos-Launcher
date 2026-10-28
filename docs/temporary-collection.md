@@ -6,6 +6,8 @@ Temporary all cards is an explicitly activated Windows runtime feature. During d
 
 The unit of restoration is the complete stock `system.dat`, not a list of owned card IDs. This preserves quantities, deck flags, identity, statistics and other fields exactly. Three total owned copies are granted at the internal slots read from each added game's own supported card tables. The cumulative pools contain 155, 466 and 771 cards. Slots outside those pools are preserved. The derived total-copy count and both checksums are recalculated; unsupported encoding and overflow fail closed. No card database or game payload is bundled.
 
+The supported native games identify a profile by clear header byte0 and DWORD4–7. Header bytes1–3 are padding and can change during an ordinary game save. Active-profile checks use the same semantic identity fields, so those padding rewrites do not spuriously require recovery. A changed semantic identity still blocks launch; restoration always uses every original byte, including its original padding.
+
 Replay files and exported decks outside `system.dat` are not rolled back. Progress inside the temporary save is archived separately before the original is restored. Backups from previous activation generations remain available and are never reused as a new baseline.
 
 ## Location and lifecycle

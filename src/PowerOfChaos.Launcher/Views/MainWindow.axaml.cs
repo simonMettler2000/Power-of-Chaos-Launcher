@@ -60,6 +60,8 @@ public partial class MainWindow : Window
         _temporaryCollections = temporaryCollections;
         _sessions = new GameSessionService(temporaryCollections: temporaryCollections);
         InitializeComponent();
+        AppVersionCaption.Text = Texts.Format("Version {0}", ReleasePackageProbe.Version);
+        AboutVersionCaption.Text = AppVersionCaption.Text;
         CardLanguageSelector.ItemsSource = CardLanguages.All;
         GameCards.ItemsSource = _cards;
         foreach (var game in GameCatalog.All)
@@ -671,6 +673,8 @@ public partial class MainWindow : Window
     {
         if (_closed) return;
         UpdatePageHeading();
+        AppVersionCaption.Text = Texts.Format("Version {0}", ReleasePackageProbe.Version);
+        AboutVersionCaption.Text = AppVersionCaption.Text;
         GameCount.Text = Texts.Format("{0} of 3 games installed", _cards.Count);
         if (_noticeText is not null)
         {

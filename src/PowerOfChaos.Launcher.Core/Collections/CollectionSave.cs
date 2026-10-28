@@ -22,6 +22,14 @@ internal static class CollectionSave
         return quantities;
     }
 
+    /// <summary>The native games compare identity byte0 and DWORD4; bytes1..3 are ignored padding.</summary>
+    public static bool SameProfileIdentity(ReadOnlySpan<byte> first, ReadOnlySpan<byte> second)
+    {
+        var left = Decode(first);
+        var right = Decode(second);
+        return left[0] == right[0] && left.AsSpan(4, 4).SequenceEqual(right.AsSpan(4, 4));
+    }
+
     /// <summary>Returns a validated copy with three copies per supplied native slot and a recalculated total, including for an empty request.</summary>
     public static byte[] CreateUnlocked(ReadOnlySpan<byte> encoded, IReadOnlyList<int> slots)
     {

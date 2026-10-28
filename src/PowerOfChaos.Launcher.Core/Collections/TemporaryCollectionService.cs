@@ -513,8 +513,8 @@ public sealed class TemporaryCollectionService
     private static bool IsStorageError(Exception ex) => ex is IOException or InvalidDataException or UnauthorizedAccessException or JsonException
         or ArgumentException or NotSupportedException or SecurityException;
     private static bool IsHash(string? value) => value is { Length: 64 } && value.All(c => char.IsAsciiHexDigit(c));
-    // Canonical encoding maps the unchanged eight identity bytes to the same first nine encoded bytes.
-    private static bool SameIdentity(byte[] original, byte[] current) => original.AsSpan(4, 9).SequenceEqual(current.AsSpan(4, 9));
+    // Ordinary game saves can rewrite the three ignored header-padding bytes. Keep the same native identity key.
+    private static bool SameIdentity(byte[] original, byte[] current) => CollectionSave.SameProfileIdentity(original, current);
     private static string Hash(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes));
     private static TemporaryCollectionState Off() => new(false, false, null, OffMessage);
     private static TemporaryCollectionState On(Journal journal) => new(true, false, journal.SavePath, OnMessage);
