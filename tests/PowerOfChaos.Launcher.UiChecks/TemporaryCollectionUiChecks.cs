@@ -75,10 +75,12 @@ internal static class TemporaryCollectionUiChecks
             Environment.SetEnvironmentVariable("POC_LAUNCHER_DATA_DIR", data);
             window = Open(Profiles(), automatic, pump, wait);
             OpenMods(window, pump);
-            check("temporary collection UI starts off with a copyable private backup location", () =>
+            check("temporary collection UI starts unchecked with platform status and a copyable backup location", () =>
             {
                 Require(Find<CheckBox>(window, "TemporaryAllCardsCheckBox").IsChecked == false, "Temporary cards unexpectedly defaulted to on.");
-                Require(Find<SelectableTextBlock>(window, "TemporaryCollectionStatus").Text == OffMessage, "Initial mod status is incorrect.");
+                var expectedStatus = LauncherText.Current.Translate(OperatingSystem.IsWindows()
+                    ? OffMessage : "Temporary all cards is available on Windows only.");
+                Require(Find<SelectableTextBlock>(window, "TemporaryCollectionStatus").Text == expectedStatus, "Initial mod status is incorrect.");
                 var backups = Find<SelectableTextBlock>(window, "TemporaryCollectionBackups");
                 Require(backups.Text == LauncherText.Current.Format("Backups: {0}", vault), "The private backup location is missing or points outside the fixture.");
                 backups.SelectAll();
