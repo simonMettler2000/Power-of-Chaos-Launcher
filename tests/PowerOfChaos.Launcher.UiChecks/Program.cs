@@ -22,6 +22,7 @@ using PowerOfChaos.Launcher.TestFixtures;
 using PowerOfChaos.Launcher.Core;
 using PowerOfChaos.Launcher.Core.Artwork;
 using PowerOfChaos.Launcher.Core.Collections;
+using PowerOfChaos.Launcher.Core.Localization;
 
 namespace PowerOfChaos.Launcher.UiChecks;
 
@@ -52,6 +53,7 @@ internal static class Program
                 .SetupWithoutStarting();
 
             CollectionViewModelChecks.RunAll(Check);
+            LocalizationViewModelChecks.RunAll(Check);
 
             window = OpenWindow();
             Check("initial empty state is visible and says no game path added", () =>
@@ -259,6 +261,7 @@ internal static class Program
             Capture(window, "collection.png");
             CheckNativeGalleries(window, "synthetic");
             CheckCardLanguages(window, data);
+            LauncherLocalizationUiChecks.RunAll(window, data, Check, Capture, Pump, WaitUntil);
             Check("Games displays the same card counts beside playtime and Play", () =>
             {
                 Find<Button>(window, "LibraryNav").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
@@ -628,7 +631,7 @@ internal static class Program
                 Require(row.Cards.SequenceEqual(originalCards) && rows.Select(item => item.Count).SequenceEqual(originalCounts),
                     "Changing language changed card identities or ownership.");
                 Require(row.Cards.All(card => card.Tooltip.StartsWith(card.CardName!, StringComparison.Ordinal)
-                    && card.Tooltip.Contains("First available in", StringComparison.Ordinal)), "A tooltip retained its ID heading or lost origin.");
+                    && card.Tooltip.Contains(GameCatalog.Get(card.Entry.OriginGameId).Title, StringComparison.Ordinal)), "A tooltip retained its ID heading or lost origin.");
                 var first = row.OwnedCards.First();
                 var tile = Find<ItemsControl>(window, "CollectionGames").GetVisualDescendants().OfType<Border>()
                     .First(border => ReferenceEquals(border.DataContext, first) && ToolTip.GetTip(border) is string);
@@ -724,7 +727,8 @@ internal static class Program
                 var first = images.First(image => ((CollectionCardViewModel)image.DataContext!).IsOwned);
                 var border = first.GetVisualAncestors().OfType<Border>().First(control => control.DataContext is CollectionCardViewModel);
                 var card = (CollectionCardViewModel)first.DataContext!;
-                Require(ToolTip.GetTip(border)?.ToString() == card.Tooltip && card.Tooltip.Contains("First available in", StringComparison.Ordinal),
+                Require(ToolTip.GetTip(border)?.ToString() == card.Tooltip
+                    && card.Tooltip.Contains(GameCatalog.Get(card.Entry.OriginGameId).Title, StringComparison.Ordinal),
                     "Card tooltip does not identify its game.");
                 Require(!first.GetVisualAncestors().TakeWhile(control => control != expander).Any(control => control is Button),
                     "A card unexpectedly has an activation button.");

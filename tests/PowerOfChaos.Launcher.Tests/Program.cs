@@ -259,6 +259,7 @@ internal static class Program
             await NativeCardArtworkChecks.RunAll(fixtures.Root, Run);
             await NativeCardNameChecks.RunAll(fixtures.Root, Run);
             await CardLanguagePreferenceChecks.RunAll(fixtures.Root, Run);
+            await LocalizationChecks.RunAll(fixtures.Root, Run);
 
             if (args.Contains("--installed-mods", StringComparer.Ordinal))
                 await InteractionChecks.VerifyInstalledProfiles(Run);

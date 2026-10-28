@@ -10,12 +10,13 @@ using Avalonia.Platform;
 using PowerOfChaos.Launcher.Core;
 using PowerOfChaos.Launcher.Core.Artwork;
 using PowerOfChaos.Launcher.Core.Collections;
+using PowerOfChaos.Launcher.Core.Localization;
 
 namespace PowerOfChaos.Launcher.ViewModels;
 
 public sealed class CollectionCardViewModel : INotifyPropertyChanged, IDisposable
 {
-    private readonly string _tooltipDetails;
+    private readonly string _originTitle;
     private string? _cardName;
     private WriteableBitmap? _artwork;
     private bool _disposed;
@@ -24,9 +25,8 @@ public sealed class CollectionCardViewModel : INotifyPropertyChanged, IDisposabl
     {
         ArgumentNullException.ThrowIfNull(entry);
         Entry = entry;
-        var origin = GameCatalog.All.FirstOrDefault(game => game.Id == entry.OriginGameId)?.Title ?? entry.OriginGameId;
-        var ownership = IsOwned ? $"{Quantity} {(Quantity == 1 ? "copy" : "copies")} owned" : "Missing";
-        _tooltipDetails = $" · {ownership}\nFirst available in {origin}";
+        _originTitle = GameCatalog.All.FirstOrDefault(game => game.Id == entry.OriginGameId)?.Title ?? entry.OriginGameId;
+        LauncherText.Current.LanguageChanged += LanguageChanged;
     }
 
     public CollectionCard Entry { get; }
@@ -35,8 +35,10 @@ public sealed class CollectionCardViewModel : INotifyPropertyChanged, IDisposabl
     public byte Quantity => Entry.Quantity;
     public bool IsOwned => Quantity > 0;
     public string? CardName => _cardName;
-    public string DisplayName => CardName ?? $"Card ID {CardId}";
-    public string Tooltip => $"{DisplayName}{_tooltipDetails}";
+    public string DisplayName => CardName ?? LauncherText.Current.Format("Card ID {0}", CardId);
+    public string Tooltip => LauncherText.Current.Format("{0} · {1}\nFirst available in {2}", DisplayName,
+        IsOwned ? LauncherText.Current.Format(Quantity == 1 ? "{0} copy owned" : "{0} copies owned", Quantity)
+            : LauncherText.Current.Translate("Missing"), _originTitle);
     public Bitmap? Artwork => _artwork;
     public bool HasArtwork => _artwork is not null;
     public int ArtworkWidth => _artwork?.PixelSize.Width ?? 50;
@@ -99,7 +101,15 @@ public sealed class CollectionCardViewModel : INotifyPropertyChanged, IDisposabl
     {
         if (_disposed) return;
         _disposed = true;
+        LauncherText.Current.LanguageChanged -= LanguageChanged;
         ClearArtwork();
+    }
+
+    private void LanguageChanged(object? sender, EventArgs args)
+    {
+        if (_disposed) return;
+        Changed(nameof(DisplayName));
+        Changed(nameof(Tooltip));
     }
 
     private void NotifyArtworkChanged()

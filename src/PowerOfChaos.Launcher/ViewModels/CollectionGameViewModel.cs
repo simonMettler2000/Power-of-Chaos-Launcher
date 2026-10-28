@@ -1,8 +1,10 @@
 using System.ComponentModel;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using PowerOfChaos.Launcher.Core;
 using PowerOfChaos.Launcher.Core.Artwork;
 using PowerOfChaos.Launcher.Core.Collections;
+using PowerOfChaos.Launcher.Core.Localization;
 
 namespace PowerOfChaos.Launcher.ViewModels;
 
@@ -24,21 +26,23 @@ public sealed class CollectionGameViewModel : INotifyPropertyChanged, IDisposabl
         _progress = progress;
         ReplaceCards(GetEntries(progress));
         _galleryStatus = InitialGalleryStatus;
+        LauncherText.Current.LanguageChanged += LanguageChanged;
     }
 
     public GameCollectionProgress Progress => _progress;
     public string Title => GameCatalog.Get(Progress.GameId).Title;
-    public string Count => $"{Progress.OwnedCards?.ToString() ?? "—"}/{Progress.TotalCards}";
-    public string Message => Progress.Message;
+    public string AutomationName => LauncherText.Current.Format("Collection progress for {0}", Title);
+    public string Count => $"{Progress.OwnedCards?.ToString(CultureInfo.InvariantCulture) ?? "—"}/{Progress.TotalCards.ToString(CultureInfo.InvariantCulture)}";
+    public string Message => LauncherText.Current.Translate(Progress.Message);
     public bool HasCount => Progress.OwnedCards.HasValue;
     public double Percentage => (Progress.OwnedCards ?? 0) * 100.0 / Progress.TotalCards;
     public IReadOnlyList<CollectionCardViewModel> Cards => _cards;
     public IReadOnlyList<CollectionCardViewModel> OwnedCards => _ownedCards;
     public IReadOnlyList<CollectionCardViewModel> MissingCards => _missingCards;
     public bool HasCards => Cards.Count > 0;
-    public string OwnedHeading => $"Owned cards ({OwnedCards.Count})";
-    public string MissingHeading => $"Missing cards ({MissingCards.Count})";
-    public string GalleryStatus => _galleryStatus;
+    public string OwnedHeading => LauncherText.Current.Format("Owned cards ({0})", OwnedCards.Count);
+    public string MissingHeading => LauncherText.Current.Format("Missing cards ({0})", MissingCards.Count);
+    public string GalleryStatus => LauncherText.Current.Translate(_galleryStatus);
     public int ArtworkVersion { get; private set; }
 
     public bool IsExpanded
@@ -74,10 +78,11 @@ public sealed class CollectionGameViewModel : INotifyPropertyChanged, IDisposabl
         }
         else if (!HasCount)
         {
-            SetGalleryStatus(Message);
+            SetGalleryStatus(progress.Message);
         }
         Changed(nameof(Progress));
         Changed(nameof(Title));
+        Changed(nameof(AutomationName));
         Changed(nameof(Count));
         Changed(nameof(Message));
         Changed(nameof(HasCount));
@@ -126,12 +131,23 @@ public sealed class CollectionGameViewModel : INotifyPropertyChanged, IDisposabl
     {
         if (_disposed) return;
         _disposed = true;
+        LauncherText.Current.LanguageChanged -= LanguageChanged;
         foreach (var card in Cards) card.Dispose();
         _cardsBySlot.Clear();
         InvalidateArtwork();
     }
 
-    private string InitialGalleryStatus => !HasCount ? Message : HasCards ? string.Empty : "No cards available.";
+    private string InitialGalleryStatus => !HasCount ? Progress.Message : HasCards ? string.Empty : "No cards available.";
+
+    private void LanguageChanged(object? sender, EventArgs args)
+    {
+        if (_disposed) return;
+        Changed(nameof(Message));
+        Changed(nameof(OwnedHeading));
+        Changed(nameof(MissingHeading));
+        Changed(nameof(GalleryStatus));
+        Changed(nameof(AutomationName));
+    }
 
     private static CollectionCard[] GetEntries(GameCollectionProgress progress) => progress.OwnedCards.HasValue
         ? progress.Cards.OrderBy(card => card.CardId).ThenBy(card => card.Slot).ToArray()
