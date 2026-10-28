@@ -53,6 +53,12 @@
               </MenuFlyout>
             </Button.Flyout>
           </Button>
+          <StackPanel Spacing="6" Margin="12,4,12,4">
+            <TextBlock Text="Card language" Classes="caption" FontSize="11" />
+            <ComboBox x:Name="CardLanguageSelector" HorizontalAlignment="Stretch" FontSize="12" IsEnabled="False"
+                      DisplayMemberBinding="{Binding DisplayName}" SelectionChanged="CardLanguage_SelectionChanged"
+                      AutomationProperties.Name="Card language" ToolTip.Tip="Language of card names in Collection" />
+          </StackPanel>
           <TextBlock Text="Version 0.1" Classes="caption" FontSize="11" Margin="12,0,0,0" />
         </StackPanel>
       </Grid>
@@ -206,7 +212,8 @@
                     <Expander x:Name="CollectionExpander" IsExpanded="{Binding IsExpanded, Mode=TwoWay}"
                               HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                       <Expander.Header>
-                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="16" RowSpacing="12">
+                        <Grid x:Name="CollectionHeader" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="16" RowSpacing="12"
+                              Margin="0,14,0,14">
                           <StackPanel Spacing="6">
                             <TextBlock Text="{Binding Title}" FontSize="16" FontWeight="SemiBold" />
                             <TextBlock Text="{Binding Message}" Classes="quiet" FontSize="12" />

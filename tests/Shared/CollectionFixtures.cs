@@ -9,6 +9,35 @@ internal static class CollectionFixtures
 {
     public static int Slot(int syntheticCard) => syntheticCard * 137 % 1114 + 1;
 
+    public static string CardName(string language, int slot) => (language switch
+    {
+        "de" => "Synthetische Karte",
+        "fr" => "Carte synthétique",
+        "it" => "Carta sintetica",
+        "es" => "Carta sintética",
+        "ja" => "合成カード",
+        _ => "Synthetic card"
+    }) + " " + slot;
+
+    public static List<(string Name, byte[] Data)> CardNameTables()
+    {
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        var entries = new List<(string Name, byte[] Data)>();
+        foreach (var (language, suffix, codepage) in new[]
+        {
+            ("en", "eng", 1252), ("de", "ger", 1252), ("fr", "fra", 1252),
+            ("it", "ita", 1252), ("es", "spa", 1252), ("ja", "jpn", 932)
+        })
+        {
+            var table = new byte[1115 * 64];
+            var encoding = Encoding.GetEncoding(codepage, EncoderFallback.ExceptionFallback, DecoderFallback.ExceptionFallback);
+            for (var slot = 1; slot < 1115; slot++)
+                encoding.GetBytes(CardName(language, slot)).CopyTo(table, slot * 64);
+            entries.Add((@"bin#\card_name" + suffix + ".bin", table));
+        }
+        return entries;
+    }
+
     public static List<(string Name, byte[] Data)> CardTables()
     {
         var pack = new byte[2230];

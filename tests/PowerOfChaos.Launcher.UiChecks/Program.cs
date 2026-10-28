@@ -21,6 +21,7 @@ using PowerOfChaos.Launcher.ViewModels;
 using PowerOfChaos.Launcher.TestFixtures;
 using PowerOfChaos.Launcher.Core;
 using PowerOfChaos.Launcher.Core.Artwork;
+using PowerOfChaos.Launcher.Core.Collections;
 
 namespace PowerOfChaos.Launcher.UiChecks;
 
@@ -257,6 +258,7 @@ internal static class Program
             });
             Capture(window, "collection.png");
             CheckNativeGalleries(window, "synthetic");
+            CheckCardLanguages(window, data);
             Check("Games displays the same card counts beside playtime and Play", () =>
             {
                 Find<Button>(window, "LibraryNav").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
@@ -406,6 +408,8 @@ internal static class Program
                 CheckPreservedSettings(data);
             });
             Capture(window, "mods-all-enabled.png");
+            Find<ComboBox>(window, "CardLanguageSelector").SelectedItem = CardLanguages.Get("fr");
+            WaitUntil(() => Find<ComboBox>(window, "CardLanguageSelector").IsEnabled, "Card language save did not finish.");
             Check("busy and pending launch states disable all mod controls without starting a game", () =>
             {
                 // Exercise the real controls with synthetic state; no Play handler or game process is invoked.
@@ -437,6 +441,13 @@ internal static class Program
                 CheckPreservedSettings(data);
             });
             Capture(window, "reopened-mods.png");
+            Check("card language survives reopening the launcher", () =>
+            {
+                var selector = Find<ComboBox>(window, "CardLanguageSelector");
+                Require(selector.SelectedItem is CardLanguage { Id: "fr" }, "Reopening lost the selected card language.");
+                selector.SelectedItem = CardLanguages.Get("en");
+                WaitUntil(() => selector.IsEnabled, "Restoring English did not finish.");
+            });
             Check("turning aspect ratio off preserves both other enabled choices", () =>
             {
                 ClickInput(window, ModCheckBox(window, ModNames[2]));
@@ -591,6 +602,99 @@ internal static class Program
         }
     }
 
+    private static void CheckCardLanguages(MainWindow window, string data)
+    {
+        var selector = Find<ComboBox>(window, "CardLanguageSelector");
+        var rows = Find<ItemsControl>(window, "CollectionGames").Items.OfType<CollectionGameViewModel>().ToArray();
+        var row = rows[0];
+        row.IsExpanded = true;
+        WaitUntil(() => row.Cards.All(card => card.HasArtwork && card.CardName is not null), "Initial card names did not load.");
+        var originalCards = row.Cards.ToArray();
+        var originalCounts = rows.Select(item => item.Count).ToArray();
+        Check("six card languages appear below Settings and update tooltips from native slot records", () =>
+        {
+            Require(selector.Items.OfType<CardLanguage>().Select(item => item.Id).Order().SequenceEqual(new[] { "de", "en", "es", "fr", "it", "ja" }),
+                "Language selector does not contain the six supported native languages.");
+            var settings = Find<Button>(window, "SettingsButton");
+            var selectorPoint = selector.TranslatePoint(new Point(), window)!.Value;
+            var settingsPoint = settings.TranslatePoint(new Point(0, settings.Bounds.Height), window)!.Value;
+            Require(selectorPoint.Y > settingsPoint.Y && selectorPoint.Y + selector.Bounds.Height <= window.Bounds.Height,
+                "Card language selector is not visible beneath Settings.");
+            foreach (var language in new[] { "de", "fr", "it", "es", "ja", "en" })
+            {
+                selector.SelectedItem = CardLanguages.Get(language);
+                WaitUntil(() => selector.IsEnabled && row.Cards.All(card => card.CardName == CollectionFixtures.CardName(language, card.Slot)
+                    && card.HasArtwork), "Language change left missing or stale names: " + language);
+                Require(row.Cards.SequenceEqual(originalCards) && rows.Select(item => item.Count).SequenceEqual(originalCounts),
+                    "Changing language changed card identities or ownership.");
+                Require(row.Cards.All(card => card.Tooltip.StartsWith(card.CardName!, StringComparison.Ordinal)
+                    && card.Tooltip.Contains("First available in", StringComparison.Ordinal)), "A tooltip retained its ID heading or lost origin.");
+                var first = row.OwnedCards.First();
+                var tile = Find<ItemsControl>(window, "CollectionGames").GetVisualDescendants().OfType<Border>()
+                    .First(border => ReferenceEquals(border.DataContext, first) && ToolTip.GetTip(border) is string);
+                Require(ToolTip.GetTip(tile)?.ToString() == first.Tooltip, "The actual tooltip binding retained its previous language.");
+                using var saved = JsonDocument.Parse(File.ReadAllText(Path.Combine(data, "launcher-settings.json")));
+                Require(saved.RootElement.GetProperty("CardLanguage").GetString() == language, "Language choice was not persisted.");
+            }
+        });
+        Check("a failed language save restores the previous selection and displayed names", () =>
+        {
+            WithBlockedSettingsSave(data, () =>
+            {
+                selector.SelectedItem = CardLanguages.Get("de");
+                WaitUntil(() => selector.IsEnabled && selector.SelectedItem is CardLanguage { Id: "en" }
+                    && row.Cards.All(card => card.CardName == CollectionFixtures.CardName("en", card.Slot)),
+                    "Failed language save did not restore the selector.");
+                Require(row.Cards.All(card => card.CardName == CollectionFixtures.CardName("en", card.Slot)),
+                    "Failed language save changed visible names.");
+            });
+        });
+        Check("rapid language changes and collapse cannot publish stale names", () =>
+        {
+            foreach (var language in new[] { "ja", "de", "fr", "en" })
+            {
+                selector.SelectedItem = CardLanguages.Get(language);
+                WaitUntil(() => selector.IsEnabled, "Language save remained pending.");
+            }
+            WaitUntil(() => row.Cards.All(card => card.CardName == CollectionFixtures.CardName("en", card.Slot)), "A stale language won the load race.");
+            row.IsExpanded = false;
+            Pump(TimeSpan.FromMilliseconds(100));
+            Require(row.Cards.All(card => card.CardName is null && !card.HasArtwork), "Collapsed gallery retained late name or image results.");
+        });
+        Check("a failed language save restarts an expanded gallery after its in-flight load retired", () =>
+        {
+            WithBlockedSettingsSave(data, () =>
+            {
+                var gate = SettingsGate(window);
+                var released = false;
+                gate.Wait();
+                try
+                {
+                    var loads = (System.Collections.IDictionary)typeof(MainWindow).GetField("_galleryLoads", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(window)!;
+                    row.IsExpanded = true;
+                    Require(loads.Count > 0, "Race fixture did not start an in-flight gallery load.");
+                    selector.SelectedItem = CardLanguages.Get("de");
+                    Require(!selector.IsEnabled, "Race fixture did not hold the preference save.");
+                    WaitUntil(() => loads.Count == 0, "The superseded language load did not retire.");
+                    gate.Release(); released = true;
+                    WaitUntil(() => selector.IsEnabled && selector.SelectedItem is CardLanguage { Id: "en" }, "Failed save did not restore English.");
+                    WaitUntil(() => row.Cards.All(card => card.HasArtwork && card.CardName == CollectionFixtures.CardName("en", card.Slot)),
+                        "Expanded gallery remained stuck after a failed language save.");
+                    Require(row.IsExpanded, "Recovering a failed language save collapsed the gallery.");
+                }
+                finally { if (!released) gate.Release(); }
+            });
+            row.IsExpanded = false;
+        });
+        Find<Border>(window, "StatusBanner").IsVisible = false;
+        Capture(window, "collection-padded-headers.png");
+        row.IsExpanded = true;
+        WaitUntil(() => row.Cards.All(card => card.HasArtwork && card.CardName is not null), "Named gallery did not reopen.");
+        Capture(window, "collection-named-cards.png");
+        row.IsExpanded = false;
+        Find<Border>(window, "StatusBanner").IsVisible = false;
+    }
+
     private static void CheckNativeGalleries(MainWindow window, string source)
     {
         var rows = Find<ItemsControl>(window, "CollectionGames").Items.OfType<CollectionGameViewModel>().ToArray();
@@ -610,6 +714,8 @@ internal static class Program
                 WaitUntil(() => row.IsExpanded && row.Cards.All(card => card.HasArtwork), "Not every native mini loaded: " + row.GalleryStatus);
                 Pump(TimeSpan.FromMilliseconds(250));
                 Require(row.Cards.All(card => card.ArtworkWidth is 49 or 50 && card.ArtworkHeight == 72), "A native mini was enlarged or distorted.");
+                Require(row.Cards.All(card => card.CardName is not null && card.Tooltip.StartsWith(card.CardName, StringComparison.Ordinal)),
+                    "Card names were not loaded before their artwork.");
                 Require(row.OwnedCards.All(card => card.ArtworkOpacity == 1) && row.MissingCards.All(card => card.ArtworkOpacity < 1),
                     "Missing cards cannot be distinguished from owned cards.");
                 var images = expander.GetVisualDescendants().OfType<Image>().Where(image => image.DataContext is CollectionCardViewModel).ToArray();

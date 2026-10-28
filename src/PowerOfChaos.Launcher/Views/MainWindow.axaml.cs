@@ -22,6 +22,7 @@ public partial class MainWindow : Window
     private readonly GamePortraitLoader _portraits = new();
     private readonly CardCollectionReader _collections = new();
     private readonly NativeCardArtworkReader _cardArtwork = new();
+    private readonly NativeCardNameReader _cardNames = new();
     private readonly ObservableCollection<CollectionGameViewModel> _collectionRows = [];
     private readonly Dictionary<string, CancellationTokenSource> _galleryLoads = [];
     private readonly HashSet<string> _galleryAttempted = [];
@@ -38,11 +39,13 @@ public partial class MainWindow : Window
     private bool _pendingLaunch;
     private bool _settingsReady;
     private bool _savingMod;
+    private bool _renderingCardLanguage;
     private static StringComparison PathComparison => OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
 
     public MainWindow()
     {
         InitializeComponent();
+        CardLanguageSelector.ItemsSource = CardLanguages.All;
         GameCards.ItemsSource = _cards;
         foreach (var game in GameCatalog.All)
         {
@@ -381,7 +384,43 @@ public partial class MainWindow : Window
         SkipCharacterInteractionsCheckBox.IsEnabled = SkipSplashScreensCheckBox.IsEnabled;
         OriginalAspectRatioCheckBox.IsChecked = _settings.RestoreOriginalAspectRatio;
         OriginalAspectRatioCheckBox.IsEnabled = SkipSplashScreensCheckBox.IsEnabled;
+        _renderingCardLanguage = true;
+        try { CardLanguageSelector.SelectedItem = CardLanguages.Get(_settings.CardLanguage); }
+        finally { _renderingCardLanguage = false; }
+        CardLanguageSelector.IsEnabled = SkipSplashScreensCheckBox.IsEnabled;
         foreach (var card in _cards) card.SetLaunchPending(!_settingsReady || _savingMod || _pendingLaunch);
+    }
+
+    private async void CardLanguage_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (_renderingCardLanguage || !_settingsReady || _savingMod || _pendingLaunch || _busy || _closed
+            || CardLanguageSelector.SelectedItem is not CardLanguage selected) return;
+        var previous = _settings.CardLanguage;
+        if (previous == selected.Id) return;
+        _settings.CardLanguage = selected.Id;
+        _savingMod = true;
+        RefreshModControls();
+        try
+        {
+            if (!await SaveSettingsAsync())
+            {
+                _settings.CardLanguage = previous;
+                Notice("The card language could not be saved. Your previous selection was kept.");
+            }
+            if (_closed) return;
+            // Even rollback can retire an in-flight load while the tentative language was selected.
+            ResetGalleryArtwork();
+            foreach (var row in _collectionRows.Where(row => row.IsExpanded)) StartGalleryLoad(row);
+        }
+        finally
+        {
+            _savingMod = false;
+            if (!_closed)
+            {
+                RefreshModControls();
+                if (_closeWhenIdle && !_sessions.AnyRunning && !_pendingLaunch) Close();
+            }
+        }
     }
 
     private enum ModSelection { SkipSplashScreens, SkipCharacterInteractions, OriginalAspectRatio }
@@ -554,6 +593,7 @@ public partial class MainWindow : Window
             CancelGalleryLoad(row.Progress.GameId);
             _galleryAttempted.Remove(row.Progress.GameId);
             row.ClearArtwork();
+            row.ClearNames();
             row.SetGalleryStatus("Expand to view your original card images.");
         }
     }
@@ -569,7 +609,11 @@ public partial class MainWindow : Window
     {
         foreach (var gameId in _galleryLoads.Keys.ToArray()) CancelGalleryLoad(gameId);
         _galleryAttempted.Clear();
-        foreach (var row in _collectionRows) row.ClearArtwork();
+        foreach (var row in _collectionRows)
+        {
+            row.ClearArtwork();
+            row.ClearNames();
+        }
     }
 
     private void StartGalleryLoad(CollectionGameViewModel row)
@@ -593,20 +637,38 @@ public partial class MainWindow : Window
         CancellationTokenSource cancellation)
     {
         var token = cancellation.Token;
+        var language = CardLanguages.Normalize(_settings.CardLanguage);
         bool Current() => !_closed && !token.IsCancellationRequested && row.IsExpanded && row.ArtworkVersion == version
+            && language == _settings.CardLanguage
             && _galleryLoads.TryGetValue(installation.GameId, out var active) && ReferenceEquals(active, cancellation);
         try
         {
-            var batch = await _cardArtwork.LoadAsync(installation, row.Cards.Select(card => card.Slot).ToArray(), token);
+            var slots = row.Cards.Select(card => card.Slot).ToArray();
+            NativeCardNameBatch? names = null;
+            try { names = await _cardNames.LoadAsync(installation, slots, language, token); }
+            catch (Exception exception) when (exception is IOException or InvalidDataException or UnauthorizedAccessException
+                or ArgumentException or InvalidOperationException or NotSupportedException or System.Security.SecurityException)
+            {
+                // Names are optional; one unsupported text table must not hide cards or ownership.
+            }
+            if (!Current()) return;
+            row.SetNames(names?.Names ?? new Dictionary<int, string>());
+            var batch = await _cardArtwork.LoadAsync(installation, slots, token);
             for (var start = 0; start < batch.Images.Count; start += 32)
             {
                 if (!Current()) return;
                 foreach (var image in batch.Images.Skip(start).Take(32)) row.SetArtwork(image);
                 await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
             }
-            if (Current()) row.SetGalleryStatus(batch.Images.Count == batch.RequestedCount
-                ? "Original card size. Hover for the card's game; clicking keeps it small."
-                : "Some original card images are unavailable. Ownership counts are still shown.");
+            if (Current())
+            {
+                var status = batch.Images.Count == batch.RequestedCount
+                    ? "Original card size. Hover for the card's name and game; clicking keeps it small."
+                    : "Some original card images are unavailable. Ownership counts are still shown.";
+                if (names is null || names.Names.Count < slots.Length)
+                    status += " Some names are unavailable in this language; those cards show their ID.";
+                row.SetGalleryStatus(status);
+            }
         }
         catch (OperationCanceledException) { }
         catch (Exception exception) when (exception is IOException or InvalidDataException or UnauthorizedAccessException

@@ -257,6 +257,8 @@ internal static class Program
             await PortraitThumbnailChecks.RunAll(fixtures.Root, Run);
             await CollectionChecks.RunAll(fixtures.Root, Run);
             await NativeCardArtworkChecks.RunAll(fixtures.Root, Run);
+            await NativeCardNameChecks.RunAll(fixtures.Root, Run);
+            await CardLanguagePreferenceChecks.RunAll(fixtures.Root, Run);
 
             if (args.Contains("--installed-mods", StringComparer.Ordinal))
                 await InteractionChecks.VerifyInstalledProfiles(Run);
@@ -272,6 +274,7 @@ internal static class Program
                     Equal(3, result.Games.Count, "installed game count");
                     await CollectionChecks.VerifyInstalled(fixtures.Root, result.Games);
                     await NativeCardArtworkChecks.VerifyInstalled(result.Games);
+                    await NativeCardNameChecks.VerifyInstalled(result.Games);
                     foreach (var game in result.Games) Require(File.Exists(game.ExecutablePath), "Installed result must point at existing file.");
                     Console.WriteLine("Installed integration only read headers; no game process was started.");
                 });

@@ -37,7 +37,9 @@ The stock games use a shared system.dat. On Windows the launcher looks for its r
 
 Collection reads never change saves, installed files or registry values. Counts refresh when opening Collection, activating the launcher, updating a tracked session or pressing Refresh. Missing, busy, damaged or unsupported saves display **—/total**, not a fabricated zero. A valid empty collection displays **0/total**. Only readable added games contribute to a partial unique count, which is labelled accordingly.
 
-Expand a game's Collection panel to see **owned cards** and **missing cards**. The launcher reads the small original card images from your installed game files, so no HD card mod is required. Cards keep their native 49/50 × 72 size when clicked. Missing cards are dimmed; hovering shows the card ID, number of copies and first game where it is available. Collapsing the panel releases its artwork from memory.
+Expand a game's Collection panel to see **owned cards** and **missing cards**. The launcher reads the small original card images from your installed game files, so no HD card mod is required. Cards keep their native 49/50 × 72 size when clicked. Missing cards are dimmed; hovering shows the card name, number of copies and first game where it is available. Collapsing the panel releases its artwork from memory.
+
+Use **Card language**, beneath Settings, to choose English, German, French, Italian, Spanish or Japanese names. The choice is saved for the launcher and updates open galleries. Names come from each installed game's own localized tables; the game language and files are unchanged. A card whose name is missing in the selected table retains its ID as a fallback.
 
 Card pools and identities are read in memory from each installed game's own archive; no card database is bundled. The stock encrypted save's encoding, signature and both checksums are validated. Save identity acceptance by the games is not changed or inferred. Custom save formats and remapped card tables may be unavailable. See [collection format and validation](docs/collection.md).
 

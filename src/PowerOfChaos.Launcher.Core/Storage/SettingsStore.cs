@@ -131,7 +131,8 @@ public sealed class SettingsStore
             SkipCharacterInteractions = settings.SkipCharacterInteractions,
             RestoreOriginalAspectRatio = settings.RestoreOriginalAspectRatio,
             WineExecutable = wine,
-            CollectionSavePath = ValidAbsolutePath(settings.CollectionSavePath)
+            CollectionSavePath = ValidAbsolutePath(settings.CollectionSavePath),
+            CardLanguage = Collections.CardLanguages.Normalize(settings.CardLanguage)
         };
     }
 

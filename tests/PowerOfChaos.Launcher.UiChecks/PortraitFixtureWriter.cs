@@ -17,6 +17,7 @@ internal static class PortraitFixtureWriter
         if (executable == "yugi_pc.exe")
             entries.Add(("y\\bust_up\\yugi_bu\\kaisi_00_2.bmp", Bitmap(8, 4, 0)));
         entries.AddRange(TestFixtures.CollectionFixtures.CardTables());
+        entries.AddRange(TestFixtures.CollectionFixtures.CardNameTables());
         // Native-size, authored rectangles. No installed card pixels or HD assets are fixtures.
         var filenames = Enumerable.Range(0, 1115).Select(slot => $"synthetic_{slot}.bmp").ToArray();
         entries.Add((@"mini\list_card.txt", Encoding.ASCII.GetBytes(string.Join('\n', filenames))));

@@ -100,6 +100,20 @@ public sealed class CollectionGameViewModel : INotifyPropertyChanged, IDisposabl
         if (_cardsBySlot.TryGetValue(image.Slot, out var card)) card.SetArtwork(image);
     }
 
+    public void SetNames(IReadOnlyDictionary<int, string> names)
+    {
+        if (_disposed) return;
+        ArgumentNullException.ThrowIfNull(names);
+        foreach (var card in Cards)
+            card.SetName(names.TryGetValue(card.Slot, out var name) ? name : null);
+    }
+
+    public void ClearNames()
+    {
+        if (_disposed) return;
+        foreach (var card in Cards) card.SetName(null);
+    }
+
     public void ClearArtwork()
     {
         if (_disposed) return;

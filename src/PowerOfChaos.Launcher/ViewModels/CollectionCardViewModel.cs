@@ -1,6 +1,9 @@
+using System.Buffers;
 using System.ComponentModel;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Text;
 using Avalonia;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
@@ -12,6 +15,8 @@ namespace PowerOfChaos.Launcher.ViewModels;
 
 public sealed class CollectionCardViewModel : INotifyPropertyChanged, IDisposable
 {
+    private readonly string _tooltipDetails;
+    private string? _cardName;
     private WriteableBitmap? _artwork;
     private bool _disposed;
 
@@ -21,7 +26,7 @@ public sealed class CollectionCardViewModel : INotifyPropertyChanged, IDisposabl
         Entry = entry;
         var origin = GameCatalog.All.FirstOrDefault(game => game.Id == entry.OriginGameId)?.Title ?? entry.OriginGameId;
         var ownership = IsOwned ? $"{Quantity} {(Quantity == 1 ? "copy" : "copies")} owned" : "Missing";
-        Tooltip = $"Card ID {CardId} · {ownership}\nFirst available in {origin}";
+        _tooltipDetails = $" · {ownership}\nFirst available in {origin}";
     }
 
     public CollectionCard Entry { get; }
@@ -29,12 +34,25 @@ public sealed class CollectionCardViewModel : INotifyPropertyChanged, IDisposabl
     public ushort CardId => Entry.CardId;
     public byte Quantity => Entry.Quantity;
     public bool IsOwned => Quantity > 0;
-    public string Tooltip { get; }
+    public string? CardName => _cardName;
+    public string DisplayName => CardName ?? $"Card ID {CardId}";
+    public string Tooltip => $"{DisplayName}{_tooltipDetails}";
     public Bitmap? Artwork => _artwork;
     public bool HasArtwork => _artwork is not null;
     public int ArtworkWidth => _artwork?.PixelSize.Width ?? 50;
     public int ArtworkHeight => _artwork?.PixelSize.Height ?? 72;
     public double ArtworkOpacity => IsOwned ? 1.0 : 0.45;
+
+    public void SetName(string? value)
+    {
+        if (_disposed) return;
+        var name = NormalizeName(value);
+        if (_cardName == name) return;
+        _cardName = name;
+        Changed(nameof(CardName));
+        Changed(nameof(DisplayName));
+        Changed(nameof(Tooltip));
+    }
 
     public void SetArtwork(NativeCardImage image)
     {
@@ -90,6 +108,24 @@ public sealed class CollectionCardViewModel : INotifyPropertyChanged, IDisposabl
         Changed(nameof(HasArtwork));
         Changed(nameof(ArtworkWidth));
         Changed(nameof(ArtworkHeight));
+    }
+
+    private static string? NormalizeName(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        var name = value.Trim();
+        if (name.Length > 128) return null;
+        var remaining = name.AsSpan();
+        while (!remaining.IsEmpty)
+        {
+            if (Rune.DecodeFromUtf16(remaining, out var rune, out var consumed) != OperationStatus.Done)
+                return null;
+            if (Rune.GetUnicodeCategory(rune) is UnicodeCategory.Control or UnicodeCategory.Format
+                or UnicodeCategory.LineSeparator or UnicodeCategory.ParagraphSeparator)
+                return null;
+            remaining = remaining[consumed..];
+        }
+        return name;
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

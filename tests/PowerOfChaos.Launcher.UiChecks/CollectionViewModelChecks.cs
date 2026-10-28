@@ -21,6 +21,10 @@ internal static class CollectionViewModelChecks
         check("unchanged collection refresh retains card and artwork instances", StableRefresh);
         check("clearing or replacing collection metadata invalidates artwork without reviving old cards", Invalidation);
         check("collection disposal and late results are idempotent", Disposal);
+        check("localized card names lead tooltips and notify only when their normalized value changes", LocalizedNames);
+        check("localized names are bounded printable Unicode with an honest ID fallback", NameValidation);
+        check("name batches use internal slots and keep artwork, gallery lists, and versions stable", NameBatches);
+        check("stable metadata retains names while replacements and explicit clearing reset them", NameLifecycle);
     }
 
     private static void Metadata()
@@ -201,6 +205,126 @@ internal static class CollectionViewModelChecks
             "Repeated disposal or late artwork changed disposed card state.");
         Require(game.IsExpanded && game.GalleryStatus == "Before dispose"
             && !game.UpdateProgress(Progress() with { Cards = [] }), "Disposed gallery accepted a late mutation.");
+    }
+
+    private static void LocalizedNames()
+    {
+        using var card = new CollectionCardViewModel(new(4, 120, 2, "yugi"));
+        var changes = new List<string?>();
+        card.PropertyChanged += (_, change) => changes.Add(change.PropertyName);
+        Require(card.CardName is null && card.DisplayName == "Card ID 120" && card.Tooltip.StartsWith("Card ID 120"),
+            "Unnamed card no longer starts its tooltip with the existing ID fallback.");
+        card.SetName("  Probekarte Ä  ");
+        Require(card.CardName == "Probekarte Ä" && card.DisplayName == "Probekarte Ä"
+            && card.Tooltip.StartsWith("Probekarte Ä") && card.Tooltip.Contains("2 copies owned")
+            && card.Tooltip.Contains("First available in Yugi the Destiny"),
+            "Localized name did not lead the tooltip while preserving ownership and origin.");
+        Require(changes.SequenceEqual(new[] { nameof(card.CardName), nameof(card.DisplayName), nameof(card.Tooltip) }),
+            "Name update did not notify exactly the name, display name, and tooltip bindings.");
+        changes.Clear();
+        card.SetName("Probekarte Ä");
+        Require(changes.Count == 0, "Equivalent normalized name notified bindings again.");
+        card.SetName("試験札・甲");
+        Require(card.DisplayName == "試験札・甲" && card.Tooltip.StartsWith("試験札・甲") && changes.Count == 3,
+            "Language change did not update the tooltip text and bindings.");
+        changes.Clear();
+        card.SetName(null);
+        Require(card.CardName is null && card.Tooltip.StartsWith("Card ID 120") && changes.Count == 3,
+            "Clearing a localized name did not restore the ID fallback and bindings.");
+        changes.Clear();
+        card.SetName(string.Empty);
+        card.SetName("   ");
+        Require(changes.Count == 0, "Already-empty name notified bindings again.");
+        using var missing = new CollectionCardViewModel(new(2, 7, 0, "kaiba"));
+        missing.SetName("Carte d’essai B");
+        Require(missing.Tooltip.StartsWith("Carte d’essai B") && missing.Tooltip.Contains("Missing")
+            && missing.Tooltip.Contains("First available in Kaiba the Revenge"),
+            "Localized missing card lost its ownership or origin details.");
+    }
+
+    private static void NameValidation()
+    {
+        using var card = new CollectionCardViewModel(new(4, 120, 1, "yugi"));
+        card.SetName(new string('x', 128));
+        Require(card.CardName?.Length == 128, "Name at the display length limit was rejected.");
+        card.SetName(new string('x', 129));
+        Require(card.CardName is null && card.DisplayName == "Card ID 120", "Oversized name did not fall back to its ID.");
+        card.SetName("Testsymbol 🧪");
+        Require(card.CardName == "Testsymbol 🧪", "Valid surrogate-pair Unicode was rejected.");
+        string[] invalidNames = ["Test\nname", "Test\tname", "Test\u0085name", "Test\u202Ename",
+            "Test\u2028name", "Test\u2029name", "Test\uD800name", "Test\uDC00name"];
+        foreach (var name in invalidNames)
+        {
+            card.SetName("Valid fixture");
+            card.SetName(name);
+            Require(card.CardName is null && card.Tooltip.StartsWith("Card ID 120"),
+                "Control, formatting, line separator, or malformed Unicode name reached the tooltip.");
+        }
+    }
+
+    private static void NameBatches()
+    {
+        using var game = new CollectionGameViewModel(Progress());
+        var cards = game.Cards;
+        var ownedCards = game.OwnedCards;
+        var missingCards = game.MissingCards;
+        var owned = ownedCards[0];
+        var missing = missingCards[0];
+        game.SetArtwork(Image(owned.Slot));
+        var artwork = owned.Artwork;
+        var version = game.ArtworkVersion;
+        game.SetNames(new Dictionary<int, string>
+        {
+            [4] = "Probekarte A", [2] = "試験札・乙", [120] = "Wrong external ID", [1114] = "Unknown slot"
+        });
+        Require(owned.CardName == "Probekarte A" && missing.CardName == "試験札・乙",
+            "Name batch did not apply names by internal slot.");
+        game.SetNames(new Dictionary<int, string> { [4] = "Carte d’essai A" });
+        Require(owned.CardName == "Carte d’essai A" && missing.CardName is null && missing.Tooltip.StartsWith("Card ID 7"),
+            "Partial language batch retained an old name for an omitted slot.");
+        Require(ReferenceEquals(cards, game.Cards) && ReferenceEquals(ownedCards, game.OwnedCards)
+            && ReferenceEquals(missingCards, game.MissingCards) && ReferenceEquals(artwork, owned.Artwork)
+            && game.ArtworkVersion == version, "Name-only changes recreated metadata, bitmap, or artwork version.");
+        game.SetNames(new Dictionary<int, string> { [120] = "External ID is not a slot" });
+        Require(owned.CardName is null && missing.CardName is null && ReferenceEquals(cards, game.Cards),
+            "External card ID or an unknown slot was used as a name lookup key.");
+    }
+
+    private static void NameLifecycle()
+    {
+        var progress = Progress();
+        using var game = new CollectionGameViewModel(progress);
+        var card = game.OwnedCards[0];
+        game.SetNames(new Dictionary<int, string> { [card.Slot] = "Probekarte A" });
+        Require(!game.UpdateProgress(progress with { Message = "Refreshed", Cards = progress.Cards.Reverse().ToArray() })
+            && ReferenceEquals(card, game.OwnedCards[0]) && card.CardName == "Probekarte A",
+            "Stable collection metadata did not retain localized names.");
+        game.ClearArtwork();
+        Require(card.CardName == "Probekarte A", "Clearing artwork also cleared the localized name.");
+        game.SetArtwork(Image(card.Slot));
+        var artwork = card.Artwork;
+        var cards = game.Cards;
+        var version = game.ArtworkVersion;
+        game.ClearNames();
+        game.ClearNames();
+        Require(card.CardName is null && card.Tooltip.StartsWith("Card ID 120") && ReferenceEquals(artwork, card.Artwork)
+            && ReferenceEquals(cards, game.Cards) && game.ArtworkVersion == version,
+            "Clearing names changed artwork, metadata, or version.");
+        game.SetNames(new Dictionary<int, string> { [card.Slot] = "Old fixture name" });
+        var changed = progress with { Cards = [progress.Cards[0] with { Quantity = 3 }, progress.Cards[1]] };
+        Require(game.UpdateProgress(changed) && game.OwnedCards[0].CardName is null,
+            "New collection metadata inherited an unrelated localized name.");
+        card.SetName("Late old-card name");
+        Require(card.CardName == "Old fixture name", "Late name result changed a disposed, replaced card.");
+        var current = game.OwnedCards[0];
+        game.SetNames(new Dictionary<int, string> { [current.Slot] = "Current fixture name" });
+        game.Dispose();
+        var disposedVersion = game.ArtworkVersion;
+        game.SetNames(new Dictionary<int, string> { [current.Slot] = "Late batch" });
+        game.ClearNames();
+        current.SetName("Late card result");
+        Require(current.CardName == "Current fixture name" && game.ArtworkVersion == disposedVersion,
+            "Late name result or clear changed a disposed gallery.");
     }
 
     private static GameCollectionProgress Progress() => new("joey", 771, 1, "Synthetic collection")
