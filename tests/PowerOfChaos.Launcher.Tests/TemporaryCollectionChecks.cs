@@ -47,15 +47,29 @@ internal static class TemporaryCollectionChecks
             await restarted.SetEnabledAsync(false, f.Games);
             Require(!(await f.NewService().ReadStateAsync()).Enabled, "Inactive state did not persist.");
         });
-        await run("temporary profiles block running games and writers without changing system.dat", async () =>
+        await run("temporary profiles block running games and respect native save safety", async () =>
         {
             var f = new Fixture(root, "busy");
             f.Running = true;
             await Throws(() => f.Service.SetEnabledAsync(true, f.Games));
             await Throws(() => f.Service.AcquireSessionLeaseAsync(f.Games));
             f.Running = false;
-            using (new FileStream(f.SavePath, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite | FileShare.Delete))
-                await Throws(() => f.Service.SetEnabledAsync(true, f.Games));
+            if (OperatingSystem.IsWindows())
+            {
+                // The production mod uses Windows file-sharing denial to exclude an external save writer.
+                using (new FileStream(f.SavePath, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite | FileShare.Delete))
+                    await Throws(() => f.Service.SetEnabledAsync(true, f.Games));
+            }
+            else
+            {
+                // Unix sharing modes do not provide this Windows guarantee; production activation is unavailable.
+                var production = new TemporaryCollectionService(f.Vault, f.Reader);
+                InvalidOperationException? refusal = null;
+                try { await production.SetEnabledAsync(true, f.Games); }
+                catch (InvalidOperationException error) { refusal = error; }
+                Require(refusal?.Message == "Temporary all-cards profiles are currently supported on Windows only.",
+                    "Non-Windows production activation did not refuse before changing the save.");
+            }
             Require(File.ReadAllBytes(f.SavePath).SequenceEqual(f.Original) && !File.Exists(f.JournalPath), "A busy profile was modified.");
             await f.Service.SetEnabledAsync(true, f.Games);
             var unlocked = File.ReadAllBytes(f.SavePath);
