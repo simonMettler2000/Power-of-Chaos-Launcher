@@ -28,7 +28,13 @@ Playtime begins when this launcher starts tracking. It measures elapsed launcher
 
 Collection statistics, reversible shared/isolated collections, opponent-deck packs and guaranteed-new rewards are **not implemented**. Their mod entries are disabled rather than pretending to apply a modification. Native Linux/macOS ports of the games are not supplied.
 
-The **HD-Cards** branch adds a Windows/D3D9 [HD card preview candidate](docs/hd-launcher.md) using locally supplied 800 x 1160 RGB PNG masters. Choose the generated pack folder in Settings > Preferences and supply the separately built [HD display component](tools/HdCardsComponent/README.md). The global switch becomes available when both prerequisites validate. Large static previews are supported by the authored test path for all three games; small/rotated cards keep their original graphics. Installed-game validation remains pending. The [pack and renderer foundation](docs/hd-cards.md) remains available for authoring tools.
+The **HD-Cards** branch adds a Windows [HD card preview candidate](docs/hd-launcher.md). HD mode defaults to GDI for Yugi, Kaiba and Joey and smoothly scales locally supplied full 800 x 1160 RGB8 masters using GDI HALFTONE only when a complete large 200 x 290 preview matches at one of nine explicit positions across duel, Card List and Deck Construction screens. Small cards, rotated hand cards, field cards, deck backs and graveyard cards keep their original graphics.
+
+Generate a local pack from an accepted delivery manifest and your local original-card references, choose that pack folder in **Settings > Preferences**, and supply the separately built [HD display component](tools/HdCardsComponent/README.md). The folder contains `yugi-565.tsv`, `kaiba-565.tsv` and `joey-565.tsv`, which refer to external local reference/master files that must remain available. Masters must be metadata-free, non-interlaced RGB8 PNGs containing only IHDR, consecutive nonempty IDAT and IEND chunks. The pack builder excludes 199-pixel-wide originals rather than inventing missing padding. Packs, artwork, native components and third-party source remain local and are not supplied by this repository.
+
+The GDI decoder revision obtains owned BGRA pixels directly from the shared strict PNG decoder, without COM/WIC on that path. It retains the smooth filter and geometry but requires fresh actual qualification; earlier provider screenshots keep their original fingerprint bindings.
+
+Earlier pixel QA covered three supplied large-preview frames with the delivered serif masters and the prior nearest-pixel artwork filter: Yugi's De-Spell and Kaiba's Stim-Pack in Deck Construction, plus Joey's Graceful Dice in Card List. The smooth artwork revision requires fresh actual-display validation; those earlier results do not qualify its changed output. Other cards/layouts, independent integration reviews, an exact-commit audit and full release qualification remain pending. See the [component scope and validation limits](tools/HdCardsComponent/README.md) and [pack and renderer foundation](docs/hd-cards.md).
 
 ## Skip Splash Screens
 
@@ -89,3 +95,33 @@ The launcher requires separately obtained game installations. Private repository
 Avalonia supports Windows, Linux and macOS. The launcher source keeps discovery, settings and session logic separate from the desktop interface. Automated platform tests and real game compatibility tests are different: a passing launcher build does not prove the Windows games or future mods work through every Wine runner.
 
 This is an independent launcher project, not an official KONAMI product.
+
+
+Optional normal software cursor previews (candidate)
+
+The GDI cursor extension uses a local V2 pack. It preserves the exact whole-card
+recognition rule by explaining every preview pixel as reference plus one verified
+normal cursor, then placing that cursor above the HD master. Unknown cursor
+states/layers and ambiguous matches retain the base. Other cards outside the
+large preview remain outside this feature. Independent review and actual hover
+checks are still required; previous screenshots retain their original DLL pins.
+
+Use `python tools/hd_cards_add_cursor_bank.py --pack <existing-V1-pack> --output
+<fresh-V2-folder> --archive yugi=<absolute-data.dat> --archive kaiba=<absolute-Data.dat>
+--archive joey=<absolute-data.dat>` with explicit read-only original archive paths.
+This writes the three RGB565 V2 configs and two normal64x64 banks per game into
+a fresh local folder, leaving the old pack and archives untouched. Select that
+folder in Settings only after qualifying the candidate component. Generated
+banks contain original game pixels and must remain local, outside source control.
+V1 packs still use the original unoccluded-preview path. D3D9 retains V1 support;
+V2 cursor-aware presentation is GDI-only.
+
+Cursor-aware presentation requires a viewport at least800x600. At smaller sizes,
+it displays the same owned original base, including its cursor; GDI modes1/2 can
+combine or delete reduction samples, so a single foreground texel is unproved.
+V1 and unoccluded exact-card minification keep their existing behavior.
+
+Opaque cursor foreground uses the RGB565-to-RGB8 bit replication verified
+against owned GDI conversion of all65536 words, preserving native base colors
+at preview crossings. Partial alpha still uses separately floored q/15 terms
+against the new physical HD background; it is not a retained old-card pixel.

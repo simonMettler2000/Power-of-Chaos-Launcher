@@ -30,10 +30,10 @@ internal static class OriginalAspectRatioComponents
 internal static class HdCardArtworkComponents
 {
     internal const string DirectoryName = "hd-card-artwork-v1";
-    internal const string RecipeVersion = "hd-card-artwork-v1-d3d9-1280x960-rgb565";
+    internal const string RecipeVersion = "hd-card-artwork-v2-gdi-normal-cursor-halftone-1280x960-rgb565";
     // Factual pin of the separately source-built HD provider; no native binary is included in this repository.
-    internal const int ProductionDdrawLength = 502784;
-    internal const string ProductionDdrawSha256 = "4156f862bd6363b9a3925af75ac924e732751f035d84517c88be8d02d604a925";
+    internal const int ProductionDdrawLength = 546816;
+    internal const string ProductionDdrawSha256 = "70672798af371ce85c0264a52fd83f83d6e0977d32713299c94f9739245f5430";
     internal static IReadOnlyList<DisplayComponent> Required { get; } = Array.AsReadOnly(
         OriginalAspectRatioComponents.Required.Select(component => component.FileName == "ddraw.dll"
             ? new DisplayComponent("ddraw.dll", ProductionDdrawLength, ProductionDdrawSha256, true) : component).ToArray());
@@ -189,7 +189,7 @@ internal sealed class OriginalAspectRatioPreparer
             + "maxfps=-1\nvsync=false\nadjmouse=true\nkeyscreenshot=0x00\nscreenshotdir=" + screenshotPath
             + "\nsinglecpu=false\nfixchilds=0\nvhack=false\nhook_peekmessage=false\nposX=-32000\nposY=-32000\n";
         return hdMode ? configuration.Replace("width=800\nheight=600", "width=1280\nheight=960", StringComparison.Ordinal)
-            .Replace("renderer=auto", "renderer=d3d9", StringComparison.Ordinal) + "rgb555=false\n" : configuration;
+            .Replace("renderer=auto", "renderer=gdi", StringComparison.Ordinal) + "rgb555=false\n" : configuration;
     }
 
     internal static async Task VerifyComponentsAsync(string directory, IReadOnlyList<DisplayComponent> components, CancellationToken cancellationToken)

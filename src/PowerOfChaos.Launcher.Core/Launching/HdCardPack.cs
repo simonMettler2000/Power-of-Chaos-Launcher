@@ -32,11 +32,28 @@ internal static class HdCardPack
         if (text.Any(c => char.IsControl(c) && c is not '\t' and not '\r' and not '\n')) Invalid();
         var lines = text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n').ToList();
         if (lines.Count > 0 && lines[^1].Length == 0) lines.RemoveAt(lines.Count - 1);
-        if (lines.Count is < 3 or > MaximumEntries + 2 || lines[0] != "POC_HD_VISIBLE_V1"
+        var cursorVersion = lines.Count > 0 && lines[0] == "POC_HD_VISIBLE_V2";
+        var firstEntry = cursorVersion ? 3 : 2;
+        if (lines.Count < firstEntry + 1 || lines.Count > MaximumEntries + firstEntry
+            || (lines[0] != "POC_HD_VISIBLE_V1" && !cursorVersion)
             || lines[1] != game.ToString(CultureInfo.InvariantCulture) + "\t1") Invalid();
         var keys = new HashSet<uint>();
         var inputs = new HashSet<string>(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal) { root, config };
-        foreach (var line in lines.Skip(2))
+        if (cursorVersion)
+        {
+            var cursors = lines[2].Split('\t');
+            if (cursors.Length != 5 || cursors[0] != "CURSORS_BGRA64_V1") Invalid();
+            for (var state = 1; state <= 2; state++)
+            {
+                var path = ValidatePath(cursors[state * 2 - 1]);
+                var digest = cursors[state * 2];
+                if (digest.Length != 64 || digest.Any(c => !char.IsAsciiHexDigit(c) || char.IsUpper(c))) Invalid();
+                var bank = await ReadBoundedAsync(path, 16384, 16384, cancellationToken).ConfigureAwait(false);
+                if (!string.Equals(Convert.ToHexString(SHA256.HashData(bank)), digest, StringComparison.OrdinalIgnoreCase)) Invalid();
+                inputs.Add(path);
+            }
+        }
+        foreach (var line in lines.Skip(firstEntry))
         {
             cancellationToken.ThrowIfCancellationRequested();
             var fields = line.Split('\t');
@@ -102,7 +119,7 @@ public static class HdCardArtworkAvailability
 {
     public static async Task<string?> GetUnavailableReasonAsync(string packDirectory, CancellationToken cancellationToken = default)
     {
-        if (!OperatingSystem.IsWindows()) return "HD card artwork currently requires Windows and Direct3D 9.";
+        if (!OperatingSystem.IsWindows()) return "HD card artwork currently requires Windows.";
         try
         {
             foreach (var game in GameCatalog.All) await HdCardPack.ReadAsync(packDirectory, game.Id, cancellationToken).ConfigureAwait(false);

@@ -30,8 +30,8 @@ try {
 } finally { foreach ($key in $saved.Keys) { [Environment]::SetEnvironmentVariable($key,$saved[$key]) } }
 if ($result -ne 0) { throw ('Provider build failed '+$result+'; see '+$providerOutput+'\build.log') }
 $dll=Join-Path $providerOutput 'out\ddraw.dll'
-$expectedLength=if ($Synthetic) { 504320 } else { 502784 }
-$expectedHash=if ($Synthetic) { 'bb8b3bac67f7230b4c9f51694a2a08d391c6ac9206b932d6c1e6e003bdd3a720' } else { '4156f862bd6363b9a3925af75ac924e732751f035d84517c88be8d02d604a925' }
+$expectedLength=if ($Synthetic) { 549888 } else { 546816 }
+$expectedHash=if ($Synthetic) { 'c30016fe11669b2dba273b5be8b775a4f51380a99be971add29ec0d72993cbe5' } else { '70672798af371ce85c0264a52fd83f83d6e0977d32713299c94f9739245f5430' }
 if ((Get-Item -LiteralPath $dll).Length -ne $expectedLength -or (Get-FileHash -LiteralPath $dll -Algorithm SHA256).Hash -ine $expectedHash) { throw 'HD output pin mismatch' }
 [ordered]@{exitCode=$result;dll=$dll;sha256=(Get-FileHash -LiteralPath $dll -Algorithm SHA256).Hash.ToLowerInvariant();length=(Get-Item -LiteralPath $dll).Length;executed=$false} |
     ConvertTo-Json | Set-Content -LiteralPath (Join-Path $providerOutput 'build-receipt.json') -Encoding utf8

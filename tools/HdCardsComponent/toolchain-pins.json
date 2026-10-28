@@ -69,6 +69,10 @@
     "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.41.34120\\bin\\Hostx64\\x86\\link.exe": {
       "length": 2851416,
       "sha256": "882f4a258df99ca02a382796623e3050999d0eaef623fee59f3a6b775b3dcaf6"
+    },
+    "C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.22621.0\\um\\x86\\bcrypt.lib": {
+      "length": 15170,
+      "sha256": "f204031dabd36c092d43fd01b4a7b2e6f4531d37a37c1bf924999b7ee89f9a7c"
     }
   }
 }

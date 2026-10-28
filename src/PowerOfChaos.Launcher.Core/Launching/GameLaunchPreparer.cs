@@ -39,7 +39,7 @@ public sealed class GameLaunchPreparer : IGameLaunchPreparer
         ArgumentNullException.ThrowIfNull(options);
         cancellationToken.ThrowIfCancellationRequested();
         if (options.HdCardArtwork && !OperatingSystem.IsWindows())
-            throw new InvalidDataException("HD card artwork currently requires Windows and Direct3D 9.");
+            throw new InvalidDataException("HD card artwork currently requires Windows.");
         var hdPack = options.HdCardArtwork
             ? await HdCardPack.ReadAsync(options.HdPackDirectory, installation.GameId, cancellationToken).ConfigureAwait(false) : null;
         var originalPath = Path.GetFullPath(installation.ExecutablePath);

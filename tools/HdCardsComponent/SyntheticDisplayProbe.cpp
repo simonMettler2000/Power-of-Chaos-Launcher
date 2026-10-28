@@ -15,11 +15,16 @@
 #include <thread>
 using Microsoft::WRL::ComPtr;
 namespace {
-bool write_png(const std::wstring& path, const std::vector<unsigned char>& bgra) {
+bool encode_owned_png(const std::wstring& path, const std::vector<unsigned char>& bgra) {
     ComPtr<IWICImagingFactory> factory; ComPtr<IWICStream> stream;
     ComPtr<IWICBitmapEncoder> encoder; ComPtr<IWICBitmapFrameEncode> frame;
     ComPtr<IPropertyBag2> properties;
-    WICPixelFormatGUID format = GUID_WICPixelFormat32bppBGRA;
+    /* The supported master profile is RGB8 without optional chunks. Keep this
+       authored diagnostic's colors while emitting an opaque 24-bit PNG. */
+    std::vector<unsigned char> bgr(800 * 1160 * 3);
+    for (size_t i = 0; i < 800 * 1160; ++i)
+        std::memcpy(bgr.data() + i * 3, bgra.data() + i * 4, 3);
+    WICPixelFormatGUID format = GUID_WICPixelFormat24bppBGR;
     return SUCCEEDED(CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(factory.GetAddressOf()))) &&
         SUCCEEDED(factory->CreateStream(stream.GetAddressOf())) &&
         SUCCEEDED(stream->InitializeFromFilename(path.c_str(), GENERIC_WRITE)) &&
@@ -27,9 +32,42 @@ bool write_png(const std::wstring& path, const std::vector<unsigned char>& bgra)
         SUCCEEDED(encoder->Initialize(stream.Get(), WICBitmapEncoderNoCache)) &&
         SUCCEEDED(encoder->CreateNewFrame(frame.GetAddressOf(), properties.GetAddressOf())) &&
         SUCCEEDED(frame->Initialize(properties.Get())) && SUCCEEDED(frame->SetSize(800, 1160)) &&
-        SUCCEEDED(frame->SetPixelFormat(&format)) && format == GUID_WICPixelFormat32bppBGRA &&
-        SUCCEEDED(frame->WritePixels(1160, 3200, static_cast<UINT>(bgra.size()), const_cast<BYTE*>(bgra.data()))) &&
+        SUCCEEDED(frame->SetPixelFormat(&format)) && format == GUID_WICPixelFormat24bppBGR &&
+        SUCCEEDED(frame->WritePixels(1160, 2400, static_cast<UINT>(bgr.size()), bgr.data())) &&
         SUCCEEDED(frame->Commit()) && SUCCEEDED(encoder->Commit());
+}
+bool write_png(const std::wstring& path,const std::vector<unsigned char>& bgra) {
+    if(!encode_owned_png(path,bgra))return false;
+    // Only this freshly generated diagnostic file is transformed. CRC-check
+    // every chunk, retain IHDR/IDAT/IEND bytes exactly, and drop only WIC's
+    // sRGB/gAMA metadata. No delivery, user image or validator is altered.
+    std::ifstream in(path,std::ios::binary|std::ios::ate);
+    if(!in||in.tellg()<45||in.tellg()>16*1024*1024)return false;
+    const size_t length=static_cast<size_t>(in.tellg());in.seekg(0);std::vector<unsigned char> bytes(length);
+    if(!in.read(reinterpret_cast<char*>(bytes.data()),std::streamsize(length)))return false;in.close();
+    const unsigned char signature[]={137,80,78,71,13,10,26,10};if(std::memcmp(bytes.data(),signature,8))return false;
+    auto number=[](const unsigned char* p){return(uint32_t(p[0])<<24)|(uint32_t(p[1])<<16)|(uint32_t(p[2])<<8)|p[3];};
+    std::vector<unsigned char> clean(bytes.begin(),bytes.begin()+8);bool header=false,data=false,end=false;
+    for(size_t at=8;at+12<=length;){
+        const uint32_t n=number(bytes.data()+at);if(n>length-at-12)return false;
+        const auto* type=bytes.data()+at+4;const auto* payload=bytes.data()+at+8;uint32_t crc=UINT32_MAX;
+        for(size_t i=0;i<size_t(n)+4;++i){crc^=type[i];for(unsigned bit=0;bit<8;++bit)crc=(crc>>1)^((crc&1)?0xedb88320u:0u);}
+        if((crc^UINT32_MAX)!=number(payload+n))return false;
+        bool keep=true;
+        if(!std::memcmp(type,"IHDR",4)){if(header||at!=8||n!=13||number(payload)!=800||number(payload+4)!=1160||payload[8]!=8||payload[9]!=2)return false;header=true;}
+        else if(!std::memcmp(type,"IDAT",4)){if(!header||end||!n)return false;data=true;}
+        else if(!std::memcmp(type,"IEND",4)){if(!header||!data||n||at+12!=length)return false;end=true;}
+        else if(!std::memcmp(type,"sRGB",4)||!std::memcmp(type,"gAMA",4))keep=false;
+        else return false;
+        if(keep)clean.insert(clean.end(),bytes.begin()+at,bytes.begin()+at+n+12);at+=n+12;
+    }
+    if(!end)return false;
+    {std::ofstream out(path,std::ios::binary|std::ios::trunc);out.write(reinterpret_cast<char*>(clean.data()),std::streamsize(clean.size()));if(!out)return false;}
+    ComPtr<IWICImagingFactory> factory;ComPtr<IWICBitmapDecoder> decoder;ComPtr<IWICBitmapFrameDecode> frame;ComPtr<IWICFormatConverter> converter;
+    if(FAILED(CoCreateInstance(CLSID_WICImagingFactory,nullptr,CLSCTX_INPROC_SERVER,IID_PPV_ARGS(factory.GetAddressOf())))||FAILED(factory->CreateDecoderFromFilename(path.c_str(),nullptr,GENERIC_READ,WICDecodeMetadataCacheOnLoad,decoder.GetAddressOf()))||FAILED(decoder->GetFrame(0,frame.GetAddressOf()))||FAILED(factory->CreateFormatConverter(converter.GetAddressOf()))||FAILED(converter->Initialize(frame.Get(),GUID_WICPixelFormat24bppBGR,WICBitmapDitherTypeNone,nullptr,0,WICBitmapPaletteTypeCustom)))return false;
+    std::vector<unsigned char> rgb(800*1160*3);if(FAILED(converter->CopyPixels(nullptr,2400,static_cast<UINT>(rgb.size()),rgb.data())))return false;
+    for(size_t i=0;i<800*1160;++i)for(size_t c=0;c<3;++c)if(rgb[i*3+c]!=bgra[i*4+c])return false;
+    std::printf("Owned metadata-free fixture:928000 RGB pixels exactly preserved\n");return true;
 }
 std::string utf8(const std::wstring& value) {
     int count = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, value.data(), static_cast<int>(value.size()), nullptr, 0, nullptr, nullptr);
@@ -39,7 +77,8 @@ std::string utf8(const std::wstring& value) {
 }
 }
 int wmain(int argc, wchar_t** argv) {
-    if (argc != 3) { std::fprintf(stderr, "Usage: SyntheticDisplayProbe built-adapter.dll fresh-output-directory\n"); return 2; }
+    if (argc != 3 && argc != 4) { std::fprintf(stderr, "Usage: SyntheticDisplayProbe built-adapter.dll fresh-output-directory [--fixture-only]\n"); return 2; }
+    const bool fixture_only=argc==4&&std::wcscmp(argv[3],L"--fixture-only")==0;if(argc==4&&!fixture_only)return 2;
     const std::wstring directory = argv[2];
     if (!CreateDirectoryW(directory.c_str(), nullptr)) return 3;
     if (FAILED(CoInitializeEx(nullptr, COINIT_MULTITHREADED))) return 4;
@@ -55,6 +94,7 @@ int wmain(int argc, wchar_t** argv) {
     { std::ofstream file(ref_path, std::ios::binary); file.write(reinterpret_cast<const char*>(reference.data()), static_cast<std::streamsize>(reference.size())); }
     if (!write_png(png_path, master)) return 5;
     { std::ofstream file(config_path, std::ios::binary); file << "POC_HD_VISIBLE_V1\n1\t1\n42\t" << utf8(ref_path) << '\t' << utf8(png_path) << '\n'; }
+    if(fixture_only){CoUninitialize();return 0;}
     HMODULE component = LoadLibraryExW(argv[1], nullptr, LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_SYSTEM32);
     if (!component) return 6;
     auto configure = reinterpret_cast<int(*)(const wchar_t*)>(GetProcAddress(component, "hdv_provider_configure"));

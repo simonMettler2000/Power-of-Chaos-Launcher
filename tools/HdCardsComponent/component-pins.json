@@ -48,8 +48,8 @@
   "components": [
     {
       "name": "ddraw.dll",
-      "length": 502784,
-      "sha256": "4156f862bd6363b9a3925af75ac924e732751f035d84517c88be8d02d604a925"
+      "length": 546816,
+      "sha256": "70672798af371ce85c0264a52fd83f83d6e0977d32713299c94f9739245f5430"
     },
     {
       "name": "winmm.dll",
@@ -122,15 +122,32 @@
     "setup-component.ps1": "acf8e4cc927798bc83e060e78ba1bfc5d81fb63801999cbdd4c8a3f1eb0170b3"
   },
   "nativeSources": {
+    "allocator_test.cpp": "f7b5d682cc8bff7bb75f9543393e76217b402ea9e4437d88a713848976b4ae40",
     "ConfigAdversarialProbe.cpp": "c8046a4c2e4024103902895b8712cb38f249d93939e5f92bc627397064cc53cc",
-    "hd_visible.cpp": "826aa42a9803b515fac96da430aa78de90519195fca9d72c2a885eb7b3fde107",
+    "cursor_fault_shim.h": "a54a3f225a75b1571f37b8bc9cec7957993a4ba7bce507345b2c06027d03082f",
+    "cursor_test.cpp": "13b6ac559b5d4d13b9799a63d6a2c9531e7730182c79b67394b1b04751f64483",
+    "gdi_fault_shim.h": "aeaa899f5b932de611d874e74fb42120280564b1f25cd528f3c8851219b07550",
+    "gdi_window_oracle.h": "6f43c982a1f100ef56d687c7d4808f254f13cd239662a46d7668dff5819b8bdb",
+    "GdiWindowOracle.cpp": "8ac0dd3df22b96544c2ea84c24ca7d29f0b2fc364c9a807a82dbe5be8a3c1b40",
+    "hd_visible.cpp": "eb749d843400b4263e24ecebdd88d81e387eea7f55eae40f12b0af87e03203fe",
     "hd_visible.def": "ac998dcc297b781906bd00562ed5611360696fc7454421efa75965f42c947312",
-    "hd_visible.h": "f32105db570fe6f7ac77344a41ace90fcd56aae1bc81da20f4b1c67845685fe8",
-    "hd_visible_d3d9.cpp": "a516e6f5015a4b51f41a84770aeba8fda7c0db776b633b97f59cc3cd2e853c76",
-    "hd_visible_test.cpp": "bcb361066a97af6e060ab0beba41c5b144fab3744b41cfc852cec19fa903072e",
-    "hd_visible_test_observer.cpp": "40bccd9fbe032b6cba9b38cbff769477bcac0e96a9837db621b96e6e4018e19b",
-    "hd_visible_test_observer.h": "df77ec6abf0f3d26a69977b2e3b2a3a6fdeabfe198f15101175807e96395665b",
-    "SyntheticDisplayProbe.cpp": "30eeb4e55ec933045d0c566ef6b7b1e831bef4f2a3b3f1c3e5b338d28b3fbf4d",
+    "hd_visible.h": "edb569e7f8463eac779db2170dc33388611a474c64b0bbf7966d0deb558e8a56",
+    "hd_visible_d3d9.cpp": "9c91da947bea830243252c444a5a1b8b21251690a26830330d28dc737d8da698",
+    "hd_visible_gdi.cpp": "35285ae2acab35e107e7420d2a05d454d7c2f0e86a4b7914705e0d05dbc36e7f",
+    "hd_visible_gdi.h": "36c67a5fc0ddb74b0ae6c457a17d7bcbe628f91f6fb88456cabafec77ec4eb93",
+    "hd_visible_gdi_fault_test.cpp": "72f2d12fb734d35ede2c31f96b1101d777ab0ec3fe84ef1bc8ce6ed6cbfba01a",
+    "hd_visible_gdi_test.cpp": "63caeb0897a20eeacd64967902ff1e4d339ec287eee075a1df142949930739a4",
+    "hd_visible_png.cpp": "aa0cf302860c5bb4f7aaa4671217348d0b2b7a6cecddb08aef6d4e7772d9d620",
+    "hd_visible_png.h": "1b712e94c9973e5fc8a444c4bf0f52eb60c595e646b61daf10ca8c84e62212b9",
+    "hd_visible_test.cpp": "f232c7b12278274b337d8e90ed19b51dfdc20f7822b8344ef739052293fe294f",
+    "hd_visible_test_observer.cpp": "eeedd8800d39b6953eae4a319107e0e3a1d1b5b99adfd9ac7b83db2733325163",
+    "hd_visible_test_observer.h": "61e0eb7666dca5d47e50ef601e636ac70215eeb42c02cd5978ec6f7107e791ca",
+    "master_profile_test.cpp": "f27bc1eb12b44336b4712decc46209e812e224e230c6ce11f0af48e8c0d80163",
+    "png_decode_test.cpp": "43fe61e92433e25f51caeb265896342dec59b1a972d2e1062356830bf72d0397",
+    "png_regression_test.cpp": "33231ad4aa0e44a746f2bc501fd3ef2a51fdd7e4046d7dce99ed0fee49dc36de",
+    "profile_gdi_test.cpp": "bc9fd12e0ad26b16ff485e93bdf8511b18f7c45fe2b99209a035ac638d376cbe",
+    "SyntheticDisplayProbe.cpp": "40c286a083de6a5f609e391aa1530361f4f6d710e238e1b99b9e7609e0cb060c",
+    "SyntheticGdiProviderProbe.cpp": "3a6475b1cff9cd15d77f208e65f70d6acddbf5898235d6bc1129e6c2f3625c2f",
     "SyntheticProviderProbe.cpp": "69af16e8876f4ae6abb6b437a9c0bbcd2e6079a8b82d5c29e6909d160f980d73"
   },
   "providerSourceTrees": {
@@ -139,12 +156,12 @@
       "sha256": "aa754828c7de6f198ed3eb06d01bfed827f0cf5f40d863f25f0384f7f1bffab4"
     },
     "production": {
-      "count": 129,
-      "sha256": "c6b0bafa123f2680372d11c24a30a5e556668cec0cab052b078aa96aa6ba2f0e"
+      "count": 133,
+      "sha256": "3bfcf7f49cabdd0cb137404afad9617b436625190b651ecbd3e9c322cd70bbf1"
     },
     "synthetic": {
-      "count": 131,
-      "sha256": "20eb5e202001e7dad1515a63a06fb375b17769dba0293b3411249ca94696120f"
+      "count": 135,
+      "sha256": "fedca915b6a58de3599bada6978e29ca86f5f550674425e9a03535af574f20ba"
     }
   }
 }

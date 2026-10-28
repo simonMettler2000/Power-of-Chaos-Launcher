@@ -6,7 +6,9 @@ extern "C" {
 #endif
 
 /* Project-authored visible-pixel recognizer. All inputs are copied. One render
-   thread owns an instance; no game memory, handles, IDs or callbacks are read. */
+   thread owns an instance; no game memory, handles, IDs or callbacks are read.
+   Only explicitly supported preview regions are tested. A match requires one
+   unique complete reference/placement pair; HdvMatch reports that placement. */
 typedef struct HdvEngine HdvEngine;
 enum HdvGame { HDV_YUGI = 1, HDV_KAIBA = 2, HDV_JOEY = 3 };
 enum HdvFormat { HDV_RGB565 = 1, HDV_RGB555 = 2 };
@@ -25,6 +27,16 @@ HdvEngine* hdv_create(uint32_t game, uint32_t format);
 void hdv_destroy(HdvEngine* engine);
 int hdv_add(HdvEngine* engine, uint32_t key, const void* packed_reference,
     size_t reference_bytes, const wchar_t* master_png_absolute_path);
+/* Optional GDI-only normal foreground bank. Exactly two owned64x64 BGRA
+   sprites must be installed before sealing. RGB565 admission uses alpha>>4. */
+int hdv_add_cursor(HdvEngine* engine, uint32_t state, const void* bgra, size_t bytes);
+typedef struct HdvCursor {
+    const void* bgra;
+    int32_t x, y;
+    uint32_t state;
+    uint64_t generation;
+} HdvCursor;
+int hdv_cursor(const HdvEngine* engine, HdvCursor* cursor);
 int hdv_seal(HdvEngine* engine);
 void hdv_invalidate(HdvEngine* engine);
 /* Capture must receive the exact locked GPU upload storage after base copy,

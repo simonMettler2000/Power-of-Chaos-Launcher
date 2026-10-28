@@ -5,6 +5,7 @@
 #include <wincodec.h>
 #include <wrl/client.h>
 #include "hd_visible.h"
+#include "hd_visible_png.h"
 #include <algorithm>
 #include <atomic>
 #include <cstring>
@@ -148,7 +149,8 @@ const Image* image_for(const HdvMatch& match) {
     if (!initialize_com()) return nullptr;
     /* Read bytes once with a bound, then WIC decodes the same owned bytes. */
     std::vector<unsigned char> png;
-    if (!bounded_file(match.master_path, 16 * 1024 * 1024, png)) return nullptr;
+    if (!bounded_file(match.master_path, 16 * 1024 * 1024, png) ||
+        !hdv_validate_master_png(png.data(), png.size())) return nullptr;
     ComPtr<IWICImagingFactory> factory;
     ComPtr<IWICStream> stream;
     ComPtr<IWICBitmapDecoder> decoder;

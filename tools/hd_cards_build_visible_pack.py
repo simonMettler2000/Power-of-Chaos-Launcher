@@ -3,6 +3,10 @@ import argparse, collections, hashlib, json, os, stat, struct, sys, zlib
 from pathlib import Path
 
 GAMES={'yugi':1,'kaiba':2,'joey':3}
+DELIVERY_SCHEMAS={
+    'power-of-chaos-reconstructed-card-delivery-v1',
+    'power-of-chaos-complete-collection-serif-v2-manifest-v1',
+}
 
 def sha(data):return hashlib.sha256(data).hexdigest()
 
@@ -95,7 +99,7 @@ def build(delivery,source_root,output,games,formats):
     if output.is_relative_to(delivery.parent):raise ValueError('Output cannot modify read-only delivery')
     if delivery.stat().st_size>16*1024*1024:raise ValueError('Manifest too large')
     d=json.loads(delivery.read_text(encoding='utf-8-sig'))
-    if d.get('schema')!='power-of-chaos-reconstructed-card-delivery-v1' or not 1<=len(d['entries'])<=4096:
+    if d.get('schema') not in DELIVERY_SCHEMAS or not 1<=len(d['entries'])<=4096:
         raise ValueError('Unknown delivery')
     output.mkdir(parents=True,exist_ok=False);refs=output/'refs';refs.mkdir()
     rows=collections.defaultdict(list);records=[];skips=[];seen=set();written=set()

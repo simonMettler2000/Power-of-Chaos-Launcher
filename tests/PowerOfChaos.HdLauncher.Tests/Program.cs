@@ -57,7 +57,7 @@ internal static class Program
                     Require(cachePaths.Add(output), "Combination reused a different options identity.");
                     var directory = Path.GetDirectoryName(output)!;
                     var ini = await File.ReadAllTextAsync(Path.Combine(directory, "ddraw.ini"));
-                    Require(ini.Contains("width=1280\nheight=960", StringComparison.Ordinal) && ini.Contains("renderer=d3d9\n", StringComparison.Ordinal)
+                    Require(ini.Contains("width=1280\nheight=960", StringComparison.Ordinal) && ini.Contains("renderer=gdi\n", StringComparison.Ordinal)
                         && ini.Contains("rgb555=false\n", StringComparison.Ordinal) && ini.Contains("maxgameticks=-1\n", StringComparison.Ordinal), "Wrong HD rendering recipe.");
                     var settings = Settings(options);
                     var inherited = new Dictionary<string, string?> { ["POC_HD_CONFIG"] = "untrusted", ["CNC_DDRAW_CONFIG_FILE"] = "untrusted", ["KEEP_ME"] = "yes" };
@@ -77,6 +77,27 @@ internal static class Program
                 Require(!off.Environment.Keys.Any(key => key.Equals("POC_HD_CONFIG", StringComparison.OrdinalIgnoreCase)), "HD-off inherited configuration.");
             });
         }
+        await Check("optional cursor bank hashes and configuration identity are strict", async () =>
+        {
+            var fixture = await Fixture.Create(Path.Combine(root, "cursor-bank"), "joey");
+            var config = Path.Combine(fixture.Pack, "joey-565.tsv");
+            var old = await File.ReadAllTextAsync(config);
+            var first = Path.Combine(fixture.Pack, "normal0.bgra"); var second = Path.Combine(fixture.Pack, "normal1.bgra");
+            var bank = new byte[16384]; bank[3] = 255;
+            await File.WriteAllBytesAsync(first, bank); bank[4] = 21; await File.WriteAllBytesAsync(second, bank);
+            var line = "CURSORS_BGRA64_V1\t" + first + "\t" + Hash(await File.ReadAllBytesAsync(first)) + "\t" + second + "\t" + Hash(bank);
+            var v2 = old.Replace("POC_HD_VISIBLE_V1\n3\t1\n", "POC_HD_VISIBLE_V2\n3\t1\n" + line + "\n", StringComparison.Ordinal);
+            await File.WriteAllTextAsync(config, v2);
+            var snapshot = await HdCardPack.ReadAsync(fixture.Pack, "joey", default);
+            Require(snapshot.InputPaths.Contains(first) && snapshot.InputPaths.Contains(second), "Cursor bank missing from input ownership.");
+            Require(snapshot.Sha256 != Hash(System.Text.Encoding.UTF8.GetBytes(old)), "V2 cursor identity reused old config.");
+            bank[15] ^= 1; await File.WriteAllBytesAsync(second, bank);
+            await Expect<InvalidDataException>(() => HdCardPack.ReadAsync(fixture.Pack, "joey", default));
+            await File.WriteAllBytesAsync(second, new byte[16383]);
+            await Expect<InvalidDataException>(() => HdCardPack.ReadAsync(fixture.Pack, "joey", default));
+            await File.WriteAllTextAsync(config, v2.Replace("CURSORS_BGRA64_V1", "CURSORS_BGRA64_V9", StringComparison.Ordinal));
+            await Expect<InvalidDataException>(() => HdCardPack.ReadAsync(fixture.Pack, "joey", default));
+        });
         await Check("pack validation rejects malformed, wrong-game, oversized and unsafe local paths before cache writes", async () =>
         {
             var fixture = await Fixture.Create(Path.Combine(root, "invalid"), "yugi");
