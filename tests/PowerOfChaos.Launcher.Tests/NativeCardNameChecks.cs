@@ -184,7 +184,9 @@ internal static class NativeCardNameChecks
             finally { File.SetAttributes(path, attributes); }
             await Expect<InvalidDataException>(() => reader.LoadAsync(Game("relative.dat"), [1], "en"));
             await Expect<InvalidDataException>(() => reader.LoadAsync(Game(root), [1], "en"));
-            using (new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite))
+            // Windows rejects an existing writer despite its sharing flags. Unix needs an exclusive advisory lock.
+            var writerSharing = OperatingSystem.IsWindows() ? FileShare.ReadWrite : FileShare.None;
+            using (new FileStream(path, FileMode.Open, FileAccess.ReadWrite, writerSharing))
                 await Expect<IOException>(() => reader.LoadAsync(Game(path), [1], "en"));
         });
 
