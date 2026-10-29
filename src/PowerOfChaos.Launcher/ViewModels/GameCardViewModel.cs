@@ -17,6 +17,7 @@ public sealed class GameCardViewModel : INotifyPropertyChanged, IDisposable
     private long _playtimeMinutes;
     private bool _isRunning;
     private bool _anotherRunning;
+    private bool _launchBlocked;
     private bool _launchPending;
     private WriteableBitmap? _portrait;
     private bool _disposed;
@@ -56,7 +57,7 @@ public sealed class GameCardViewModel : INotifyPropertyChanged, IDisposable
     public string PlayAutomationName => LauncherText.Current.Format("Play {0}", Title);
     public string PortraitAutomationName => LauncherText.Current.Format("Portrait of {0}", Title);
     public string CollectionAutomationName => LauncherText.Current.Format("Card collection for {0}", Title);
-    public bool CanPlay => !IsRunning && !_anotherRunning && !_launchPending;
+    public bool CanPlay => !IsRunning && !_anotherRunning && !_launchBlocked && !_launchPending;
 
     public void SetPortrait(PortraitThumbnail thumbnail)
     {
@@ -96,6 +97,13 @@ public sealed class GameCardViewModel : INotifyPropertyChanged, IDisposable
         LauncherText.Current.LanguageChanged -= LanguageChanged;
         _portrait?.Dispose();
         _portrait = null;
+    }
+
+    public void SetLaunchBlocked(bool blocked)
+    {
+        if (_disposed || _launchBlocked == blocked) return;
+        _launchBlocked = blocked;
+        Changed(nameof(CanPlay));
     }
 
     public void SetLaunchPending(bool pending)

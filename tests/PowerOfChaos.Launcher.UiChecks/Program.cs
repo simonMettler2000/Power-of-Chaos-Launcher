@@ -152,6 +152,7 @@ internal static class Program
             {
                 WaitUntil(() => PortraitCount(window) == 3, "Portrait images did not appear for all three detected games.");
             });
+            LaunchStateUiChecks.RunAll(window, Check, Capture, Pump, WaitUntil);
             Check("portrait display stores premultiplied coverage and prepares physical pixels for fractional DPI", () =>
             {
                 var installation = new GameInstallation("kaiba", "unused", "unused", "unused", "unused");

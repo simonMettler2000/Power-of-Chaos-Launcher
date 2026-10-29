@@ -41,6 +41,7 @@ public partial class MainWindow : Window
     private bool _closeWhenIdle;
     private bool _closed;
     private bool _pendingLaunch;
+    private string? _startingGameId;
     private bool _settingsReady;
     private bool _savingMod;
     private readonly HdCardArtworkAvailabilityTracker _hdAvailability = new();
@@ -170,7 +171,7 @@ public partial class MainWindow : Window
             if (installed is not null)
             {
                 var card = new GameCardViewModel(installed);
-                card.SetLaunchPending(LaunchBlocked);
+                RefreshLaunchState(card);
                 _cards.Add(card);
             }
         }
@@ -363,6 +364,7 @@ public partial class MainWindow : Window
     private async void PlayGame_Click(object? sender, RoutedEventArgs e)
     {
         if (!_settingsReady || _savingMod || _busy || _pendingLaunch || _closed || sender is not Button { Tag: GameInstallation installation }) return;
+        _startingGameId = installation.GameId;
         _pendingLaunch = true;
         RefreshModControls();
         NoticeFormat("Starting {0}…", GameCatalog.Get(installation.GameId).Title);
@@ -385,6 +387,7 @@ public partial class MainWindow : Window
         finally
         {
             _pendingLaunch = false;
+            _startingGameId = null;
             if (!_closed)
             {
                 RefreshModControls();
@@ -429,7 +432,7 @@ public partial class MainWindow : Window
         {
             var running = _sessions.IsRunning(card.Installation.GameId);
             card.Refresh(totals.GetValueOrDefault(card.Installation.GameId), running, anyRunning && !running);
-            card.SetLaunchPending(LaunchBlocked);
+            RefreshLaunchState(card);
         }
     }
 
@@ -460,7 +463,13 @@ public partial class MainWindow : Window
         RestoreCollectionButton.IsVisible = _temporaryState.RecoveryRequired;
         RestoreCollectionButton.IsEnabled = SkipSplashScreensCheckBox.IsEnabled && !_sessions.AnyRunning;
         RenderTemporaryCollectionStatus();
-        foreach (var card in _cards) card.SetLaunchPending(LaunchBlocked);
+        foreach (var card in _cards) RefreshLaunchState(card);
+    }
+
+    private void RefreshLaunchState(GameCardViewModel card)
+    {
+        card.SetLaunchBlocked(LaunchBlocked);
+        card.SetLaunchPending(_pendingLaunch && card.Installation.GameId == _startingGameId);
     }
 
     private bool LaunchBlocked => !_settingsReady || _savingMod || _pendingLaunch || _temporaryState.RecoveryRequired;
