@@ -25,6 +25,12 @@ public sealed class LauncherText
         // Every literal is escaped and both ends are anchored. Captures are never word-replaced.
         _templates = new[]
         {
+            "HD card PNG must be 800 x 1160 RGB8 and non-interlaced: {0}",
+            "An HD card PNG is missing or unreadable: {0}",
+            "An HD pack file is missing or unreadable: {0}",
+            "An HD pack file is missing, oversized or has the wrong size: {0}",
+            "HD card artwork needs the verified local component bundle. Missing: {0}",
+            "The display component is damaged or the wrong version: {0}. Run the documented component setup again, or untick this mod.",
             "Could not start the game: {0}",
             "The session could not be monitored: {0}",
             "Session tracking stopped: {0}",

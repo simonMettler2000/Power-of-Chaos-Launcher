@@ -206,6 +206,7 @@
                   <TextBlock x:Name="HdCardArtworkDescription" Text="{loc:Tr Text='Experimental: may break or display incorrectly.'}" Classes="quiet" TextWrapping="Wrap" LineHeight="21" />
                   <SelectableTextBlock x:Name="HdCardPackPath" Classes="quiet" FontSize="12" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" IsVisible="False" />
                   <SelectableTextBlock x:Name="HdCardMasterPath" Classes="quiet" FontSize="12" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" IsVisible="False" />
+                  <Button x:Name="HdConfigureButton" Content="{loc:Tr Text='Configure folders / Help'}" Classes="secondary" Click="HdConfigure_Click" AutomationProperties.Name="{loc:Tr Text='Configure HD card image folders and open help'}" />
                 </StackPanel>
               </Grid>
             </Border>

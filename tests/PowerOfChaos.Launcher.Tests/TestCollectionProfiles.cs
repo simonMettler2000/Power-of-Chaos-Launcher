@@ -8,5 +8,5 @@ internal static class TestCollectionProfiles
     public static string Root { get; set; } = Path.Combine(AppContext.BaseDirectory, ".local", "profile-tests");
 
     public static TemporaryCollectionService Create() => new(
-        Path.Combine(Root, "profile-" + Guid.NewGuid().ToString("N")), hasRunningGames: () => false);
+        Path.Combine(Root, "profile-" + Guid.NewGuid().ToString("N")), reader: new PowerOfChaos.Launcher.Core.Collections.CardCollectionReader(_ => []), hasRunningGames: () => false);
 }

@@ -10,7 +10,7 @@ using PowerOfChaos.Launcher.Core.Storage;
 
 namespace PowerOfChaos.HdLauncher.Tests;
 
-internal static class Program
+internal static partial class Program
 {
     private static async Task<int> Main(string[] args)
     {
@@ -34,12 +34,12 @@ internal static class Program
             var directory = Path.Combine(root, "settings"); Directory.CreateDirectory(directory);
             await File.WriteAllTextAsync(Path.Combine(directory, "launcher-settings.json"), "{\"SchemaVersion\":1,\"FutureCollection\":{\"mode\":\"shared\",\"cards\":[1,2]},\"FutureUi\":true}");
             var store = new SettingsStore(directory); var settings = await store.LoadAsync();
-            settings.HdCardArtwork = true; settings.HdPackDirectory = root;
+            settings.HdCardArtwork = true; settings.HdPackDirectory = root; settings.HdCardImageDirectory = Path.Combine(root, "images");
             await store.SaveAsync(settings);
             using var saved = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(directory, "launcher-settings.json")));
             Require(saved.RootElement.GetProperty("FutureCollection").GetProperty("cards").GetArrayLength() == 2
                 && saved.RootElement.GetProperty("FutureUi").GetBoolean(), "Unknown settings lost.");
-            var loaded = await store.LoadAsync(); Require(loaded.HdCardArtwork && loaded.HdPackDirectory == root, "HD settings lost.");
+            var loaded = await store.LoadAsync(); Require(loaded.HdCardArtwork && loaded.HdPackDirectory == root && loaded.HdCardImageDirectory == settings.HdCardImageDirectory, "HD settings lost.");
         });
         await Check("HD preferences preserve current collection, language and stable selections", async () =>
         {
@@ -247,12 +247,13 @@ internal static class Program
                 temporaryCollections: new TemporaryCollectionService(Path.Combine(root, "session-vault"),
                     reader: new CardCollectionReader(_ => []), hasRunningGames: () => false)))
             {
-                var settings = new LauncherSettings { HdCardArtwork = true, HdPackDirectory = fixture.Pack };
+                var settings = new LauncherSettings { HdCardArtwork = true, HdPackDirectory = fixture.Pack, HdCardImageDirectory = "captured-images", SkipSplashScreens = true, RestoreOriginalAspectRatio = true };
                 var pending = service.LaunchAsync(fixture.Game, settings);
                 await paused.Entered.Task.WaitAsync(TimeSpan.FromSeconds(3));
-                settings.HdCardArtwork = false; settings.HdPackDirectory = "changed";
+                settings.HdCardArtwork = false; settings.HdPackDirectory = "changed"; settings.HdCardImageDirectory = "changed-images"; settings.SkipSplashScreens = false; settings.RestoreOriginalAspectRatio = false;
                 paused.Release.TrySetResult();
                 Require((await pending).Success && paused.Captured is { HdCardArtwork: true } && paused.Captured.HdPackDirectory == fixture.Pack
+                    && paused.Captured.HdCardImageDirectory == "captured-images" && paused.Captured.SkipSplashScreens && paused.Captured.RestoreOriginalAspectRatio
                     && runner.Starts == 1 && runner.Plan!.Environment.ContainsKey("POC_HD_CONFIG"), "Mutable settings reached pending launch.");
             }
             var cancelled = new PausingPreparer(output); var blockedRunner = new FakeRunner();
@@ -264,12 +265,13 @@ internal static class Program
             await Task.WhenAll(closing.DisposeAsync().AsTask(), closing.DisposeAsync().AsTask()).WaitAsync(TimeSpan.FromSeconds(3));
             Require(!(await launch).Success && blockedRunner.Starts == 0, "Disposal started a process.");
         });
+        await RunImagePathChecks(root, Check);
         Console.WriteLine($"{passed} checks passed; synthetic data only, no native DLL or game executed."); return 0;
     }
 
     private static LauncherSettings Settings(GameModOptions options) => new() { SkipSplashScreens = options.SkipSplashScreens,
         SkipCharacterInteractions = options.SkipCharacterInteractions, RestoreOriginalAspectRatio = options.RestoreOriginalAspectRatio,
-        HdCardArtwork = options.HdCardArtwork, HdPackDirectory = options.HdPackDirectory };
+        HdCardArtwork = options.HdCardArtwork, HdPackDirectory = options.HdPackDirectory, HdCardImageDirectory = options.HdCardImageDirectory };
 
     private sealed record Fixture(GameInstallation Game, string Data, string Components, string Pack, string Reference, GameLaunchPreparer Preparer)
     {

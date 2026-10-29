@@ -132,6 +132,7 @@ public sealed class SettingsStore
             RestoreOriginalAspectRatio = settings.RestoreOriginalAspectRatio,
             HdCardArtwork = settings.HdCardArtwork,
             HdPackDirectory = SanitizeHdPackDirectory(settings.HdPackDirectory),
+            HdCardImageDirectory = SanitizeHdPackDirectory(settings.HdCardImageDirectory),
             AdditionalSettings = settings.AdditionalSettings?.ToDictionary(pair => pair.Key, pair => pair.Value.Clone()),
             WineExecutable = wine,
             CollectionSavePath = ValidAbsolutePath(settings.CollectionSavePath),

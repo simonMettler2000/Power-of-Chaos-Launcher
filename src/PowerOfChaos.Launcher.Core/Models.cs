@@ -31,6 +31,7 @@ public sealed class LauncherSettings
     public bool RestoreOriginalAspectRatio { get; set; }
     public bool HdCardArtwork { get; set; }
     public string HdPackDirectory { get; set; } = "";
+    public string HdCardImageDirectory { get; set; } = "";
     [JsonExtensionData]
     public Dictionary<string, JsonElement>? AdditionalSettings { get; set; }
     public string WineExecutable { get; set; } = "wine";

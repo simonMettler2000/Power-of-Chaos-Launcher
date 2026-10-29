@@ -45,7 +45,7 @@ public sealed class GameLaunchPreparer : IGameLaunchPreparer
         if (options.HdCardArtwork && !OperatingSystem.IsWindows())
             throw new InvalidDataException("HD card artwork currently requires Windows.");
         var hdPack = options.HdCardArtwork
-            ? await HdCardPack.ReadAsync(await HdCardPackLocation.ResolveDirectoryAsync(options.HdPackDirectory, dataDirectory: _dataDirectory, cancellationToken: cancellationToken).ConfigureAwait(false), installation.GameId, cancellationToken).ConfigureAwait(false) : null;
+            ? await HdCardPack.ReadAsync(await HdCardPackLocation.ResolveDirectoryAsync(options.HdPackDirectory, dataDirectory: _dataDirectory, cancellationToken: cancellationToken, imageDirectory: options.HdCardImageDirectory).ConfigureAwait(false), installation.GameId, cancellationToken, options.HdCardImageDirectory).ConfigureAwait(false) : null;
         var originalPath = Path.GetFullPath(installation.ExecutablePath);
         if (!options.AnyEnabled) return originalPath;
         var definition = GameCatalog.All.FirstOrDefault(game => game.Id == installation.GameId)

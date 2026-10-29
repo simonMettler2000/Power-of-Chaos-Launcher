@@ -124,7 +124,7 @@ internal static class SessionChecks
         await run("all launch modes hold the shared collection lease until their fake session ends", async () =>
         {
             var folder = Path.Combine(fixtures, "shared-profile-session");
-            var profiles = new TemporaryCollectionService(Path.Combine(folder, "profiles"), hasRunningGames: () => false);
+            var profiles = new TemporaryCollectionService(Path.Combine(folder, "profiles"), reader: new CardCollectionReader(_ => []), hasRunningGames: () => false);
             var firstRunner = new FakeRunner();
             var secondRunner = new FakeRunner();
             var first = new GameSessionService(Path.Combine(folder, "first"), firstRunner, temporaryCollections: profiles);

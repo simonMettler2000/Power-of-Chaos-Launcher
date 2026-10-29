@@ -65,6 +65,7 @@ internal static class Program
                 Require(window.Icon is not null, "The generated launcher window icon was not embedded or loaded.");
             });
             Capture(window, "empty.png");
+            HdCardSettingsUiChecks.RunAll(window, runRoot, data, Check, Capture, Pump, WaitUntil);
 
             Check("launcher diagnostics can be selected and copied in full without changing the message", () =>
             {
@@ -534,7 +535,10 @@ internal static class Program
             Pump(TimeSpan.FromMilliseconds(80));
             File.WriteAllText(Path.Combine(data, "launcher-settings.json"), legacySettings);
             window = new MainWindow(new TemporaryCollectionService(Path.Combine(
-            Environment.GetEnvironmentVariable("POC_LAUNCHER_DATA_DIR")!, "temporary-profiles"), hasRunningGames: () => false));
+            Environment.GetEnvironmentVariable("POC_LAUNCHER_DATA_DIR")!, "temporary-profiles"), reader: new CardCollectionReader(_ => []), hasRunningGames: () => false));
+            // Legacy-settings fixtures must not discover the real user's collection before Opened.
+            typeof(MainWindow).GetField("_collections", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .SetValue(window, new CardCollectionReader(_ => []));
             var loadingGate = SettingsGate(window);
             loadingGate.Wait();
             Check("loading legacy settings keeps every mod disabled until settings are ready", () =>
@@ -788,7 +792,7 @@ internal static class Program
     private static MainWindow OpenWindow()
     {
         var window = new MainWindow(new TemporaryCollectionService(Path.Combine(
-            Environment.GetEnvironmentVariable("POC_LAUNCHER_DATA_DIR")!, "temporary-profiles"), hasRunningGames: () => false));
+            Environment.GetEnvironmentVariable("POC_LAUNCHER_DATA_DIR")!, "temporary-profiles"), reader: new CardCollectionReader(_ => []), hasRunningGames: () => false));
         // Ordinary UI checks use authored saves only, regardless of the user's real registry CommonDir.
         typeof(MainWindow).GetField("_collections", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(window, new PowerOfChaos.Launcher.Core.Collections.CardCollectionReader(_ => []));

@@ -2,7 +2,8 @@ namespace PowerOfChaos.Launcher.Core.Launching;
 
 /// <summary>Immutable selection captured when Play is requested; changes apply to the next launch.</summary>
 public sealed record GameModOptions(bool SkipSplashScreens = false, bool SkipCharacterInteractions = false,
-    bool RestoreOriginalAspectRatio = false, bool HdCardArtwork = false, string HdPackDirectory = "")
+    bool RestoreOriginalAspectRatio = false, bool HdCardArtwork = false, string HdPackDirectory = "",
+    string HdCardImageDirectory = "")
 {
     internal bool AnyEnabled => BinaryModsEnabled || RestoreOriginalAspectRatio || HdCardArtwork;
     internal bool BinaryModsEnabled => SkipSplashScreens || SkipCharacterInteractions;

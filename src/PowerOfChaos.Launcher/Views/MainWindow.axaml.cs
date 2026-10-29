@@ -441,6 +441,7 @@ public partial class MainWindow : Window
         SkipCharacterInteractionsCheckBox.IsEnabled = SkipSplashScreensCheckBox.IsEnabled;
         OriginalAspectRatioCheckBox.IsChecked = _settings.RestoreOriginalAspectRatio;
         OriginalAspectRatioCheckBox.IsEnabled = SkipSplashScreensCheckBox.IsEnabled;
+        HdConfigureButton.IsEnabled = _settingsReady && !_savingMod && !_busy && !_pendingLaunch && !_closed;
         HdCardArtworkCheckBox.IsChecked = _settings.HdCardArtwork;
         HdCardArtworkCheckBox.IsEnabled = SkipSplashScreensCheckBox.IsEnabled && (_hdStatus.UnavailableReason is null || _settings.HdCardArtwork);
         HdCardArtworkDescription.Text = Texts.Translate("Experimental: may break or display incorrectly.") + " "
@@ -638,7 +639,49 @@ public partial class MainWindow : Window
     private async Task<bool> SaveSettingsAsync()
     {
         try { await _store.SaveAsync(_settings); return true; }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { Notice("Your settings are available now, but could not be saved for next time."); return false; }
+        catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException) { Notice("Your settings are available now, but could not be saved for next time."); return false; }
+    }
+
+    private async void HdConfigure_Click(object? sender, RoutedEventArgs e)
+    {
+        if (!_settingsReady || _savingMod || _busy || _pendingLaunch || _closed) return;
+        var result = await new HdCardSettingsDialog(_settings).ShowDialog<HdCardSettingsResult?>(this);
+        if (result is null || _closed) return;
+        await SaveHdFoldersAsync(result);
+    }
+
+    private async Task SaveHdFoldersAsync(HdCardSettingsResult result)
+    {
+        if (!_settingsReady || _savingMod || _busy || _pendingLaunch || _closed) return;
+        var previousImages = _settings.HdCardImageDirectory;
+        var previousPack = _settings.HdPackDirectory;
+        _savingMod = true;
+        _settings.HdCardImageDirectory = result.ImageDirectory;
+        _settings.HdPackDirectory = result.PackDirectory;
+        RefreshModControls();
+        try
+        {
+            if (await SaveSettingsAsync())
+            {
+                await RefreshHdAvailabilityAsync();
+                if (!_closed) Notice("Preferences saved.");
+            }
+            else
+            {
+                _settings.HdCardImageDirectory = previousImages;
+                _settings.HdPackDirectory = previousPack;
+                Notice("The HD folders could not be saved. Your previous selection was kept.");
+            }
+        }
+        finally
+        {
+            _savingMod = false;
+            if (!_closed)
+            {
+                RefreshModControls();
+                if (_closeWhenIdle && !_sessions.AnyRunning && !_pendingLaunch) Close();
+            }
+        }
     }
 
     private async void Preferences_Click(object? sender, RoutedEventArgs e)
@@ -657,7 +700,7 @@ public partial class MainWindow : Window
 
     private async Task RefreshHdAvailabilityAsync()
     {
-        var refresh = _hdAvailability.RefreshAsync(_settings.HdPackDirectory);
+        var refresh = _hdAvailability.RefreshAsync(_settings.HdPackDirectory, _settings.HdCardImageDirectory);
         if (_closed) return;
         _hdStatus = _hdAvailability.Status;
         RefreshModControls();

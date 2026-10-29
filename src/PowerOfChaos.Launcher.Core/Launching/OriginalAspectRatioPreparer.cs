@@ -114,7 +114,7 @@ internal sealed class OriginalAspectRatioPreparer
             ConfigurationRecipeSha256 = Hash(Encoding.UTF8.GetBytes(CreateConfiguration(Path.Combine(root, new string('0', 32), "screenshots"), _hdMode))),
             Components = _components
         });
-        if (hdPack is not null) identity = JsonSerializer.Serialize(new { DisplayIdentity = identity, HdPackSha256 = hdPack.Sha256, options.HdPackDirectory, options.HdCardArtwork, options.RestoreOriginalAspectRatio });
+        if (hdPack is not null) identity = JsonSerializer.Serialize(new { DisplayIdentity = identity, HdPackSha256 = hdPack.Sha256, options.HdPackDirectory, options.HdCardImageDirectory, options.HdCardArtwork, options.RestoreOriginalAspectRatio });
         var identityHash = Hash(Encoding.UTF8.GetBytes(identity));
         var directory = Path.Combine(root, identityHash[..32]);
         var executableName = GameCatalog.Get(installation.GameId).ExecutableName;
