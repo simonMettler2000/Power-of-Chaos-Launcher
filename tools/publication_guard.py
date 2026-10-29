@@ -8,44 +8,12 @@ from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parents[1]
 TOP_LEVEL = {'.gitignore', '.gitattributes', '.editorconfig', 'AGENTS.md', 'README.md', 'Directory.Build.props',
-             'global.json', 'NuGet.Config', 'PowerOfChaos.Launcher.sln'}
+             'global.json', 'NuGet.Config', 'PowerOfChaos.Launcher.sln', 'LICENSE',
+             'tools/Release/SOURCE-PROVENANCE.txt'}
 ALLOWED = {'.cs', '.axaml', '.csproj', '.manifest', '.svg', '.md', '.py', '.yml', '.yaml', '.json'}
 # These build/probe tools are authored here. This does not admit native code,
 # downloaded sources or arbitrary shell scripts elsewhere in the repository.
 AUTHORED_NATIVE_TOOLS = {
-    'tools/HdCardsComponent/Build-Native.ps1',
-    'tools/HdCardsComponent/Build-Provider.ps1',
-    'tools/HdCardsComponent/ConfigAdversarialProbe.cpp',
-    'tools/HdCardsComponent/hd_visible.cpp',
-    'tools/HdCardsComponent/hd_visible.def',
-    'tools/HdCardsComponent/hd_visible.h',
-    'tools/HdCardsComponent/hd_visible_d3d9.cpp',
-    'tools/HdCardsComponent/hd_visible_test.cpp',
-    'tools/HdCardsComponent/hd_visible_test_observer.cpp',
-    'tools/HdCardsComponent/hd_visible_test_observer.h',
-    'tools/HdCardsComponent/local-paths.ps1',
-    'tools/HdCardsComponent/setup-component.ps1',
-    'tools/HdCardsComponent/SyntheticDisplayProbe.cpp',
-    'tools/HdCardsComponent/SyntheticProviderProbe.cpp',
-    'tools/HdCardsComponent/SyntheticGdiProviderProbe.cpp',
-    'tools/HdCardsComponent/GdiWindowOracle.cpp',
-    'tools/HdCardsComponent/gdi_window_oracle.h',
-    'tools/HdCardsComponent/hd_visible_gdi.cpp',
-    'tools/HdCardsComponent/hd_visible_gdi.h',
-    'tools/HdCardsComponent/hd_visible_gdi_test.cpp',
-    'tools/HdCardsComponent/hd_visible_png.cpp',
-    'tools/HdCardsComponent/hd_visible_png.h',
-    'tools/HdCardsComponent/hd_visible_gdi_fault_test.cpp',
-    'tools/HdCardsComponent/gdi_fault_shim.h',
-    'tools/HdCardsComponent/allocator_test.cpp',
-    'tools/HdCardsComponent/png_regression_test.cpp',
-    'tools/HdCardsComponent/master_profile_test.cpp',
-    'tools/HdCardsComponent/profile_gdi_test.cpp',
-    'tools/HdCardsComponent/png_decode_test.cpp',
-    'tools/HdCardsComponent/cursor_test.cpp',
-    'tools/HdCardsComponent/flip_test.cpp',
-    'tools/HdCardsComponent/cursor_fault_shim.h',
-    'tools/HdCardsComponent/verify-tools.ps1',
     'tools/DisplayComponent/build-profile.ps1',
     'tools/DisplayComponent/launcher-maximize.c',
     'tools/DisplayComponent/setup-component.ps1',
@@ -54,6 +22,43 @@ AUTHORED_NATIVE_TOOLS = {
     'tools/DisplayProbe/ComponentIdentity.cpp',
     'tools/DisplayProbe/Build-DisplayProbe.ps1',
     'tools/DisplayProbe/Run-DisplayProbe.ps1',
+    'tools/HdCardsComponent/Build-Native.ps1',
+    'tools/HdCardsComponent/Build-Provider.ps1',
+    'tools/HdCardsComponent/ConfigAdversarialProbe.cpp',
+    'tools/HdCardsComponent/GdiWindowOracle.cpp',
+    'tools/HdCardsComponent/SyntheticDisplayProbe.cpp',
+    'tools/HdCardsComponent/SyntheticGdiProviderProbe.cpp',
+    'tools/HdCardsComponent/SyntheticProviderProbe.cpp',
+    'tools/HdCardsComponent/allocator_test.cpp',
+    'tools/HdCardsComponent/cursor_fault_shim.h',
+    'tools/HdCardsComponent/cursor_test.cpp',
+    'tools/HdCardsComponent/flip_test.cpp',
+    'tools/HdCardsComponent/gdi_fault_shim.h',
+    'tools/HdCardsComponent/gdi_window_oracle.h',
+    'tools/HdCardsComponent/hd_visible.cpp',
+    'tools/HdCardsComponent/hd_visible.def',
+    'tools/HdCardsComponent/hd_visible.h',
+    'tools/HdCardsComponent/hd_visible_d3d9.cpp',
+    'tools/HdCardsComponent/hd_visible_gdi.cpp',
+    'tools/HdCardsComponent/hd_visible_gdi.h',
+    'tools/HdCardsComponent/hd_visible_gdi_fault_test.cpp',
+    'tools/HdCardsComponent/hd_visible_gdi_test.cpp',
+    'tools/HdCardsComponent/hd_visible_png.cpp',
+    'tools/HdCardsComponent/hd_visible_png.h',
+    'tools/HdCardsComponent/hd_visible_test.cpp',
+    'tools/HdCardsComponent/hd_visible_test_observer.cpp',
+    'tools/HdCardsComponent/hd_visible_test_observer.h',
+    'tools/HdCardsComponent/local-paths.ps1',
+    'tools/HdCardsComponent/master_profile_test.cpp',
+    'tools/HdCardsComponent/png_decode_test.cpp',
+    'tools/HdCardsComponent/png_regression_test.cpp',
+    'tools/HdCardsComponent/profile_gdi_test.cpp',
+    'tools/HdCardsComponent/setup-component.ps1',
+    'tools/HdCardsComponent/verify-tools.ps1',
+    'tools/Release/Acquire-ReleaseInputs.ps1',
+    'tools/Release/Build-WindowsPackage.ps1',
+    'tools/Release/Package.Common.ps1',
+    'tools/Release/Test-WindowsPackage.ps1',
 }
 FORBIDDEN_PARTS = {'bin', 'obj', '.local', 'artifacts', 'packages', 'games', 'game-files', 'saves', 'mod-packs', '__pycache__'}
 RUNTIME_NAMES = {'launcher-settings.json', 'playtime.json', 'sessions.json', 'appsettings.local.json'}
@@ -90,8 +95,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--working-tree', action='store_true')
     parser.add_argument('--commit', help='inspect every reachable tree before publishing this revision')
+    parser.add_argument('--all-refs', action='store_true', help='inspect every local/fetched ref before making existing repository history public')
     args = parser.parse_args()
-    if bool(args.working_tree) == bool(args.commit): parser.error('choose --working-tree or --commit')
+    if sum((bool(args.working_tree), bool(args.commit), bool(args.all_refs))) != 1: parser.error('choose --working-tree, --commit or --all-refs')
     actual_root = Path(git('rev-parse', '--show-toplevel').decode().strip()).resolve()
     if actual_root != ROOT:
         parser.error('the launcher must be initialized as its own Git repository')
@@ -108,10 +114,14 @@ def main():
             errors = ['symbolic link is not admitted'] if actual.is_symlink() else check(path, actual.read_bytes())
             if errors: failures.append((path, errors))
     else:
-        revision_sha = git('rev-parse', '--verify', args.commit + '^{commit}').decode().strip()
-        if not re.fullmatch(r'[0-9a-f]{40,64}', revision_sha): parser.error('invalid commit')
+        if args.all_refs:
+            revisions = git('rev-list', '--all').decode().splitlines()
+        else:
+            revision_sha = git('rev-parse', '--verify', args.commit + '^{commit}').decode().strip()
+            if not re.fullmatch(r'[0-9a-f]{40,64}', revision_sha): parser.error('invalid commit')
+            revisions = git('rev-list', revision_sha).decode().splitlines()
         # Scan history too: removing an accidentally committed binary is not enough.
-        for revision in git('rev-list', revision_sha).decode().splitlines():
+        for revision in revisions:
             for row in git('ls-tree', '-r', '-z', revision).split(b'\0'):
                 if not row: continue
                 metadata, raw_path = row.split(b'\t', 1)

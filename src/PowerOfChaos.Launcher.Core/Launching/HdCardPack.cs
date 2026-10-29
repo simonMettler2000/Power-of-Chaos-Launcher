@@ -130,20 +130,117 @@ internal static class HdCardPack
     private static void InvalidPath() => throw new InvalidDataException("An HD pack path contains traversal, a device name or unsupported characters.");
 }
 
-/// <summary>Availability is checked again during Play; no components are downloaded automatically.</summary>
+/// <summary>Resolves user-supplied packs without changing preferences or downloading artwork.</summary>
+public static class HdCardPackLocation
+{
+    public static async Task<string> ResolveDirectoryAsync(string? explicitDirectory, string? applicationDirectory = null,
+        string? dataDirectory = null, CancellationToken cancellationToken = default)
+    {
+        // An explicit selection is authoritative, including a broken selection. Never substitute another pack.
+        if (!string.IsNullOrWhiteSpace(explicitDirectory)) return HdCardPack.ValidatePath(explicitDirectory);
+        foreach (var candidate in new[] { Path.Combine(applicationDirectory ?? AppContext.BaseDirectory, "HdCards"),
+                     Path.Combine(dataDirectory ?? LauncherPaths.DataDirectory, "HdCards") })
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                foreach (var game in GameCatalog.All)
+                    await HdCardPack.ReadAsync(candidate, game.Id, cancellationToken).ConfigureAwait(false);
+                return HdCardPack.ValidatePath(candidate);
+            }
+            catch (Exception exception) when (exception is IOException or InvalidDataException or UnauthorizedAccessException or ArgumentException)
+            { /* Continue only for automatically discovered locations. */ }
+        }
+        throw new DirectoryNotFoundException("No valid local HD pack was found. Place a prepared pack in HdCards beside the launcher, or choose its folder in Settings.");
+    }
+}
+
+public sealed record HdCardArtworkStatus(string? PackDirectory, string? MasterDirectory, string? UnavailableReason);
+
+/// <summary>Availability is checked again during Play; no components or artwork are downloaded automatically.</summary>
 public static class HdCardArtworkAvailability
 {
     public static async Task<string?> GetUnavailableReasonAsync(string packDirectory, CancellationToken cancellationToken = default)
+        => (await InspectAsync(packDirectory, cancellationToken).ConfigureAwait(false)).UnavailableReason;
+
+    public static async Task<HdCardArtworkStatus> InspectAsync(string packDirectory, CancellationToken cancellationToken = default)
     {
-        if (!OperatingSystem.IsWindows()) return "HD card artwork currently requires Windows.";
+        string? resolved = string.IsNullOrWhiteSpace(packDirectory) ? null : packDirectory;
+        string? masters = null;
+        if (!OperatingSystem.IsWindows()) return new(resolved, null, "HD card artwork currently requires Windows.");
         try
         {
-            foreach (var game in GameCatalog.All) await HdCardPack.ReadAsync(packDirectory, game.Id, cancellationToken).ConfigureAwait(false);
+            resolved = await HdCardPackLocation.ResolveDirectoryAsync(packDirectory, cancellationToken: cancellationToken).ConfigureAwait(false);
+            foreach (var game in GameCatalog.All)
+            {
+                var snapshot = await HdCardPack.ReadAsync(resolved, game.Id, cancellationToken).ConfigureAwait(false);
+                foreach (var line in Encoding.UTF8.GetString(snapshot.Configuration).Split('\n'))
+                {
+                    var fields = line.TrimEnd('\r').Split('\t');
+                    if (fields.Length == 3 && uint.TryParse(fields[0], out _))
+                        masters = CommonDirectory(masters, Path.GetDirectoryName(fields[2])!);
+                }
+            }
             var components = Path.Combine(AppContext.BaseDirectory, "Components", HdCardArtworkComponents.DirectoryName);
             await OriginalAspectRatioPreparer.VerifyComponentsAsync(components, HdCardArtworkComponents.Required, cancellationToken).ConfigureAwait(false);
-            return null;
+            return new(resolved, masters, null);
         }
         catch (Exception exception) when (exception is IOException or InvalidDataException or UnauthorizedAccessException or ArgumentException)
-        { return exception.Message; }
+        { return new(resolved, masters, exception.Message); }
+    }
+
+    private static string CommonDirectory(string? first, string second)
+    {
+        if (first is null) return second;
+        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        while (!second.Equals(first, comparison) && !second.StartsWith(first.TrimEnd(Path.DirectorySeparatorChar)
+                   + Path.DirectorySeparatorChar, comparison))
+        {
+            var parent = Path.GetDirectoryName(first);
+            if (parent is null || parent == first) return first;
+            first = parent;
+        }
+        return first;
+    }
+}
+
+/// <summary>Publishes only the latest local-pack inspection, even when older I/O completes later.</summary>
+public sealed class HdCardArtworkAvailabilityTracker : IDisposable
+{
+    private readonly object _gate = new();
+    private readonly Func<string, CancellationToken, Task<HdCardArtworkStatus>> _inspect;
+    private long _generation;
+    private bool _disposed;
+    private HdCardArtworkStatus _status = new(null, null, "Checking local HD prerequisites...");
+
+    public HdCardArtworkAvailabilityTracker(Func<string, CancellationToken, Task<HdCardArtworkStatus>>? inspect = null)
+        => _inspect = inspect ?? HdCardArtworkAvailability.InspectAsync;
+
+    public HdCardArtworkStatus Status { get { lock (_gate) return _status; } }
+
+    public async Task RefreshAsync(string selectedDirectory, CancellationToken cancellationToken = default)
+    {
+        long generation;
+        lock (_gate)
+        {
+            if (_disposed) return;
+            generation = ++_generation;
+            _status = new(string.IsNullOrWhiteSpace(selectedDirectory) ? null : selectedDirectory, null,
+                "Checking local HD prerequisites...");
+        }
+        var result = await _inspect(selectedDirectory, cancellationToken).ConfigureAwait(false);
+        lock (_gate)
+        {
+            if (!_disposed && generation == _generation) _status = result;
+        }
+    }
+
+    public void Dispose()
+    {
+        lock (_gate)
+        {
+            _disposed = true;
+            _generation++;
+        }
     }
 }

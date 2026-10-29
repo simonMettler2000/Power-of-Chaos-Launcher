@@ -40,13 +40,20 @@ def main():
     if dotnet is None:
         parser.error('dotnet SDK is required')
     environment = os.environ.copy()
-    environment.update(DOTNET_CLI_TELEMETRY_OPTOUT='1', DOTNET_NOLOGO='1',
-                       DOTNET_SKIP_FIRST_TIME_EXPERIENCE='1', DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE='true')
+    suppressed = dict(DOTNET_CLI_HOME=str(output / 'dotnet-home'),
+                      DOTNET_GENERATE_ASPNET_CERTIFICATE='false', DOTNET_ADD_GLOBAL_TOOLS_TO_PATH='false',
+                      DOTNET_CLI_TELEMETRY_OPTOUT='1', DOTNET_NOLOGO='1',
+                      DOTNET_SKIP_FIRST_TIME_EXPERIENCE='1', DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE='true',
+                      MSBuildEnableWorkloadResolver='false', DOTNET_ROOT=str(Path(dotnet).resolve().parent),
+                      DOTNET_ROOT_X64=str(Path(dotnet).resolve().parent))
+    environment.update(suppressed)
     before = source_inventory()
     (output / 'inputs-before.json').write_text(json.dumps(before, indent=2) + '\n')
     commands = []
 
     def run(label, argv):
+        if any(environment.get(key) != value for key, value in suppressed.items()):
+            raise RuntimeError('Private suppressed SDK environment changed')
         start = datetime.now(timezone.utc).isoformat()
         log = output / (label + '.log')
         with log.open('xb') as stream:
@@ -80,7 +87,7 @@ def main():
         launcher = ROOT / 'tests/PowerOfChaos.Launcher.Tests/PowerOfChaos.Launcher.Tests.csproj'
         run(configuration + '-build-launcher-baseline', [dotnet, 'build', str(launcher), '-c', configuration,
             '--no-incremental', '-p:UseSharedCompilation=false', '-m:1', '-nr:false'])
-        launcher_image = launcher.parent / 'bin' / configuration / 'net8.0/PowerOfChaos.Launcher.Tests.dll'
+        launcher_image = launcher.parent / 'bin' / configuration / 'net10.0/PowerOfChaos.Launcher.Tests.dll'
         run(configuration + '-test-launcher-baseline', [dotnet, str(launcher_image)])
     after = source_inventory()
     if before != after:

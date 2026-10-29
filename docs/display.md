@@ -6,7 +6,7 @@ The mod does not change game timing fields or pass game speed/display arguments.
 
 ## Build the optional component locally
 
-Normal launcher builds do not download, compile or bundle this component. It is a separate local prerequisite, checked before an enabled launch. The setup script never starts a game or a component DLL. Run it explicitly with PowerShell 7 on Windows and the pinned Visual Studio 2022 C++ toolchain: MSVC 14.41.34120, Windows SDK 10.0.22621.0. Compiler/linker hashes are enforced; a different toolchain needs a separately reviewed recipe and artifact pin rather than relaxing verification.
+Complete Windows Release downloads include this verified component and all required notices. End users do not run build/setup commands. An ordinary source build still needs either the pinned release inputs or a separately built component. The setup script never starts a game or a component DLL. To rebuild the native component explicitly, use PowerShell7 on Windows and the pinned Visual Studio2022 C++ toolchain: MSVC14.41.34120, Windows SDK10.0.22621.0. Compiler/linker hashes are enforced; a different toolchain needs a separately reviewed recipe and artifact pin rather than relaxing verification.
 
 From the launcher repository, choose a new short build directory outside installed game folders. For example:
 
@@ -23,7 +23,7 @@ pwsh -File tools/DisplayComponent/setup-component.ps1 `
 
 Copy the resulting **entire directory**, including all eight notices, to `Components/original-aspect-ratio-v1` beside the launcher executable. Close the launcher before updating its application directory. Never copy it into a game installation. In the launcher, enable **Original aspect ratio** before the next Play action. If setup is missing or any required file has changed, launch preparation explains the problem and starts no game. Untick the mod to use the ordinary display path.
 
-The private runtime path must be short and contain only ASCII characters. The legacy wrapper uses ANSI APIs for its module-relative INI lookup, so the launcher refuses Unicode cache paths before writing output, including accented characters that could behave differently across system code pages. Set `POC_LAUNCHER_DATA_DIR` to a short ASCII-only owned directory before launching if the default profile path is unsuitable or the 260-character INI limit is reached. Linked paths and cache/install/component-directory overlap are also refused. Components and generated game copies must remain local and excluded from Git.
+The native cache must be short and contain only ASCII characters because the wrapper uses ANSI module-relative APIs. A suitable normal data path is retained. If a user's profile contains Unicode or would make the cache too long, Windows automatically uses a short current-user SID folder under ProgramData. That folder is created with a protected DACL for the current user, SYSTEM and Administrators; foreign owners, broadened permissions and links are refused. No manual environment setting or elevation is normally needed. If no secure location is available, the launcher gives an actionable error. Linked paths and cache/install/component-directory overlap are also refused. Game-derived executable copies remain private and must never be published; only the separately licensed display dependencies belong in the reviewed Windows download.
 
 ## Provenance and local modifications
 

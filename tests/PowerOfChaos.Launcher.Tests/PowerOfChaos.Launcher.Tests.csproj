@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><OutputType>Exe</OutputType></PropertyGroup>
   <ItemGroup><ProjectReference Include="../../src/PowerOfChaos.Launcher.Core/PowerOfChaos.Launcher.Core.csproj" /></ItemGroup>
+  <ItemGroup><Compile Include="../Shared/CollectionFixtures.cs" Link="CollectionFixtures.cs" /></ItemGroup>
   <ItemGroup>
     <None Include="../../tools/DisplayComponent/component-pins.json" Link="component-pins.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>

@@ -131,10 +131,19 @@ public sealed class SettingsStore
             SkipCharacterInteractions = settings.SkipCharacterInteractions,
             RestoreOriginalAspectRatio = settings.RestoreOriginalAspectRatio,
             HdCardArtwork = settings.HdCardArtwork,
-            HdPackDirectory = ValidAbsolutePath(settings.HdPackDirectory) ?? "",
+            HdPackDirectory = SanitizeHdPackDirectory(settings.HdPackDirectory),
             AdditionalSettings = settings.AdditionalSettings?.ToDictionary(pair => pair.Key, pair => pair.Value.Clone()),
-            WineExecutable = wine
+            WineExecutable = wine,
+            CollectionSavePath = ValidAbsolutePath(settings.CollectionSavePath),
+            CardLanguage = Collections.CardLanguages.Normalize(settings.CardLanguage)
         };
+    }
+
+    private static string SanitizeHdPackDirectory(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return "";
+        // An invalid explicit choice must stay explicit, so detection cannot select a different pack.
+        return ValidAbsolutePath(path) ?? "Invalid HD pack folder (choose another folder in Settings).";
     }
 
     private static string? ValidAbsolutePath(string? path)

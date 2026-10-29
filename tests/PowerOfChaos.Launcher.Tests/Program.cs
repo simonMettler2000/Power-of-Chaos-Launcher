@@ -12,6 +12,7 @@ internal static class Program
 
     public static async Task<int> Main(string[] args)
     {
+        if (args is ["--launch-path-probe"]) return 0; // Authored child only; never starts a game.
         if (args is ["--hold-display-lock", var lockPath])
         {
             using var ownership = new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
@@ -20,6 +21,7 @@ internal static class Program
             return 0;
         }
         using var fixtures = new FixtureScope();
+        TestCollectionProfiles.Root = fixtures.Folder("session-profile-locks");
         try
         {
             await Run("new settings begin without game paths", async () =>
@@ -249,9 +251,20 @@ internal static class Program
 
             await SessionChecks.RunAll(fixtures.Root, Run);
             await SplashChecks.RunAll(fixtures.Root, Run);
+            await LaunchPathChecks.RunAll(fixtures.Root, Run);
             await InteractionChecks.RunAll(fixtures.Root, Run);
             await AspectRatioChecks.RunAll(fixtures.Root, Run);
+            await PortableDisplayCacheChecks.RunAll(fixtures.Root, Run);
             await PortraitChecks.RunAll(fixtures.Root, Run);
+            await PortraitThumbnailChecks.RunAll(fixtures.Root, Run);
+            await CollectionChecks.RunAll(fixtures.Root, Run);
+            await TemporaryUnlockCodecChecks.RunAll(fixtures.Root, Run);
+            await TemporaryCollectionChecks.RunAll(fixtures.Root, Run);
+            await TemporaryProfileIdentityChecks.RunAll(fixtures.Root, Run);
+            await NativeCardArtworkChecks.RunAll(fixtures.Root, Run);
+            await NativeCardNameChecks.RunAll(fixtures.Root, Run);
+            await CardLanguagePreferenceChecks.RunAll(fixtures.Root, Run);
+            await LocalizationChecks.RunAll(fixtures.Root, Run);
 
             if (args.Contains("--installed-mods", StringComparer.Ordinal))
                 await InteractionChecks.VerifyInstalledProfiles(Run);
@@ -265,6 +278,9 @@ internal static class Program
                     var result = await new GameDiscovery().ScanAsync(path);
                     SetEqual(new[] { "yugi", "kaiba", "joey" }, result.Games.Select(g => g.GameId).Distinct(), "installed identities");
                     Equal(3, result.Games.Count, "installed game count");
+                    await CollectionChecks.VerifyInstalled(fixtures.Root, result.Games);
+                    await NativeCardArtworkChecks.VerifyInstalled(result.Games);
+                    await NativeCardNameChecks.VerifyInstalled(result.Games);
                     foreach (var game in result.Games) Require(File.Exists(game.ExecutablePath), "Installed result must point at existing file.");
                     Console.WriteLine("Installed integration only read headers; no game process was started.");
                 });

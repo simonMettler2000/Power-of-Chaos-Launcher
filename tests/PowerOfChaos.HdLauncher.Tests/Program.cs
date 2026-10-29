@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using PowerOfChaos.Launcher.Core;
+using PowerOfChaos.Launcher.Core.Collections;
 using PowerOfChaos.Launcher.Core.Launching;
 using PowerOfChaos.Launcher.Core.Storage;
 
@@ -39,6 +40,52 @@ internal static class Program
             Require(saved.RootElement.GetProperty("FutureCollection").GetProperty("cards").GetArrayLength() == 2
                 && saved.RootElement.GetProperty("FutureUi").GetBoolean(), "Unknown settings lost.");
             var loaded = await store.LoadAsync(); Require(loaded.HdCardArtwork && loaded.HdPackDirectory == root, "HD settings lost.");
+        });
+        await Check("HD preferences preserve current collection, language and stable selections", async () =>
+        {
+            var data = Path.Combine(root, "current-preferences");
+            var settings = new LauncherSettings { HdCardArtwork = true, HdPackDirectory = root,
+                RestoreOriginalAspectRatio = true, SkipSplashScreens = true, SkipCharacterInteractions = true,
+                CollectionSavePath = Path.Combine(root, "synthetic-system.dat"), CardLanguage = "de", MinimizeOnLaunch = false };
+            var store = new SettingsStore(data); await store.SaveAsync(settings); var loaded = await store.LoadAsync();
+            Require(loaded.HdCardArtwork && loaded.HdPackDirectory == root && loaded.RestoreOriginalAspectRatio
+                && loaded.SkipSplashScreens && loaded.SkipCharacterInteractions && !loaded.MinimizeOnLaunch
+                && loaded.CollectionSavePath == settings.CollectionSavePath && loaded.CardLanguage == "de", "Current settings were lost.");
+        });
+        await Check("invalid explicit folder remains unavailable after a settings round trip", async () =>
+        {
+            var store = new SettingsStore(Path.Combine(root, "invalid-explicit-preferences"));
+            await store.SaveAsync(new LauncherSettings { HdCardArtwork = true, HdPackDirectory = "relative-invalid" });
+            var loaded = await store.LoadAsync();
+            Require(!string.IsNullOrWhiteSpace(loaded.HdPackDirectory), "Invalid explicit selection became automatic.");
+            await Expect<InvalidDataException>(() => HdCardPackLocation.ResolveDirectoryAsync(loaded.HdPackDirectory));
+        });
+        await Check("automatic packs prefer app folder, fall back only for automatic detection, and preserve explicit selection", async () =>
+        {
+            var app = Path.Combine(root, "auto-app"); var data = Path.Combine(root, "auto-data");
+            var appPack = Path.Combine(app, "HdCards"); var dataPack = Path.Combine(data, "HdCards");
+            Directory.CreateDirectory(appPack); Directory.CreateDirectory(dataPack);
+            foreach (var game in GameCatalog.All)
+            {
+                var fixture = await Fixture.Create(Path.Combine(root, "auto-inputs", game.Id), game.Id);
+                File.Copy(Path.Combine(fixture.Pack, game.Id + "-565.tsv"), Path.Combine(appPack, game.Id + "-565.tsv"));
+                File.Copy(Path.Combine(fixture.Pack, game.Id + "-565.tsv"), Path.Combine(dataPack, game.Id + "-565.tsv"));
+            }
+            Require(await HdCardPackLocation.ResolveDirectoryAsync("", app, data) == appPack, "App-local pack did not win precedence.");
+            await File.WriteAllTextAsync(Path.Combine(appPack, "yugi-565.tsv"), "invalid");
+            Require(await HdCardPackLocation.ResolveDirectoryAsync("", app, data) == dataPack, "Invalid automatic pack prevented local-data fallback.");
+            Require(await HdCardPackLocation.ResolveDirectoryAsync(appPack, app, data) == appPack, "An explicit invalid pack silently changed selection.");
+            await Expect<InvalidDataException>(() => HdCardPack.ReadAsync(appPack, "yugi", default));
+            var missing = Path.Combine(root, "explicit-missing");
+            Require(await HdCardPackLocation.ResolveDirectoryAsync(missing, app, data) == missing, "An explicit missing pack was replaced.");
+            await Expect<DirectoryNotFoundException>(() => HdCardPack.ReadAsync(missing, "yugi", default));
+            using var cancelled = new CancellationTokenSource(); cancelled.Cancel();
+            await Expect<OperationCanceledException>(() => HdCardPackLocation.ResolveDirectoryAsync("", app, data, cancelled.Token));
+            var launch = await Fixture.Create(Path.Combine(root, "auto-launch"), "yugi");
+            var local = Path.Combine(launch.Data, "HdCards"); Directory.CreateDirectory(local);
+            foreach (var game in GameCatalog.All) File.Copy(Path.Combine(dataPack, game.Id + "-565.tsv"), Path.Combine(local, game.Id + "-565.tsv"));
+            var output = await launch.Preparer.PrepareExecutableAsync(launch.Game, new GameModOptions(HdCardArtwork: true));
+            Require(File.Exists(Path.Combine(Path.GetDirectoryName(output)!, HdCardPack.ConfigurationFileName)), "Blank-path immutable launch did not use data-local pack.");
         });
         foreach (var gameId in new[] { "yugi", "kaiba", "joey" })
         {
@@ -167,12 +214,38 @@ internal static class Program
             File.Delete(Path.Combine(fixture.Components, "ddraw.dll"));
             await Expect<FileNotFoundException>(() => fixture.Preparer.PrepareExecutableAsync(fixture.Game, options));
         });
+        await Check("a slow older HD inspection cannot replace a newer folder or its availability", async () =>
+        {
+            var first = new TaskCompletionSource<HdCardArtworkStatus>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var second = new TaskCompletionSource<HdCardArtworkStatus>(TaskCreationOptions.RunContinuationsAsynchronously);
+            using var tracker = new HdCardArtworkAvailabilityTracker((folder, _) => folder == "first" ? first.Task : second.Task);
+            var older = tracker.RefreshAsync("first");
+            var newer = tracker.RefreshAsync("second");
+            Require(tracker.Status.PackDirectory == "second" && tracker.Status.UnavailableReason is not null,
+                "Pending newer selection retained older availability.");
+            var selected = new HdCardArtworkStatus("second", "second-images", null);
+            second.SetResult(selected); await newer;
+            first.SetResult(new("first", "first-images", "Older pack is unavailable")); await older;
+            Require(tracker.Status == selected, "Late older I/O overwrote the newer folder, image path or enabled state.");
+        });
+        await Check("closing the HD availability owner rejects pending completion and future inspection", async () =>
+        {
+            var pending = new TaskCompletionSource<HdCardArtworkStatus>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var calls = 0;
+            using var tracker = new HdCardArtworkAvailabilityTracker((_, _) => { calls++; return pending.Task; });
+            var refresh = tracker.RefreshAsync("pending"); var closedState = tracker.Status;
+            tracker.Dispose(); pending.SetResult(new("late", "late-images", null)); await refresh;
+            await tracker.RefreshAsync("after-close");
+            Require(tracker.Status == closedState && calls == 1, "Closed owner published late status or performed new I/O.");
+        });
         await Check("pending launch captures immutable HD path and disposal cancels without starting a process", async () =>
         {
             var fixture = await Fixture.Create(Path.Combine(root, "session"), "yugi");
             var output = await fixture.Preparer.PrepareExecutableAsync(fixture.Game, new GameModOptions(HdCardArtwork: true, HdPackDirectory: fixture.Pack));
             var paused = new PausingPreparer(output); var runner = new FakeRunner();
-            await using (var service = new GameSessionService(Path.Combine(root, "time"), runner, preparer: paused))
+            await using (var service = new GameSessionService(Path.Combine(root, "time"), runner, preparer: paused,
+                temporaryCollections: new TemporaryCollectionService(Path.Combine(root, "session-vault"),
+                    reader: new CardCollectionReader(_ => []), hasRunningGames: () => false)))
             {
                 var settings = new LauncherSettings { HdCardArtwork = true, HdPackDirectory = fixture.Pack };
                 var pending = service.LaunchAsync(fixture.Game, settings);
@@ -183,7 +256,9 @@ internal static class Program
                     && runner.Starts == 1 && runner.Plan!.Environment.ContainsKey("POC_HD_CONFIG"), "Mutable settings reached pending launch.");
             }
             var cancelled = new PausingPreparer(output); var blockedRunner = new FakeRunner();
-            var closing = new GameSessionService(Path.Combine(root, "cancel"), blockedRunner, preparer: cancelled);
+            var closing = new GameSessionService(Path.Combine(root, "cancel"), blockedRunner, preparer: cancelled,
+                temporaryCollections: new TemporaryCollectionService(Path.Combine(root, "cancel-vault"),
+                    reader: new CardCollectionReader(_ => []), hasRunningGames: () => false));
             var launch = closing.LaunchAsync(fixture.Game, new LauncherSettings { HdCardArtwork = true, HdPackDirectory = fixture.Pack });
             await cancelled.Entered.Task.WaitAsync(TimeSpan.FromSeconds(3));
             await Task.WhenAll(closing.DisposeAsync().AsTask(), closing.DisposeAsync().AsTask()).WaitAsync(TimeSpan.FromSeconds(3));
@@ -230,7 +305,7 @@ internal static class Program
             var numeric = gameId == "yugi" ? 1 : gameId == "kaiba" ? 2 : 3;
             await File.WriteAllTextAsync(Path.Combine(pack, gameId + "-565.tsv"), $"POC_HD_VISIBLE_V1\n{numeric}\t1\n1\t{reference}\t{master}\n", new UTF8Encoding(false));
             var data = Path.Combine(root, "d");
-            return new(installation, data, components, pack, reference, new GameLaunchPreparer(data, profiles, components, pins, components, pins));
+            return new(installation, data, components, pack, reference, new GameLaunchPreparer(data, profiles, components, pins, hdComponentDirectory: components, hdComponents: pins));
         }
     }
     private static byte[] Image(bool dll)

@@ -224,7 +224,7 @@ internal static class AspectRatioChecks
             Require(Hash(await File.ReadAllBytesAsync(path)) == Hash(fixture.Original), "Bad source component changed an existing verified cache.");
             var missing = new GameLaunchPreparer(Path.Combine(fixture.Root, "missing-data"), fixture.Profiles, Path.Combine(fixture.Root, "absent"), fixture.Components);
             var runner = new FakeRunner();
-            await using var service = new GameSessionService(Path.Combine(fixture.Root, "session"), runner, preparer: missing);
+            await using var service = new GameSessionService(Path.Combine(fixture.Root, "session"), runner, preparer: missing, temporaryCollections: TestCollectionProfiles.Create());
             var result = await service.LaunchAsync(fixture.Game, Settings(options));
             Require(!result.Success && runner.Starts == 0 && result.Error!.Contains("component setup", StringComparison.Ordinal), "Missing components did not give actionable recovery advice.");
         });
@@ -296,55 +296,64 @@ internal static class AspectRatioChecks
             await ExpectAsync<InvalidDataException>(() => unsafePreparer.PrepareExecutableAsync(fixture.Game, options));
         });
 
-        await run("long legacy INI paths fail before publication with shorter-path recovery advice", async () =>
+        await run("long display data paths automatically use a private short native cache on Windows", async () =>
         {
             var fixture = await Fixture.Create(Path.Combine(fixtures, "az"));
             var data = Path.Combine(fixture.Root, new string('d', 160));
-            var preparer = new GameLaunchPreparer(data, fixture.Profiles, fixture.ComponentDirectory, fixture.Components);
-            try { _ = await preparer.PrepareExecutableAsync(fixture.Game, new GameModOptions(false, false, true)); throw new InvalidOperationException("Long display path was admitted."); }
-            catch (InvalidDataException exception) { Require(exception.Message.Contains("shorter", StringComparison.OrdinalIgnoreCase), "Long path failure has no recovery advice."); }
-            Require(!Directory.Exists(data), "Long path created a directory that could cause wrapper INI fallback.");
+            if (!OperatingSystem.IsWindows())
+            {
+                var unsupported = new GameLaunchPreparer(data, fixture.Profiles, fixture.ComponentDirectory, fixture.Components);
+                await ExpectAsync<InvalidDataException>(() => unsupported.PrepareExecutableAsync(fixture.Game, new GameModOptions(false, false, true)));
+                Require(!Directory.Exists(data), "An unrepresentable native path created output.");
+                return;
+            }
+            var fallbackBase = Path.Combine(fixture.Root, "fallback");
+            Directory.CreateDirectory(fallbackBase);
+            var cache = WindowsDisplayCacheLocation.FromFallbackBase(fallbackBase);
+            var preparer = new GameLaunchPreparer(data, fixture.Profiles, fixture.ComponentDirectory, fixture.Components, cache);
+            var output = await preparer.PrepareExecutableAsync(fixture.Game, new GameModOptions(false, false, true));
+            Require(output.StartsWith(cache.Root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
+                && output.All(character => character <= 127) && output.Length < 260, "Long display path did not use a short private cache.");
+            Require(!Directory.Exists(data) && File.ReadAllBytes(fixture.Game.ExecutablePath).SequenceEqual(fixture.Original),
+                "Fallback preparation changed the installation or created the unsafe preferred path.");
         });
 
         foreach (var (label, suffix) in new[] { ("accent", "\u00E9"), ("non-BMP emoji", "\U0001F642") })
         {
-            await run($"{label} display paths fail before native cache or installed-directory writes", async () =>
+            await run($"{label} display paths use a private native cache without installed-directory writes", async () =>
             {
                 var fixture = await Fixture.Create(Path.Combine(fixtures, label == "accent" ? "aua" : "aue"));
                 var data = Path.Combine(fixture.Root, "d-" + suffix);
-                var preparer = new GameLaunchPreparer(data, fixture.Profiles, fixture.ComponentDirectory, fixture.Components);
                 var installedDirectory = Path.GetDirectoryName(fixture.Game.ExecutablePath)!;
                 var installed = Directory.EnumerateFiles(installedDirectory).ToDictionary(path => path, path => Hash(File.ReadAllBytes(path)));
-                Require(Path.Combine(data, "display", "v1", new string('0', 32), "ddraw.ini").Length < 260,
-                    "Unicode regression accidentally depends on MAX_PATH rejection.");
+                if (!OperatingSystem.IsWindows())
+                {
+                    var unsupported = new GameLaunchPreparer(data, fixture.Profiles, fixture.ComponentDirectory, fixture.Components);
+                    await ExpectAsync<InvalidDataException>(() => unsupported.PrepareExecutableAsync(fixture.Game, new GameModOptions(false, false, true)));
+                    Require(!Directory.Exists(data), "An unsupported native path created output.");
+                    return;
+                }
+                var fallbackBase = Path.Combine(fixture.Root, "fallback");
+                Directory.CreateDirectory(fallbackBase);
+                var cache = WindowsDisplayCacheLocation.FromFallbackBase(fallbackBase);
+                var preparer = new GameLaunchPreparer(data, fixture.Profiles, fixture.ComponentDirectory, fixture.Components, cache);
                 foreach (var options in Selections.Where(options => options.RestoreOriginalAspectRatio))
                 {
-                    try
-                    {
-                        _ = await preparer.PrepareExecutableAsync(fixture.Game, options);
-                        throw new InvalidOperationException("A non-ASCII native module path was admitted.");
-                    }
-                    catch (InvalidDataException exception)
-                    {
-                        Require(exception.Message.Contains("ASCII", StringComparison.Ordinal)
-                            && exception.Message.Contains("POC_LAUNCHER_DATA_DIR", StringComparison.Ordinal)
-                            && exception.Message.Contains("short", StringComparison.OrdinalIgnoreCase), "Unicode path failure has no actionable ASCII data-path advice.");
-                    }
-                    Require(!Directory.Exists(data), "Rejected Unicode path created runtime cache output.");
+                    var output = await preparer.PrepareExecutableAsync(fixture.Game, options);
+                    Require(output.All(character => character <= 127) && output.StartsWith(cache.Root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase),
+                        "Unicode profile did not select a private ASCII native cache.");
+                    Require(!Directory.Exists(data), "Unicode preferred cache path was created.");
                 }
                 Expect<InvalidDataException>(() => OriginalAspectRatioPreparer.CreateConfiguration(Path.Combine(data, "screenshots")));
                 var runner = new FakeRunner();
                 var sessionDirectory = Path.Combine(fixture.Root, "session");
-                await using var service = new GameSessionService(sessionDirectory, runner, preparer: preparer);
+                await using var service = new GameSessionService(sessionDirectory, runner, preparer: preparer, temporaryCollections: TestCollectionProfiles.Create());
                 var result = await service.LaunchAsync(fixture.Game, Settings(new(false, false, true)));
-                Require(!result.Success && runner.Starts == 0 && !Directory.Exists(data) && !Directory.Exists(sessionDirectory),
-                    "Rejected Unicode path started a process or wrote runtime state.");
+                Require(result.Success && runner.Starts == 1 && !Directory.Exists(data), "A Unicode profile could not start the authored fake runner.");
                 Require(await preparer.PrepareExecutableAsync(fixture.Game, new GameModOptions()) == fixture.Game.ExecutablePath,
-                    "Display-disabled stock selection was affected by the native wrapper path restriction.");
+                    "Display-disabled stock selection changed.");
                 Require(Directory.EnumerateFiles(installedDirectory).Count() == installed.Count
-                    && installed.All(file => Hash(File.ReadAllBytes(file.Key)) == file.Value), "Unicode rejection wrote an installed file or fallback ddraw.ini.");
-                Require(Hash(await File.ReadAllBytesAsync(fixture.Game.ExecutablePath)) == Hash(fixture.Original),
-                    "Unicode path rejection changed the original executable hash.");
+                    && installed.All(item => Hash(File.ReadAllBytes(item.Key)) == item.Value), "Fallback preparation changed installed files.");
             });
         }
 
@@ -434,7 +443,7 @@ internal static class AspectRatioChecks
             var fixture = await Fixture.Create(Path.Combine(fixtures, "aq"));
             var preparer = new PausingPreparer(fixture.Game.ExecutablePath);
             var runner = new FakeRunner();
-            var service = new GameSessionService(Path.Combine(fixture.Root, "session"), runner, preparer: preparer);
+            var service = new GameSessionService(Path.Combine(fixture.Root, "session"), runner, preparer: preparer, temporaryCollections: TestCollectionProfiles.Create());
             var settings = Settings(new(true, true, true));
             var launch = service.LaunchAsync(fixture.Game, settings);
             await preparer.Entered.Task.WaitAsync(TimeSpan.FromSeconds(3));
@@ -445,7 +454,7 @@ internal static class AspectRatioChecks
             await service.DisposeAsync();
             var queuedPreparer = new FirstFailsPreparer(fixture.Game.ExecutablePath);
             var queuedRunner = new FakeRunner();
-            await using (var queuedService = new GameSessionService(Path.Combine(fixture.Root, "queued"), queuedRunner, preparer: queuedPreparer))
+            await using (var queuedService = new GameSessionService(Path.Combine(fixture.Root, "queued"), queuedRunner, preparer: queuedPreparer, temporaryCollections: TestCollectionProfiles.Create()))
             {
                 var first = queuedService.LaunchAsync(fixture.Game, Settings(new(true, false, false)));
                 await queuedPreparer.Entered.Task.WaitAsync(TimeSpan.FromSeconds(3));
@@ -458,7 +467,7 @@ internal static class AspectRatioChecks
             }
             var cancelling = new PausingPreparer(fixture.Game.ExecutablePath);
             var cancelledRunner = new FakeRunner();
-            var cancelledService = new GameSessionService(Path.Combine(fixture.Root, "cancel-session"), cancelledRunner, preparer: cancelling);
+            var cancelledService = new GameSessionService(Path.Combine(fixture.Root, "cancel-session"), cancelledRunner, preparer: cancelling, temporaryCollections: TestCollectionProfiles.Create());
             var pending = cancelledService.LaunchAsync(fixture.Game, Settings(new(false, false, true)));
             await cancelling.Entered.Task.WaitAsync(TimeSpan.FromSeconds(3));
             await cancelledService.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(3));

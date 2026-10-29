@@ -1,4 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><RootNamespace>PowerOfChaos.Launcher.Core</RootNamespace></PropertyGroup>
   <ItemGroup><InternalsVisibleTo Include="PowerOfChaos.HdLauncher.Tests" /></ItemGroup>
+  <ItemGroup><EmbeddedResource Include="Localization/Strings/*.json" WithCulture="false" /></ItemGroup>
 </Project>

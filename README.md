@@ -4,6 +4,16 @@ A lightweight, cross-platform desktop launcher for your own installations of **Y
 
 This repository contains launcher source and original vector UI assets. It does not contain, download or distribute the games or their executables, archives, saves, card databases, artwork, voices, music or mod packs.
 
+## Windows download
+
+Get the complete Windows ZIP from [Releases](https://github.com/simonMettler2000/Power-of-Chaos-Launcher/releases/latest). Choose **win-x64** for a 64-bit Windows PC, or **win-x86** for 32-bit Windows. Extract the entire ZIP into a new folder and open **PowerOfChaos.Launcher.exe**. Keep its other files beside it. The download includes the pinned .NET10 LTS runtime, application graphics/font dependencies and verified display components, so no separate .NET installation or mod setup is needed.
+
+Choose **Settings → Add Game path**, then select an installed game folder or a parent containing the three games. Collection counts, original card images and localized names come from those local installations. The launcher does not upload your games, settings or saves. Windows10/11 editions supported by .NET10 are the target; Windows7/8.1 and native ARM64 game compatibility are not established.
+
+The four available mods are **Skip Splash Screens**, **Skip character interactions**, **Original aspect ratio**, and **Temporary all cards**. Executable mods require the exact supported game revisions listed in [mod compatibility](docs/mods.md); finding a folder alone does not prove that revision is supported. Unknown revisions are refused rather than patched speculatively. Temporary all cards requires an existing unambiguous, writable shared save and the supported native card tables. Its switch must be changed with all games closed.
+
+The stable v0.2.0 download keeps HD Cards, opponent-deck packs and guaranteed-new rewards disabled. This HD-Cards branch adds experimental large card previews with a separately supplied local pack and verified provider; **it may break or display incorrectly**. [HD setup and limits](docs/hd-launcher.md) explain automatic detection and the paths shown in Mods. Development/test builds are not part of the stable download. Future built-in mods are delivered through reviewed launcher updates; see [release and extension workflow](docs/releases.md).
+
 ## First run
 
 The library starts with **no game path added**. Click **Settings** beneath **About** in the sidebar, then **Add Game path**. Browse to a folder or paste its path. You can select a single game's directory or a parent directory containing all three installations.
@@ -20,28 +30,39 @@ Only discovered games appear in the library. Locations and preferences persist b
 - Cogwheel settings menu, folder browser and pasteable game paths.
 - Discovery of one or all three titles, including nested installations.
 - Per-game launching and recorded session playtime.
+- Read-only collection counts in Games and Collection, with a deduplicated total across all three games.
 - Minimize-on-launch preference and a Wine runner setting for Linux/macOS.
 - Local settings and atomic playtime checkpoints; no accounts, telemetry or always-on network service.
-- Global **Skip Splash Screens**, **Skip character interactions** **Original aspect ratio** and **HD card previews** switches for the three supported executable revisions, plus disabled entries for mods still in development.
+- Global **Skip Splash Screens**, **Skip character interactions** and **Original aspect ratio** switches for the three supported executable revisions, plus disabled entries for mods still in development.
+- **Temporary all cards** on Windows: a backed-up shared save with three copies of every supported card, restored when unticked.
 
 Playtime begins when this launcher starts tracking. It measures elapsed launcher sessions, including menus and idle time. Interrupted sessions retain their last saved checkpoint rather than counting time while the launcher was closed. Windows launches the selected executable directly; non-Windows launches through `wine start /wait /unix`. Actual game compatibility and Wine session behavior require testing on the chosen platform and runner.
 
-Collection statistics, reversible shared/isolated collections, opponent-deck packs and guaranteed-new rewards are **not implemented**. Their mod entries are disabled rather than pretending to apply a modification. Native Linux/macOS ports of the games are not supplied.
+Opponent-deck packs and guaranteed-new rewards remain disabled. Experimental HD large previews on this branch require a valid local pack and pinned provider; they do not replace small hand/field/deck-back/graveyard artwork. Native Linux/macOS ports of the games are not supplied.
 
-The **HD-Cards** branch adds a Windows [HD card preview candidate](docs/hd-launcher.md). HD mode defaults to GDI for Yugi, Kaiba and Joey and smoothly scales locally supplied full 800 x 1160 RGB8 masters using GDI HALFTONE only when a complete large 200 x 290 preview matches at one of nine explicit positions across duel, Card List and Deck Construction screens. Small cards, rotated hand cards, field cards, deck backs and graveyard cards keep their original graphics.
+## Collection
 
-Generate a local pack from an accepted delivery manifest and your local original-card references, choose that pack folder in **Settings > Preferences**, and supply the separately built [HD display component](tools/HdCardsComponent/README.md). The folder contains `yugi-565.tsv`, `kaiba-565.tsv` and `joey-565.tsv`, which refer to external local reference/master files that must remain available. Masters must be metadata-free, non-interlaced RGB8 PNGs containing only IHDR, consecutive nonempty IDAT and IEND chunks. The pack builder excludes 199-pixel-wide originals rather than inventing missing padding. Packs, artwork, native components and third-party source remain local and are not supplied by this repository.
+Games shows **owned/available** beside playtime and Play. Collection shows the same per-game counts and a unique-card total: **155** available in Yugi, **466** in Kaiba and **771** in Joey; **771** distinct cards overall. These are the full cumulative playable pools, including earlier games' cards, rather than only each opponent's new reward pool. Multiple copies and cards shared between games count once.
 
-The GDI decoder obtains owned BGRA pixels directly from the shared strict PNG decoder, without COM/WIC on that path. The full master is scaled to the physical preview with HALFTONE filtering.
+The stock games use a shared system.dat. On Windows the launcher looks for its registered CommonDir and ordinary common-folder locations, including the current user's VirtualStore when applicable. If it cannot find one unambiguous save, open Collection and browse to system.dat or paste its full path. Wine users can choose the file inside their Wine prefix. Only the selected path is saved in launcher preferences.
 
-The optional V3 local pack adds a Deck Construction flip candidate. It proves
-the complete current preview as one supplied original background plus a supported
-horizontal squeeze/alpha pose and optional verified normal cursor, then renders
-the full HD master smoothly at that pose. Unknown or ambiguous pixels retain the
-original display. It does not broaden small-card or other animation support.
-See the component's V3 profile contract.
+Collection reads never change saves, installed files or registry values. Counts refresh when opening Collection, activating the launcher, updating a tracked session or pressing Refresh. Missing, busy, damaged or unsupported saves display **—/total**, not a fabricated zero. A valid empty collection displays **0/total**. Only readable added games contribute to a partial unique count, which is labelled accordingly.
 
-On 2026-10-29, the R5 GDI build was visually checked in prepared local copies of all three games: Duel, Deck Construction and Card List large previews, windowed/fullscreen changes, hovering over previews, card switches, maximize/restore and normal exit. Supported previews remained HD in the settled fullscreen views, using the current serif description/effect masters. Two independent source/headless reviews also passed. These are sampled Windows display checks, not exhaustive card, animation or hardware coverage. Some immediate resize/fullscreen captures showed the old viewport before the next settled frame; unsupported overlays can temporarily retain original artwork. Small cards remain unchanged. See the [component scope and validation limits](tools/HdCardsComponent/README.md) and [pack and renderer foundation](docs/hd-cards.md).
+Expand a game's Collection panel to see **owned cards** and **missing cards**. The launcher reads the small original card images from your installed game files, so no HD card mod is required. Cards keep their native 49/50 × 72 size when clicked. Missing cards are dimmed; hovering shows the card name, number of copies and first game where it is available. Collapsing the panel releases its artwork from memory.
+
+Use **Language**, beneath Settings, to choose English, German, French, Italian, Spanish or Japanese. The saved choice changes the launcher interface and card names immediately, including navigation, dialogs, settings, mod descriptions, tooltips and messages. Power of Chaos and the game titles remain unchanged. Names come from each installed game's own localized tables; the game language and files are unchanged. A card whose name is missing in the selected table retains its ID as a fallback.
+
+Card pools and identities are read in memory from each installed game's own archive; no card database is bundled. The stock encrypted save's encoding, signature and both checksums are validated. Save identity acceptance by the games is not changed or inferred. Custom save formats and remapped card tables may be unavailable. See [collection format and validation](docs/collection.md).
+
+## Temporary all cards
+
+Close all three games, open **Mods**, and tick **Temporary all cards**. The launcher preserves your complete original `system.dat` before granting **three total copies** of each card in the added games' supported pools. With all three games added, the Collection counts become **155/155**, **466/466**, **771/771**, and **771/771 unique**. Each game retains its own available pool.
+
+The mod stays active across launcher restarts. Close all games and untick it to restore the exact original `system.dat`, including original card quantities, decks, statistics and other fields. Changes made while active belong to the temporary profile; the last temporary save is archived separately before restoration. Other CommonDir files, including replay and exported deck files, are left alone.
+
+The mod uses the automatically resolved save actually shared by the games. A different file chosen for read-only Collection inspection is never used as its write target. While active, Collection shows the temporary game save. Restore the original profile before changing game locations. The journal and retained backups live in `%LOCALAPPDATA%/PowerOfChaosLauncher/temporary-collection` on Windows; Mods displays the full local path. This directory deliberately ignores `POC_LAUNCHER_DATA_DIR` so ordinary launcher instances share one lock and recovery state.
+
+Backup writes and transaction state precede each atomic save replacement. Interrupted or damaged transactions block Play until recovery; use **Restore original collection** when offered. Missing or damaged original backups are preserved and block restoration rather than being guessed. Closing the launcher never restores underneath a running game. The feature currently supports Windows; Wine save selection and process exclusion for this mod have not been established. Development checks use synthetic saves and fake games; actual game acceptance remains a manual test with the user's own installations. See [temporary collection transactions](docs/temporary-collection.md).
 
 ## Skip Splash Screens
 
@@ -63,19 +84,19 @@ The three inspected games use **800 x 600**, a **4:3** picture. Tick **Original 
 
 The mod preserves the game's existing timing and adds no frame-rate selection. Resizing can temporarily pause presentation while the window is being dragged. The game's own short catch-up behavior remains unchanged.
 
-This option needs a separately prepared, verified local display component. [Display setup and validation](docs/display.md) explains how to build it and put it beside your launcher. Missing or changed components produce an error before starting a game. The repository supplies authored build tools and factual pins; compiled components and game files stay local. Windows synthetic tests cover the display path; actual gameplay and Wine compatibility remain manual checks.
+The complete Windows download includes the required verified display component. Source builds can acquire the pinned release inputs or rebuild it using [display setup and validation](docs/display.md). Missing or changed components produce an error before starting a game. Installed game files stay local and unchanged. Windows synthetic tests cover the display path; actual gameplay and Wine compatibility remain manual checks.
 
 ## Build and run
 
-Install the .NET 8 SDK. `global.json` requests 8.0.400 with feature-band roll-forward. NuGet restores Avalonia 11.3.22 and its dependencies.
+Source developers need the .NET10 SDK requested by `global.json` (currently10.0.403). The target runtime is pinned to10.0.14; full Windows downloads contain it. C#12 language semantics are retained. NuGet restores the committed dependency locks for Avalonia11.3.22 and its dependencies.
 
 ```sh
-dotnet restore PowerOfChaos.Launcher.sln
+dotnet restore PowerOfChaos.Launcher.sln --locked-mode
 dotnet build PowerOfChaos.Launcher.sln -c Release --no-restore
 dotnet run --project src/PowerOfChaos.Launcher -c Release --no-build
 ```
 
-Settings and counters are written under the current user's local application-data directory in `PowerOfChaosLauncher`. Nothing is saved inside an installed game directory. For isolated testing, set `POC_LAUNCHER_DATA_DIR` to a scratch folder before starting the launcher.
+Settings and counters are written under the current user's local application-data directory in `PowerOfChaosLauncher`. For isolated settings testing, set `POC_LAUNCHER_DATA_DIR` to a scratch folder before starting the launcher. The temporary-collection journal uses its fixed user-wide location; automated tests inject a private synthetic vault explicitly. Only activating **Temporary all cards** writes the shared game save.
 
 Portrait artwork is loaded asynchronously from the selected installation and kept in memory. No original artwork is bundled, downloaded or written to the repository. Missing or unsupported portrait resources use a neutral placeholder and leave the game launch controls available.
 
@@ -89,7 +110,7 @@ python tools/publication_guard.py --working-tree
 
 The independent test harness creates synthetic fixtures, never copies real game data, and uses fake game processes. It covers depth limits, invalid files, persistence, cancellation, launch plans and session accounting. Headless UI checks exercise the actual Avalonia controls and render local screenshots without starting games. Optional `--installed` testing reads installed headers on Windows and never starts a game. Development and CI must not execute the original games.
 
-On a machine with the supported installations, `dotnet run --project tests/PowerOfChaos.Launcher.Tests -c Release -- --installed --installed-mods` also verifies all three original and modified whole-file hashes entirely in memory. It writes no game copies and starts no games. UI checks accept `--installed-artwork` to read locally installed portraits.
+On a machine with the supported installations, `dotnet run --project tests/PowerOfChaos.Launcher.Tests -c Release -- --installed --installed-mods` also verifies all three original and modified whole-file hashes entirely in memory. It writes no game copies and starts no games. UI checks accept `--installed-artwork` to read locally installed portraits and every native card mini for the three cumulative pools.
 
 ## Source-only publication
 
@@ -97,38 +118,10 @@ The publication guard admits a narrow set of authored text source/configuration 
 
 The launcher requires separately obtained game installations. Private repository visibility does not authorize redistribution of game content. [Publication rules](docs/publication.md) describe this project's source-only boundary.
 
+The authored launcher is [MIT licensed](LICENSE). Third-party dependencies keep their own licenses and notices. Complete Windows Release assets are separately inspected and include those notices and required corresponding library source; they never include game files or personal data.
+
 ## Platform scope
 
 Avalonia supports Windows, Linux and macOS. The launcher source keeps discovery, settings and session logic separate from the desktop interface. Automated platform tests and real game compatibility tests are different: a passing launcher build does not prove the Windows games or future mods work through every Wine runner.
 
 This is an independent launcher project, not an official KONAMI product.
-
-
-Optional normal software cursor previews (candidate)
-
-The GDI cursor extension uses a local V2 pack. It preserves the exact whole-card
-recognition rule by explaining every preview pixel as reference plus one verified
-normal cursor, then placing that cursor above the HD master. Unknown cursor
-states/layers and ambiguous matches retain the base. Other cards outside the
-large preview remain outside this feature. Independent review and actual hover
-checks are still required; previous screenshots retain their original DLL pins.
-
-Use `python tools/hd_cards_add_cursor_bank.py --pack <existing-V1-pack> --output
-<fresh-V2-folder> --archive yugi=<absolute-data.dat> --archive kaiba=<absolute-Data.dat>
---archive joey=<absolute-data.dat>` with explicit read-only original archive paths.
-This writes the three RGB565 V2 configs and two normal64x64 banks per game into
-a fresh local folder, leaving the old pack and archives untouched. Select that
-folder in Settings only after qualifying the candidate component. Generated
-banks contain original game pixels and must remain local, outside source control.
-V1 packs still use the original unoccluded-preview path. D3D9 retains V1 support;
-V2 cursor-aware presentation is GDI-only.
-
-Cursor-aware presentation requires a viewport at least800x600. At smaller sizes,
-it displays the same owned original base, including its cursor; GDI modes1/2 can
-combine or delete reduction samples, so a single foreground texel is unproved.
-V1 and unoccluded exact-card minification keep their existing behavior.
-
-Opaque cursor foreground uses the RGB565-to-RGB8 bit replication verified
-against owned GDI conversion of all65536 words, preserving native base colors
-at preview crossings. Partial alpha still uses separately floored q/15 terms
-against the new physical HD background; it is not a retained old-card pixel.

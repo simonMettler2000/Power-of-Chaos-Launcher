@@ -13,14 +13,15 @@
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.22" />
     <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.22" />
     <ProjectReference Include="../PowerOfChaos.Launcher.Core/PowerOfChaos.Launcher.Core.csproj" />
-    <ProjectReference Include="../../tools/PowerOfChaos.IconBuilder/PowerOfChaos.IconBuilder.csproj" ReferenceOutputAssembly="false" Private="false" PrivateAssets="all" />
+    <ProjectReference Include="../../tools/PowerOfChaos.IconBuilder/PowerOfChaos.IconBuilder.csproj" ReferenceOutputAssembly="false" Private="false" PrivateAssets="all"
+                      GlobalPropertiesToRemove="RuntimeIdentifier;RuntimeIdentifiers;SelfContained;PublishSelfContained" />
   </ItemGroup>
   <ItemGroup><AvaloniaResource Include="Assets/**" /></ItemGroup>
   <Target Name="GenerateLauncherIcon" BeforeTargets="_GenerateAvaloniaResourcesDependencyCache;GenerateAvaloniaResources;CoreCompile"
           DependsOnTargets="ResolveProjectReferences"
           Inputs="$(MSBuildProjectFullPath);../../Directory.Build.props;Assets/launcher.svg;../../tools/PowerOfChaos.IconBuilder/Program.cs;../../tools/PowerOfChaos.IconBuilder/PowerOfChaos.IconBuilder.csproj"
           Outputs="$(ApplicationIcon)">
-    <Exec Command="dotnet &quot;$(MSBuildProjectDirectory)/../../tools/PowerOfChaos.IconBuilder/bin/$(Configuration)/net8.0/PowerOfChaos.IconBuilder.dll&quot; &quot;$(MSBuildProjectDirectory)/Assets/launcher.svg&quot; &quot;$(ApplicationIcon)&quot;" />
+    <Exec Command="dotnet &quot;$(MSBuildProjectDirectory)/../../tools/PowerOfChaos.IconBuilder/bin/$(Configuration)/$(TargetFramework)/PowerOfChaos.IconBuilder.dll&quot; &quot;$(MSBuildProjectDirectory)/Assets/launcher.svg&quot; &quot;$(ApplicationIcon)&quot;" />
     <ItemGroup><FileWrites Include="$(ApplicationIcon);$([System.IO.Path]::ChangeExtension('$(ApplicationIcon)', '.png'))" /></ItemGroup>
   </Target>
 </Project>

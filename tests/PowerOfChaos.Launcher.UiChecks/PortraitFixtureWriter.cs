@@ -16,6 +16,16 @@ internal static class PortraitFixtureWriter
         var entries = new List<(string Name, byte[] Data)> { (name, Bitmap(320, 280, executable == "joey_pc.exe" ? (byte)6 : (byte)0)) };
         if (executable == "yugi_pc.exe")
             entries.Add(("y\\bust_up\\yugi_bu\\kaisi_00_2.bmp", Bitmap(8, 4, 0)));
+        entries.AddRange(TestFixtures.CollectionFixtures.CardTables());
+        entries.AddRange(TestFixtures.CollectionFixtures.CardNameTables());
+        // Native-size, authored rectangles. No installed card pixels or HD assets are fixtures.
+        var filenames = Enumerable.Range(0, 1115).Select(slot => $"synthetic_{slot}.bmp").ToArray();
+        entries.Add((@"mini\list_card.txt", Encoding.ASCII.GetBytes(string.Join('\n', filenames))));
+        for (var card = 0; card < 771; card++)
+        {
+            var slot = TestFixtures.CollectionFixtures.Slot(card);
+            entries.Add((@"mini\" + filenames[slot], Bitmap(card == 155 ? 49 : 50, 72, 0)));
+        }
         using var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write);
         using var writer = new BinaryWriter(stream);
         writer.Write(Encoding.ASCII.GetBytes("KCEJYUGI"));

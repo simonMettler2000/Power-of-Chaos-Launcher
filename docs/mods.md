@@ -26,6 +26,8 @@ For a supported input, the launcher changes the initial logo timer and index in 
 
 The executable copy is kept under the launcher's local application-data directory. Game archives remain in their installation, which is used as the working directory. Preparation verifies the original and resulting hashes and refuses an unexpected version or damaged cache. No game executable or binary patch is distributed by this repository.
 
+Binary-only mod copies use a compact `mod-cache/v3/<game>/<SHA256>` directory. The identity includes the game, selected mods and full original/result hashes; every launch still verifies both executable contents. This avoids Windows process-launch failures caused by the previous cache's long nested paths. Old cache directories are left alone. Excessively long custom launch paths are rejected with an explanation before process creation. Launcher messages are selectable with Ctrl+C and have a Copy button for the complete diagnostic.
+
 ### Verification limits
 
 Development checks inspect installed inputs as data, verify patch results in memory, and exercise the launcher with synthetic fixtures and fake process runners. UI tests operate the actual Avalonia controls without pressing Play. Neither original nor modified games are executed during development or automated testing.
@@ -62,3 +64,7 @@ The wrapper's game-logic limiter is disabled. The game's native timing fields an
 Turning this mod off selects the original or binary-only cache path. The launcher refuses an aspect-off executable directory containing either display proxy DLL, so a stale display cache cannot silently keep the component active. Unsupported executable versions, missing components and invalid caches fail before starting a process.
 
 See [display setup](display.md) for component provenance, local prerequisites, tests and platform limits. A passing synthetic host proves only the exercised DirectDraw calls; it does not prove every game scene, physical device, graphics driver or Wine runner.
+
+## Experimental HD card previews
+
+The HD-Cards branch enables this global switch only when the pinned local provider and a valid local pack are available. It may break or display incorrectly. The Mods row shows the pack and actual master-image folders; select their text to copy the full path or hover to read it. Blank preferences detect a validated `HdCards` folder beside the app, then in launcher data. Explicit choices never silently fall back. The supported scope is large card previews and the finite V3 Deck Construction flip poses, not small cards, card backs, field cards or a complete remaster. See [setup and limits](hd-launcher.md).

@@ -2,6 +2,7 @@ using System.Buffers.Binary;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Runtime.InteropServices;
 
 namespace PowerOfChaos.Launcher.Core.Launching;
 
@@ -11,7 +12,7 @@ internal sealed record DisplayComponent(string FileName, int Length, string Sha2
 internal static class OriginalAspectRatioComponents
 {
     internal const string DirectoryName = "original-aspect-ratio-v1";
-    // The source-built wrapper and bootstrap are private local prerequisites, not repository payloads.
+    // The verified wrapper and bootstrap are runtime components; binaries stay outside the source tree.
     internal static IReadOnlyList<DisplayComponent> Required { get; } = Array.AsReadOnly(new[]
     {
         new DisplayComponent("ddraw.dll", 424448, "0f5f094dd1ab1bc23cfdc1fe4c1ed51d91c1c9a5fafd063c9897fa018606be91", true),
@@ -39,7 +40,7 @@ internal static class HdCardArtworkComponents
             ? new DisplayComponent("ddraw.dll", ProductionDdrawLength, ProductionDdrawSha256, true) : component).ToArray());
 }
 
-/// <summary>Creates a separate app-local display launch directory without editing installed game files.</summary>
+/// <summary>Creates verified private display launch copies without editing installed game files.</summary>
 internal sealed class OriginalAspectRatioPreparer
 {
     internal const string RecipeVersion = "original-aspect-ratio-v1-windowed-800x600-logic-unlimited";
@@ -50,15 +51,17 @@ internal sealed class OriginalAspectRatioPreparer
     private readonly string _dataDirectory;
     private readonly string _componentDirectory;
     private readonly IReadOnlyList<DisplayComponent> _components;
+    private readonly WindowsDisplayCacheLocation? _displayCache;
 
     internal OriginalAspectRatioPreparer(string dataDirectory, string? componentDirectory,
-        IReadOnlyList<DisplayComponent>? components, bool hdMode = false)
+        IReadOnlyList<DisplayComponent>? components, WindowsDisplayCacheLocation? displayCache = null, bool hdMode = false)
     {
         _hdMode = hdMode;
         _dataDirectory = dataDirectory;
         _componentDirectory = Path.GetFullPath(componentDirectory
             ?? Path.Combine(AppContext.BaseDirectory, "Components", hdMode ? HdCardArtworkComponents.DirectoryName : OriginalAspectRatioComponents.DirectoryName));
         _components = Array.AsReadOnly((components ?? (hdMode ? HdCardArtworkComponents.Required : OriginalAspectRatioComponents.Required)).ToArray());
+        _displayCache = displayCache;
         if (_components.Count < 2 || _components.Select(item => item.FileName).Distinct(StringComparer.OrdinalIgnoreCase).Count() != _components.Count
             || !_components.Any(item => item.FileName == "ddraw.dll" && item.IsDll)
             || !_components.Any(item => item.FileName == "winmm.dll" && item.IsDll)
@@ -75,7 +78,8 @@ internal sealed class OriginalAspectRatioPreparer
         var originalPath = Path.GetFullPath(installation.ExecutablePath);
         var installDirectory = Path.GetDirectoryName(originalPath)!;
         if (_hdMode != (hdPack is not null)) throw new InvalidDataException("HD launch configuration is missing or unexpected.");
-        var root = Path.Combine(_dataDirectory, "display", _hdMode ? "hd-v1" : "v1");
+        var location = _displayCache ?? WindowsDisplayCacheLocation.Select(_dataDirectory, _hdMode);
+        var root = location.Root;
         // Every native module, INI and screenshot path has this prefix. The pinned wrapper uses ANSI path APIs.
         RefuseNonAsciiNativePath(root);
         RefuseOverlap(root, installDirectory);
@@ -125,7 +129,7 @@ internal sealed class OriginalAspectRatioPreparer
             Identity = identity, IdentitySha256 = identityHash, ConfigurationSha256 = Hash(configuration)
         }));
         cancellationToken.ThrowIfCancellationRequested();
-        Directory.CreateDirectory(root);
+        location.EnsureCreated();
         RefuseLinks(root);
         var lockPath = Path.Combine(root, identityHash[..32] + ".lock");
         RefuseLinks(lockPath);
@@ -308,14 +312,63 @@ internal sealed class OriginalAspectRatioPreparer
         }
     }
 
-    private static void RefuseOverlap(string output, string input)
+    internal static void RefuseOverlap(string output, string input)
     {
-        var left = Path.TrimEndingDirectorySeparator(Path.GetFullPath(output));
-        var right = Path.TrimEndingDirectorySeparator(Path.GetFullPath(input));
-        if (left.Equals(right, PathComparison) || left.StartsWith(right + Path.DirectorySeparatorChar, PathComparison)
-            || right.StartsWith(left + Path.DirectorySeparatorChar, PathComparison))
+        var left = ComparisonPath(output);
+        var right = ComparisonPath(input);
+        static string Prefix(string value) => Path.EndsInDirectorySeparator(value) ? value : value + Path.DirectorySeparatorChar;
+        if (left.Equals(right, PathComparison) || left.StartsWith(Prefix(right), PathComparison)
+            || right.StartsWith(Prefix(left), PathComparison))
             throw new InvalidDataException("The display cache must be separate from the game installation and component inputs. Choose a separate launcher data directory.");
     }
+
+    private const string UnresolvedPathMessage = "The display paths could not be resolved safely. Select ordinary existing game and component folders.";
+
+    internal static string NormalizeWindowsPrefix(string path)
+    {
+        if (path.StartsWith(@"\\?\UNC\", StringComparison.OrdinalIgnoreCase)) return @"\\" + path[8..];
+        if (path.StartsWith(@"\\?\", StringComparison.OrdinalIgnoreCase))
+        {
+            if (path.Length >= 7 && char.IsAsciiLetter(path[4]) && path[5] == ':' && path[6] == '\\') return path[4..];
+            throw new InvalidDataException(UnresolvedPathMessage);
+        }
+        if (path.StartsWith(@"\\.\", StringComparison.OrdinalIgnoreCase) || path.StartsWith(@"\??\", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException(UnresolvedPathMessage);
+        return path;
+    }
+
+    private static string ComparisonPath(string path)
+    {
+        var full = Path.GetFullPath(path);
+        if (!OperatingSystem.IsWindows()) return Path.TrimEndingDirectorySeparator(full);
+        full = NormalizeWindowsPrefix(full);
+        var missing = new Stack<string>();
+        var ancestor = full;
+        while (true)
+        {
+            try { _ = File.GetAttributes(ancestor); break; }
+            catch (Exception error) when (error is FileNotFoundException or DirectoryNotFoundException)
+            {
+                var parent = Path.GetDirectoryName(ancestor);
+                if (string.IsNullOrEmpty(parent)) throw new InvalidDataException(UnresolvedPathMessage, error);
+                missing.Push(Path.GetFileName(ancestor));
+                ancestor = parent;
+            }
+        }
+        // Expand existing DOS short names before comparing boundaries. Missing cache suffixes are appended
+        // only after resolving their existing ancestor; this creates no directory and follows no new path.
+        var expanded = new StringBuilder(32768);
+        var length = GetLongPathName(ancestor, expanded, (uint)expanded.Capacity);
+        if (length == 0 || length >= expanded.Capacity)
+            throw new InvalidDataException(UnresolvedPathMessage, new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error()));
+        var resolved = NormalizeWindowsPrefix(expanded.ToString());
+        foreach (var part in missing) resolved = Path.Combine(resolved, part);
+        return Path.TrimEndingDirectorySeparator(Path.GetFullPath(resolved));
+    }
+
+    [DllImport("kernel32.dll", EntryPoint = "GetLongPathNameW", CharSet = CharSet.Unicode, ExactSpelling = true, SetLastError = true)]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    private static extern uint GetLongPathName(string shortPath, StringBuilder longPath, uint capacity);
 
     internal static void RefuseLinks(string path)
     {

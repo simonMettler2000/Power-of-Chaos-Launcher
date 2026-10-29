@@ -34,6 +34,8 @@ public sealed class LauncherSettings
     [JsonExtensionData]
     public Dictionary<string, JsonElement>? AdditionalSettings { get; set; }
     public string WineExecutable { get; set; } = "wine";
+    public string? CollectionSavePath { get; set; }
+    public string CardLanguage { get; set; } = "en";
 }
 
 public static class LauncherPaths

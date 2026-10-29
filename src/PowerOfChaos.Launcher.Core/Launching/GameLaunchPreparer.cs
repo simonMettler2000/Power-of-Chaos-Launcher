@@ -1,3 +1,6 @@
+using System.Security.Cryptography;
+using System.Text;
+
 namespace PowerOfChaos.Launcher.Core.Launching;
 
 public interface IGameLaunchPreparer
@@ -21,12 +24,13 @@ public sealed class GameLaunchPreparer : IGameLaunchPreparer
         : this(dataDirectory, GameModProfiles.Profiles, componentDirectory) { }
     internal GameLaunchPreparer(string? dataDirectory, IReadOnlyList<SplashProfile> profiles,
         string? componentDirectory = null, IReadOnlyList<DisplayComponent>? components = null,
-        string? hdComponentDirectory = null, IReadOnlyList<DisplayComponent>? hdComponents = null)
+        WindowsDisplayCacheLocation? displayCache = null, string? hdComponentDirectory = null,
+        IReadOnlyList<DisplayComponent>? hdComponents = null)
     {
         _dataDirectory = Path.GetFullPath(dataDirectory ?? LauncherPaths.DataDirectory);
         _profiles = profiles;
-        _displayPreparer = new OriginalAspectRatioPreparer(_dataDirectory, componentDirectory, components);
-        _hdPreparer = new OriginalAspectRatioPreparer(_dataDirectory, hdComponentDirectory, hdComponents, hdMode: true);
+        _displayPreparer = new OriginalAspectRatioPreparer(_dataDirectory, componentDirectory, components, displayCache);
+        _hdPreparer = new OriginalAspectRatioPreparer(_dataDirectory, hdComponentDirectory, hdComponents, displayCache, hdMode: true);
     }
 
     public Task<string> PrepareExecutableAsync(GameInstallation installation, bool skipSplashScreens,
@@ -41,7 +45,7 @@ public sealed class GameLaunchPreparer : IGameLaunchPreparer
         if (options.HdCardArtwork && !OperatingSystem.IsWindows())
             throw new InvalidDataException("HD card artwork currently requires Windows.");
         var hdPack = options.HdCardArtwork
-            ? await HdCardPack.ReadAsync(options.HdPackDirectory, installation.GameId, cancellationToken).ConfigureAwait(false) : null;
+            ? await HdCardPack.ReadAsync(await HdCardPackLocation.ResolveDirectoryAsync(options.HdPackDirectory, dataDirectory: _dataDirectory, cancellationToken: cancellationToken).ConfigureAwait(false), installation.GameId, cancellationToken).ConfigureAwait(false) : null;
         var originalPath = Path.GetFullPath(installation.ExecutablePath);
         if (!options.AnyEnabled) return originalPath;
         var definition = GameCatalog.All.FirstOrDefault(game => game.Id == installation.GameId)
@@ -69,8 +73,13 @@ public sealed class GameLaunchPreparer : IGameLaunchPreparer
             if (options.RestoreOriginalAspectRatio)
                 return await _displayPreparer.PrepareAsync(installation, options, profile, modified, cancellationToken)
                     .ConfigureAwait(false);
-            var directory = Path.Combine(_dataDirectory, "mod-cache", "verified-mods-v2", options.CacheKey,
-                profile.GameId, profile.OriginalHash, profile.ModifiedHash);
+            // Keep a full SHA256 identity without nesting the verbose selection and both full hashes.
+            // .NET can write paths which Windows CreateProcess cannot open (including the old v2 cache).
+            var identity = string.Join('\n', profile.GameId, options.CacheKey, profile.OriginalHash, profile.ModifiedHash);
+            var bucket = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(identity))).ToLowerInvariant();
+            var directory = Path.Combine(_dataDirectory, "mod-cache", "v3", profile.GameId, bucket);
+            var outputPath = Path.Combine(directory, definition.ExecutableName);
+            if (OperatingSystem.IsWindows()) LaunchPlan.ValidateWindowsPaths(outputPath, Path.GetDirectoryName(originalPath)!);
             var installDirectory = Path.GetDirectoryName(originalPath)!;
             if (directory.Equals(installDirectory, PathComparison)
                 || directory.StartsWith(Path.TrimEndingDirectorySeparator(installDirectory) + Path.DirectorySeparatorChar, PathComparison))
@@ -78,7 +87,6 @@ public sealed class GameLaunchPreparer : IGameLaunchPreparer
             RefuseLinks(directory);
             Directory.CreateDirectory(directory);
             RefuseLinks(directory);
-            var outputPath = Path.Combine(directory, definition.ExecutableName);
             RefuseLinks(outputPath);
             var lockPath = Path.Combine(directory, ".prepare.lock");
             RefuseLinks(lockPath);
