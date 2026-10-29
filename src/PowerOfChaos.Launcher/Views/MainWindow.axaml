@@ -140,9 +140,9 @@
             </Border>
             <Border Classes="panel" Padding="20">
               <Grid ColumnDefinitions="Auto,210,*" ColumnSpacing="20">
-                <CheckBox x:Name="HdCardArtworkCheckBox" IsEnabled="False" VerticalAlignment="Center" AutomationProperties.Name="HD card previews for all three games" Click="HdCardArtwork_Click" />
-                <TextBlock Grid.Column="1" Text="HD card previews" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
-                <TextBlock x:Name="HdCardArtworkDescription" Grid.Column="2" Text="Choose a local HD pack folder in Settings. Requires the verified HD display component bundle." Classes="quiet" TextWrapping="Wrap" LineHeight="21" VerticalAlignment="Center" />
+                <CheckBox x:Name="HdCardArtworkCheckBox" IsEnabled="False" VerticalAlignment="Center" AutomationProperties.Name="HD card previews for all three games, experimental, may break" Click="HdCardArtwork_Click" />
+                <TextBlock Grid.Column="1" Text="HD card previews (Experimental)" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
+                <TextBlock x:Name="HdCardArtworkDescription" Grid.Column="2" Text="Experimental: may break or display incorrectly. Choose a local HD pack folder in Settings." Classes="quiet" TextWrapping="Wrap" LineHeight="21" VerticalAlignment="Center" />
               </Grid>
             </Border>
           </StackPanel>

@@ -310,8 +310,8 @@ public partial class MainWindow : Window
         HdCardArtworkCheckBox.IsChecked = _settings.HdCardArtwork;
         HdCardArtworkCheckBox.IsEnabled = SkipSplashScreensCheckBox.IsEnabled && (_hdUnavailableReason is null || _settings.HdCardArtwork);
         HdCardArtworkDescription.Text = _hdUnavailableReason is null
-            ? "Replace fully visible preview cards with local HD masters in a larger 4:3 window. Applies to all three games on the next launch. In-game validation is pending."
-            : "Unavailable: " + _hdUnavailableReason;
+            ? "Experimental: may break or display incorrectly. Replaces large card previews with local HD artwork. Applies to all three games on the next launch."
+            : "Experimental: may break or display incorrectly. Unavailable: " + _hdUnavailableReason;
         foreach (var card in _cards) card.SetLaunchPending(!_settingsReady || _savingMod || _pendingLaunch);
     }
 
