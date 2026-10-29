@@ -93,6 +93,12 @@ int WINAPI cursor_fault_stretch(HDC dc,int x,int y,int w,int h,int sx,int sy,int
     if(bi->bmiHeader.biBitCount==32){++canvas_calls;if((fault==5&&canvas_calls==3)||(fault==6&&canvas_calls==1)){SetPixelV(dc,x+1,y+1,RGB(255,0,255));return 0;}}
     return ::StretchDIBits(dc,x,y,w,h,sx,sy,sw,sh,bits,bi,use,rop);
 }
+int WINAPI cursor_fault_save(HDC dc){return ::SaveDC(dc);}
+BOOL WINAPI cursor_fault_restore(HDC dc,int n){return ::RestoreDC(dc,n);}
+int WINAPI cursor_fault_exclude(HDC dc,int l,int top,int r,int b){return ::ExcludeClipRect(dc,l,top,r,b);}
+int WINAPI cursor_fault_clip(HDC dc,int l,int top,int r,int b){return ::IntersectClipRect(dc,l,top,r,b);}
+int WINAPI cursor_fault_mode(HDC dc,int mode){return ::SetStretchBltMode(dc,mode);}
+BOOL WINAPI cursor_fault_visible(HDC dc,const RECT* r){return ::RectVisible(dc,r);}
 int wmain(int argc,wchar_t** argv) {
     if(argc!=2)return 2;dir=argv[1];checks=0;failures=0;derive_color_oracle();
     const std::array<std::array<unsigned,3>,9> regions={{{1,5,72},{1,11,88},{1,7,89},{2,5,72},{2,16,86},{2,7,89},{3,2,74},{3,6,87},{3,7,89}}};

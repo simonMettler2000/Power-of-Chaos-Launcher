@@ -30,6 +30,18 @@ int hdv_add(HdvEngine* engine, uint32_t key, const void* packed_reference,
 /* Optional GDI-only normal foreground bank. Exactly two owned64x64 BGRA
    sprites must be installed before sealing. RGB565 admission uses alpha>>4. */
 int hdv_add_cursor(HdvEngine* engine, uint32_t state, const void* bgra, size_t bytes);
+/* Optional V3 Deck flip profile. Inputs are copied before seal. The seven
+   explicit observable poses are supported hypotheses, not a phase clock. */
+typedef struct HdvFlipPose { uint32_t width, x, q; } HdvFlipPose;
+int hdv_add_flip_background(HdvEngine*, const void* rgb565, size_t bytes);
+int hdv_enable_flip(HdvEngine*, const HdvFlipPose* poses, size_t count);
+typedef struct HdvFlipPlan {
+    uint32_t key, x, y, width, height, face_x, face_width, q;
+    uint64_t generation;
+    const wchar_t* master_path;
+    const void* background565;
+} HdvFlipPlan;
+int hdv_flip(const HdvEngine*, HdvFlipPlan*);
 typedef struct HdvCursor {
     const void* bgra;
     int32_t x, y;
@@ -37,6 +49,8 @@ typedef struct HdvCursor {
     uint64_t generation;
 } HdvCursor;
 int hdv_cursor(const HdvEngine* engine, HdvCursor* cursor);
+/* Successful repeats return1 without allocation/mutation and preserve capture
+   pointers/generation. A failed seal is terminal for that engine instance. */
 int hdv_seal(HdvEngine* engine);
 void hdv_invalidate(HdvEngine* engine);
 /* Capture must receive the exact locked GPU upload storage after base copy,

@@ -77,7 +77,8 @@ def main():
               ('master-profile', 'master_profile_test', [output / 'fixtures/profile/profile-manifest.tsv']),
               ('profile-gdi', 'profile_gdi_test', [output / 'fixtures/profile']),
               ('png-decode', 'png_decode_test', [output / 'fixtures/decode']),
-              ('cursor', 'cursor_test', [output / 'fixtures/cursor'])]
+              ('cursor', 'cursor_test', [output / 'fixtures/cursor']),
+              ('flip', 'flip_test', [output / 'fixtures/flip'])]
     for label, executable, parameters in suites:
         run(label, [build / (executable + '.exe'), *parameters])
     if source_inputs != {name: sha(Path(name)) for name in source_inputs}:

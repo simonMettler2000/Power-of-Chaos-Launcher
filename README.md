@@ -32,9 +32,16 @@ The **HD-Cards** branch adds a Windows [HD card preview candidate](docs/hd-launc
 
 Generate a local pack from an accepted delivery manifest and your local original-card references, choose that pack folder in **Settings > Preferences**, and supply the separately built [HD display component](tools/HdCardsComponent/README.md). The folder contains `yugi-565.tsv`, `kaiba-565.tsv` and `joey-565.tsv`, which refer to external local reference/master files that must remain available. Masters must be metadata-free, non-interlaced RGB8 PNGs containing only IHDR, consecutive nonempty IDAT and IEND chunks. The pack builder excludes 199-pixel-wide originals rather than inventing missing padding. Packs, artwork, native components and third-party source remain local and are not supplied by this repository.
 
-The GDI decoder revision obtains owned BGRA pixels directly from the shared strict PNG decoder, without COM/WIC on that path. It retains the smooth filter and geometry but requires fresh actual qualification; earlier provider screenshots keep their original fingerprint bindings.
+The GDI decoder obtains owned BGRA pixels directly from the shared strict PNG decoder, without COM/WIC on that path. The full master is scaled to the physical preview with HALFTONE filtering.
 
-Earlier pixel QA covered three supplied large-preview frames with the delivered serif masters and the prior nearest-pixel artwork filter: Yugi's De-Spell and Kaiba's Stim-Pack in Deck Construction, plus Joey's Graceful Dice in Card List. The smooth artwork revision requires fresh actual-display validation; those earlier results do not qualify its changed output. Other cards/layouts, independent integration reviews, an exact-commit audit and full release qualification remain pending. See the [component scope and validation limits](tools/HdCardsComponent/README.md) and [pack and renderer foundation](docs/hd-cards.md).
+The optional V3 local pack adds a Deck Construction flip candidate. It proves
+the complete current preview as one supplied original background plus a supported
+horizontal squeeze/alpha pose and optional verified normal cursor, then renders
+the full HD master smoothly at that pose. Unknown or ambiguous pixels retain the
+original display. It does not broaden small-card or other animation support.
+See the component's V3 profile contract.
+
+On 2026-10-29, the R5 GDI build was visually checked in prepared local copies of all three games: Duel, Deck Construction and Card List large previews, windowed/fullscreen changes, hovering over previews, card switches, maximize/restore and normal exit. Supported previews remained HD in the settled fullscreen views, using the current serif description/effect masters. Two independent source/headless reviews also passed. These are sampled Windows display checks, not exhaustive card, animation or hardware coverage. Some immediate resize/fullscreen captures showed the old viewport before the next settled frame; unsupported overlays can temporarily retain original artwork. Small cards remain unchanged. See the [component scope and validation limits](tools/HdCardsComponent/README.md) and [pack and renderer foundation](docs/hd-cards.md).
 
 ## Skip Splash Screens
 

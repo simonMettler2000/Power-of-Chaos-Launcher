@@ -43,6 +43,7 @@ AUTHORED_NATIVE_TOOLS = {
     'tools/HdCardsComponent/profile_gdi_test.cpp',
     'tools/HdCardsComponent/png_decode_test.cpp',
     'tools/HdCardsComponent/cursor_test.cpp',
+    'tools/HdCardsComponent/flip_test.cpp',
     'tools/HdCardsComponent/cursor_fault_shim.h',
     'tools/HdCardsComponent/verify-tools.ps1',
     'tools/DisplayComponent/build-profile.ps1',

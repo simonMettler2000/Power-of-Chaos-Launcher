@@ -48,8 +48,8 @@
   "components": [
     {
       "name": "ddraw.dll",
-      "length": 546816,
-      "sha256": "70672798af371ce85c0264a52fd83f83d6e0977d32713299c94f9739245f5430"
+      "length": 564224,
+      "sha256": "3f29b2499463ce50744c43d418e9fd5a128345af4d333f8ca6be976f5f755fda"
     },
     {
       "name": "winmm.dll",
@@ -124,18 +124,19 @@
   "nativeSources": {
     "allocator_test.cpp": "f7b5d682cc8bff7bb75f9543393e76217b402ea9e4437d88a713848976b4ae40",
     "ConfigAdversarialProbe.cpp": "c8046a4c2e4024103902895b8712cb38f249d93939e5f92bc627397064cc53cc",
-    "cursor_fault_shim.h": "a54a3f225a75b1571f37b8bc9cec7957993a4ba7bce507345b2c06027d03082f",
-    "cursor_test.cpp": "13b6ac559b5d4d13b9799a63d6a2c9531e7730182c79b67394b1b04751f64483",
+    "cursor_fault_shim.h": "b5f11c61f1da1ff59232dfe1d89fdeb3bdb02816c7f8d7b20a3dfa964fd5dcb5",
+    "cursor_test.cpp": "a0580faf77087c99bcc797b2122ede8dae03219d19eb02b9ce24aaa605c3890b",
+    "flip_test.cpp": "e1d4aee411499ccd753fe69ec1aa3472871226425eb4b1e2344610e09bea3962",
+    "GdiWindowOracle.cpp": "8ac0dd3df22b96544c2ea84c24ca7d29f0b2fc364c9a807a82dbe5be8a3c1b40",
     "gdi_fault_shim.h": "aeaa899f5b932de611d874e74fb42120280564b1f25cd528f3c8851219b07550",
     "gdi_window_oracle.h": "6f43c982a1f100ef56d687c7d4808f254f13cd239662a46d7668dff5819b8bdb",
-    "GdiWindowOracle.cpp": "8ac0dd3df22b96544c2ea84c24ca7d29f0b2fc364c9a807a82dbe5be8a3c1b40",
-    "hd_visible.cpp": "eb749d843400b4263e24ecebdd88d81e387eea7f55eae40f12b0af87e03203fe",
+    "hd_visible.cpp": "bea3a75856c9488f53ea70e38f6c278b0995041acd0934acdd4524bb721587ad",
     "hd_visible.def": "ac998dcc297b781906bd00562ed5611360696fc7454421efa75965f42c947312",
-    "hd_visible.h": "edb569e7f8463eac779db2170dc33388611a474c64b0bbf7966d0deb558e8a56",
+    "hd_visible.h": "36bcef16042b31a81158d4075c00736c76c867f9813ba453301050f1c9c87467",
     "hd_visible_d3d9.cpp": "9c91da947bea830243252c444a5a1b8b21251690a26830330d28dc737d8da698",
-    "hd_visible_gdi.cpp": "35285ae2acab35e107e7420d2a05d454d7c2f0e86a4b7914705e0d05dbc36e7f",
-    "hd_visible_gdi.h": "36c67a5fc0ddb74b0ae6c457a17d7bcbe628f91f6fb88456cabafec77ec4eb93",
-    "hd_visible_gdi_fault_test.cpp": "72f2d12fb734d35ede2c31f96b1101d777ab0ec3fe84ef1bc8ce6ed6cbfba01a",
+    "hd_visible_gdi.cpp": "945d03ad8b1be9831cb1163c82ab0ef4e22951cbd2c736ccad50d989d421d860",
+    "hd_visible_gdi.h": "3f6c157c8fe6b674afdef5e473edff884279fe59fb6211aaef9fb04d97558814",
+    "hd_visible_gdi_fault_test.cpp": "503d4659a2848bcb037338da4843f07e5d450362a6275994337c944889a386a3",
     "hd_visible_gdi_test.cpp": "63caeb0897a20eeacd64967902ff1e4d339ec287eee075a1df142949930739a4",
     "hd_visible_png.cpp": "aa0cf302860c5bb4f7aaa4671217348d0b2b7a6cecddb08aef6d4e7772d9d620",
     "hd_visible_png.h": "1b712e94c9973e5fc8a444c4bf0f52eb60c595e646b61daf10ca8c84e62212b9",
@@ -157,11 +158,11 @@
     },
     "production": {
       "count": 133,
-      "sha256": "3bfcf7f49cabdd0cb137404afad9617b436625190b651ecbd3e9c322cd70bbf1"
+      "sha256": "bbd1f1d83b4d4f516132fd6b8b95bf749db8d5ae08713132d5b65fab59b1827f"
     },
     "synthetic": {
       "count": 135,
-      "sha256": "fedca915b6a58de3599bada6978e29ca86f5f550674425e9a03535af574f20ba"
+      "sha256": "3a1a550dc0fa0354f71e9b50eef53f0283b2f1a045488c8149f869f58389be65"
     }
   }
 }

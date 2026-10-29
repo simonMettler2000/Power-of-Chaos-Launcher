@@ -98,6 +98,27 @@ internal static class Program
             await File.WriteAllTextAsync(config, v2.Replace("CURSORS_BGRA64_V1", "CURSORS_BGRA64_V9", StringComparison.Ordinal));
             await Expect<InvalidDataException>(() => HdCardPack.ReadAsync(fixture.Pack, "joey", default));
         });
+        await Check("V3 background pins and finite pose metadata bind immutable launch identity", async () =>
+        {
+            var fixture = await Fixture.Create(Path.Combine(root, "flip-profile"), "yugi");
+            var config = Path.Combine(fixture.Pack, "yugi-565.tsv"); var v1 = await File.ReadAllTextAsync(config);
+            var cursor = Path.Combine(fixture.Pack, "normal.bgra"); var bank = Path.Combine(fixture.Pack, "background.rgb565");
+            var cursorBytes = new byte[16384]; var backgroundBytes = new byte[116000];
+            await File.WriteAllBytesAsync(cursor, cursorBytes); await File.WriteAllBytesAsync(bank, backgroundBytes);
+            var cursorLine = $"CURSORS_BGRA64_V1\t{cursor}\t{Hash(cursorBytes)}\t{cursor}\t{Hash(cursorBytes)}";
+            var backgroundLine = $"FLIP_BG565_V1\t{bank}\t{Hash(backgroundBytes)}\t{bank}\t{Hash(backgroundBytes)}";
+            const string poses = "FLIP_POSES_V1\t196,9,15\t184,15,14\t166,24,13\t141,37,12\t111,52,10\t76,69,7\t39,88,5";
+            var v3 = v1.Replace("POC_HD_VISIBLE_V1\n1\t1\n", $"POC_HD_VISIBLE_V3\n1\t1\n{cursorLine}\n{backgroundLine}\n{poses}\n", StringComparison.Ordinal);
+            await File.WriteAllTextAsync(config, v3);
+            var snapshot = await HdCardPack.ReadAsync(fixture.Pack, "yugi", default);
+            Require(snapshot.InputPaths.Contains(bank) && snapshot.InputPaths.Contains(cursor) && snapshot.Sha256 != Hash(Encoding.UTF8.GetBytes(v1)), "V3 omitted owned inputs/identity.");
+            await File.WriteAllTextAsync(config, v3.Replace("184,15,14", "183,15,14", StringComparison.Ordinal));
+            await Expect<InvalidDataException>(() => HdCardPack.ReadAsync(fixture.Pack, "yugi", default));
+            await File.WriteAllTextAsync(config, v3); backgroundBytes[114] = 1; await File.WriteAllBytesAsync(bank, backgroundBytes);
+            await Expect<InvalidDataException>(() => HdCardPack.ReadAsync(fixture.Pack, "yugi", default));
+            await File.WriteAllBytesAsync(bank, new byte[115999]);
+            await Expect<InvalidDataException>(() => HdCardPack.ReadAsync(fixture.Pack, "yugi", default));
+        });
         await Check("pack validation rejects malformed, wrong-game, oversized and unsafe local paths before cache writes", async () =>
         {
             var fixture = await Fixture.Create(Path.Combine(root, "invalid"), "yugi");

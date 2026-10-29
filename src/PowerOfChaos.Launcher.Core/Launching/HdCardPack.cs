@@ -32,8 +32,9 @@ internal static class HdCardPack
         if (text.Any(c => char.IsControl(c) && c is not '\t' and not '\r' and not '\n')) Invalid();
         var lines = text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n').ToList();
         if (lines.Count > 0 && lines[^1].Length == 0) lines.RemoveAt(lines.Count - 1);
-        var cursorVersion = lines.Count > 0 && lines[0] == "POC_HD_VISIBLE_V2";
-        var firstEntry = cursorVersion ? 3 : 2;
+        var flipVersion = lines.Count > 0 && lines[0] == "POC_HD_VISIBLE_V3";
+        var cursorVersion = lines.Count > 0 && (lines[0] == "POC_HD_VISIBLE_V2" || flipVersion);
+        var firstEntry = flipVersion ? 5 : cursorVersion ? 3 : 2;
         if (lines.Count < firstEntry + 1 || lines.Count > MaximumEntries + firstEntry
             || (lines[0] != "POC_HD_VISIBLE_V1" && !cursorVersion)
             || lines[1] != game.ToString(CultureInfo.InvariantCulture) + "\t1") Invalid();
@@ -50,6 +51,21 @@ internal static class HdCardPack
                 if (digest.Length != 64 || digest.Any(c => !char.IsAsciiHexDigit(c) || char.IsUpper(c))) Invalid();
                 var bank = await ReadBoundedAsync(path, 16384, 16384, cancellationToken).ConfigureAwait(false);
                 if (!string.Equals(Convert.ToHexString(SHA256.HashData(bank)), digest, StringComparison.OrdinalIgnoreCase)) Invalid();
+                inputs.Add(path);
+            }
+        }
+        if (flipVersion)
+        {
+            var backgrounds = lines[3].Split('\t');
+            if (backgrounds.Length != 5 || backgrounds[0] != "FLIP_BG565_V1"
+                || lines[4] != "FLIP_POSES_V1\t196,9,15\t184,15,14\t166,24,13\t141,37,12\t111,52,10\t76,69,7\t39,88,5") Invalid();
+            for (var bank = 1; bank <= 2; bank++)
+            {
+                var path = ValidatePath(backgrounds[bank * 2 - 1]);
+                var digest = backgrounds[bank * 2];
+                if (digest.Length != 64 || digest.Any(c => !char.IsAsciiHexDigit(c) || char.IsUpper(c))) Invalid();
+                var pixels = await ReadBoundedAsync(path, 116000, 116000, cancellationToken).ConfigureAwait(false);
+                if (!string.Equals(Convert.ToHexString(SHA256.HashData(pixels)), digest, StringComparison.OrdinalIgnoreCase)) Invalid();
                 inputs.Add(path);
             }
         }

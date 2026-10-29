@@ -25,7 +25,9 @@ void hdvg_destroy(HdvGdi*);
    painted (scaled or successful native-size fallback).
    Return 2: base and uniquely proven HD overlay painted. Return 3: known empty
    caller clip, no drawing required. Unknown zero/error draw returns fail closed;
-   failed overlay restores the scaled original base, or returns 0 if restoration fails. Missing/corrupt masters,
+   failed overlay restores the scaled original base, or returns 0 if restoration fails.
+   After any potentially partial visible paint, native-size0,0 is never counted
+   as a scaled repair. The native fallback remains available before painting. Missing/corrupt masters,
    no match and ambiguity paint the owned original base. Existing clip is honored;
    all DC state is saved/restored. No renderer global or device cache is shared. */
 int hdvg_present(HdvGdi*, void* dc, int vx, int vy, int vw, int vh,

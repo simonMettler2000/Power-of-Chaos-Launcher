@@ -211,5 +211,61 @@ def generate_all(root):
     generate_profile(root/'profile')
     generate_decode(root/'decode')
     generate_cursor(root/'cursor')
+    generate_flip(root/'flip')
     return [{'path':p.relative_to(root).as_posix(),'length':p.stat().st_size,'sha256':sha(p)}
             for p in sorted(root.rglob('*')) if p.is_file()]
+
+
+def generate_flip(D):
+    generate_cursor(D)
+    backgrounds=[]
+    for variant in (0,1):
+        pixels=bytearray()
+        for y in range(290):
+            for x in range(200):
+                value=(x*991+y*3169+0x1397)&65535
+                if variant and 2<=x<198:value^=0x1234
+                pixels.extend(struct.pack('<H',value))
+        p=D/f'background{variant}.rgb565';p.write_bytes(pixels)
+        backgrounds.extend((str(p),hashlib.sha256(pixels).hexdigest()))
+    for game in ('yugi','kaiba','joey'):
+        lines=(D/(game+'-cursor.tsv')).read_text().splitlines()
+        lines[0]='POC_HD_VISIBLE_V3'
+        lines=lines[:3]+['FLIP_BG565_V1\t'+'\t'.join(backgrounds),
+            'FLIP_POSES_V1\t196,9,15\t184,15,14\t166,24,13\t141,37,12\t111,52,10\t76,69,7\t39,88,5']+lines[3:]
+        (D/(game+'-flip.tsv')).write_text('\n'.join(lines)+'\n',encoding='utf-8',newline='\n')
+    good=(D/'joey-flip.tsv').read_text()
+    (D/'bad-flip-hash.tsv').write_text(good.replace(backgrounds[1],'0'*64),encoding='utf-8',newline='\n')
+    (D/'bad-flip-pose.tsv').write_text(good.replace('184,15,14','183,15,14'),encoding='utf-8',newline='\n')
+    # Producer-owned adversarial complete-raster ambiguity. The raw static B
+    # includes a PARTIAL-alpha cursor already; B+cursor is not raw B. It must
+    # still compete independently with A's flip+cursor explanation in V3.
+    reference=(D/'ref1.bin').read_bytes();background=(D/'background0.rgb565').read_bytes()
+    def mix(source,destination,q,shortcut):
+        if shortcut and source==destination:return source
+        value=0
+        for shift,mask in ((0,31),(5,63),(11,31)):
+            value|=((((source>>shift)&mask)*q//15+((destination>>shift)&mask)*(15-q)//15)<<shift)
+        return value
+    width,left,shade,ox,oy=111,45,10,103,205
+    for state in (1,2):
+        frame=bytearray([0x22])*960000;sprite=(D/f'cursor{state}.bgra').read_bytes()
+        for y in range(290):
+            for x in range(200):
+                value=struct.unpack_from('<H',background,(y*200+x)*2)[0]
+                if left<=x<left+width:
+                    j=x-left;quotient,remainder=divmod(200,width)
+                    sx=j*quotient+max(0,((j+1)*remainder-1)//width)
+                    value=mix(struct.unpack_from('<H',reference,(y*200+sx)*2)[0],value,shade,True)
+                struct.pack_into('<H',frame,((y+89)*800+x+7)*2,value)
+        for y in range(64):
+            for x in range(64):
+                b,g,r,a=sprite[(y*64+x)*4:(y*64+x+1)*4];at=((y+oy)*800+x+ox)*2
+                source=((r>>3)<<11)|((g>>2)<<5)|(b>>3)
+                struct.pack_into('<H',frame,at,mix(source,struct.unpack_from('<H',frame,at)[0],a>>4,False))
+        raw=b''.join(frame[((y+89)*800+7)*2:((y+89)*800+207)*2]for y in range(290))
+        (D/f'ambiguous-state{state}.bin').write_bytes(raw)
+        (D/f'ambiguous-state{state}-frame.rgb565').write_bytes(frame)
+        for game in ('yugi','kaiba','joey'):
+            cfg=(D/(game+'-flip.tsv')).read_text()+f'2\t{D/f"ambiguous-state{state}.bin"}\t{D/"smooth.png"}\n'
+            (D/f'ambiguous-{game}-state{state}.tsv').write_text(cfg,encoding='utf-8',newline='\n')

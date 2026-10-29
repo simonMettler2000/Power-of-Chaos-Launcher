@@ -50,8 +50,8 @@ no ROI-local phase assumption or game/windowDC readback is used. Foreground is
 clipped to the HD ROI, so the outside base cursor is never blended twice. Each
 owned canvas is limited to4 million pixels; failures restore the same snapshot.
 Caller DC state and every temporary GDI object are restored/released. Unsupported
-base modes retain the original display. This cursor revision requires fresh
-independent review and actual all-three-game hover qualification.
+base modes retain the original display. The R5 build passed sampled actual
+all-three-game hover checks on 2026-10-29.
 
 V2 grammar adds a third line after `POC_HD_VISIBLE_V2` and `game TAB 1`:
 `CURSORS_BGRA64_V1 TAB cursor00-absolute-path TAB sha256 TAB cursor01-absolute-path TAB sha256`.
@@ -66,6 +66,59 @@ render conditions retain the original base image. Small cards, rotated hand
 cards, field cards, deck backs and graveyard cards are outside this version.
 RGB555 is covered by the CPU matcher/pack format; the launcher HD profile
 requires RGB565 because the provider reports RGB565 masks.
+
+### Optional V3 Deck transition candidate
+
+V3 retains V1/V2 behavior and adds only the Deck aperture(7,89,200,290). It
+requires two explicit local116000-byte background crops (identical crops may
+repeat), their SHA256 hashes, the normal cursor bank, and exactly seven supported
+observable(D,absoluteX,q) tuples:196/9/15,184/15/14,166/24/13,141/37/12,
+111/52/10,76/69/7,39/88/5. These are observable hypotheses, not a cosine-table
+hardware theorem or a temporal phase/old-card tracker. Width0 gives no identity.
+
+After the cursor line, V3 adds:
+
+```text
+FLIP_BG565_V1 TAB background0-absolute-path TAB sha256 TAB background1-absolute-path TAB sha256
+FLIP_POSES_V1 TAB 196,9,15 TAB 184,15,14 TAB 166,24,13 TAB 141,37,12 TAB 111,52,10 TAB 76,69,7 TAB 39,88,5
+```
+
+The first line isPOC_HD_VISIBLE_V3; all reference rows remain unchanged. Use
+`tools/hd_cards_add_flip_profile.py` with an existing V2 pack and one/two explicit
+`--background game=absolute-crop-path` arguments per title to create a fresh
+local V3 pack. Backgrounds are original local data, never repository payload.
+Native and Core reject changed hashes, sizes, unknown poses or malformed grammar
+and clear stale native state. D3D9 accepts V1 only and rejects V3.
+
+The recognizer copies one complete frame and proves all116000 aperture bytes
+against a unique background/face/pose/cursor explanation. Native sampling uses
+the explicit integer-residual stencil. Equal complete source/background565 words
+are preserved; otherwise shade uses separately floored q/15 channel terms.
+Cursor blend retains its separate existing V2 formula. Probes/postings only
+filter; global8 final candidates,4M work units and16MiB index limits cover static
+and flip proofs together. Raw plain-static references compete with transformed
+cursor explanations even when a located cursor intersects the aperture. Any
+overflow, ambiguity or unexplained layer uses base. Successful repeated seals
+are allocation-free and preserve the live plan and its generation.
+
+Physical q<15 starts from the clean approved background using GLOBAL native
+sampling phase, HALFTONE-samples the full800x1160 master into the current physical
+footprint and blends once. Equal RGB8 source/background colors are preserved;
+other colors use separate floors. Cursor foreground is composed last. Atq15,
+only the opaque footprint is replaced and the same owned base stays outside it;
+background variants hidden by that footprint may be equivalent only under this
+policy. No window readback, primary write, hidden key, previous frame or200x290 HD
+intermediate is used. Cursor/flip minification below800x600 and unsupported DC
+modes retain base. New flip canvases have a combined4M-pixel cap; partial failures
+restore the same owned base. All caller state and owned resources are restored.
+
+The new typed flip plan is separate from the unchanged staticHdvMatch contract
+and carries the current capture generation. R5 passed two independent source and
+headless reviews. Actual all-three-game checks covered the nine large preview
+positions, fullscreen, hover, card switches and maximize/restore on one Windows
+display. A Joey capture showed a squeezed/translucent Deck pose; this does not
+establish every pose in every game or on every device. Existing older static
+screenshots retain their original build bindings.
 
 A master must be a complete 800x1160 RGB8 non-interlaced PNG (color type 2,
 compression/filter methods 0), with no metadata or ancillary chunks: one IHDR,
@@ -110,8 +163,8 @@ Output paths must be fresh, disjoint, link-free and inside an enclosing Git chec
 ignored .local directory. Setup reconstructs the pinned Original Aspect Ratio
 source profile using the existing authored recipe, applies the authored HD patch,
 and compiles a new x86 provider. It refuses any different complete source tree or
-production output. The final ddraw.dll must be 546816 bytes with SHA256
-70672798af371ce85c0264a52fd83f83d6e0977d32713299c94f9739245f5430. The
+production output. The final ddraw.dll must be 564224 bytes with SHA256
+3f29b2499463ce50744c43d418e9fd5a128345af4d333f8ca6be976f5f755fda. The
 bundle includes the independently pinned winmm.dll and all eight notices copied
 from the verified aspect bundle. A complete bundle is published by directory
 rename. Build logs and receipts remain beside it. Use a short checkout/scratch path on
@@ -178,3 +231,21 @@ Opaque cursor foreground uses the RGB565-to-RGB8 bit replication verified
 against owned GDI conversion of all65536 words, preserving native base colors
 at preview crossings. Partial alpha still uses separately floored q/15 terms
 against the new physical HD background; it is not a retained old-card pixel.
+
+The prepared-ROI renderer prepares the entire physical HD footprint before visible painting.
+The native window base keeps its full geometry, filter and global phase while
+excluding only that qualified footprint; one final prepared ROI upload follows.
+Unknown/resource/prepaint-failure paths retain the full same-owned base and
+historical native fallback. After a potentially partial visible paint, repair
+requires successful scaled repaint of the full same-owned base; failure returns0
+for the caller fallback. Native0,0 is never reported as a full scaled repair. This removes the deliberate intermediate LQ paint inside a
+qualified preview; it is not a whole-window atomicity or prior-capture-cause claim.
+Sampled R5 actual-display checks passed on 2026-10-29. Immediate viewport-transition
+captures sometimes retained an old/duplicated viewport before the next settled
+frame. A Joey character overlay retained the original preview, then HD returned
+after it ended. These limitations remain; no historical failure cause is proved.
+
+The R5 outer exception boundary invalidates the plan and returns0 without any
+further paint: exception unwinding cannot prove successful caller DC restoration.
+Ordinary Win32 return-code recovery and the prepaint native fallback are unchanged.
+This defensive exception case is not a demonstrated original-game failure cause.

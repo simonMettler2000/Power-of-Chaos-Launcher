@@ -30,10 +30,10 @@ internal static class OriginalAspectRatioComponents
 internal static class HdCardArtworkComponents
 {
     internal const string DirectoryName = "hd-card-artwork-v1";
-    internal const string RecipeVersion = "hd-card-artwork-v2-gdi-normal-cursor-halftone-1280x960-rgb565";
+    internal const string RecipeVersion = "hd-card-artwork-v3-r5-exception-no-paint-halftone-1280x960-rgb565";
     // Factual pin of the separately source-built HD provider; no native binary is included in this repository.
-    internal const int ProductionDdrawLength = 546816;
-    internal const string ProductionDdrawSha256 = "70672798af371ce85c0264a52fd83f83d6e0977d32713299c94f9739245f5430";
+    internal const int ProductionDdrawLength = 564224;
+    internal const string ProductionDdrawSha256 = "3f29b2499463ce50744c43d418e9fd5a128345af4d333f8ca6be976f5f755fda";
     internal static IReadOnlyList<DisplayComponent> Required { get; } = Array.AsReadOnly(
         OriginalAspectRatioComponents.Required.Select(component => component.FileName == "ddraw.dll"
             ? new DisplayComponent("ddraw.dll", ProductionDdrawLength, ProductionDdrawSha256, true) : component).ToArray());
