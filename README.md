@@ -1,94 +1,101 @@
 # Power of Chaos Launcher
 
-A lightweight, cross-platform desktop launcher for your own installations of **Yugi the Destiny**, **Kaiba the Revenge**, and **Joey the Passion**. Built with C# and Avalonia.
+Launch **Yugi the Destiny**, **Kaiba the Revenge** and **Joey the Passion** from one place. Track your playtime, browse your card collection and choose built-in mods.
 
-This repository contains launcher source and original vector UI assets. It does not contain, download or distribute the games or their executables, archives, saves, card databases, artwork, voices, music or mod packs.
+You need your own installed copies of the games. The launcher does not include the games or their original artwork, audio or saves.
 
-## Windows download
+## Download and start playing
 
-Get the complete Windows ZIP from [Releases](https://github.com/simonMettler2000/Power-of-Chaos-Launcher/releases/latest). Choose **win-x64** for a 64-bit Windows PC, or **win-x86** for 32-bit Windows. Extract the entire ZIP into a new folder and open **PowerOfChaos.Launcher.exe**. Keep its other files beside it. The download includes the pinned .NET10 LTS runtime, application graphics/font dependencies and verified display components, so no separate .NET installation or mod setup is needed.
+**[Download the Windows launcher](https://github.com/simonMettler2000/Power-of-Chaos-Launcher/releases/tag/v0.2.0)**
 
-Choose **Settings → Add Game path**, then select an installed game folder or a parent containing the three games. Collection counts, original card images and localized names come from those local installations. The launcher does not upload your games, settings or saves. Windows10/11 editions supported by .NET10 are the target; Windows7/8.1 and native ARM64 game compatibility are not established.
+1. Choose **[win-x64](https://github.com/simonMettler2000/Power-of-Chaos-Launcher/releases/download/v0.2.0/PowerOfChaos-Launcher-0.2.0-win-x64.zip)** for most Windows PCs, or **[win-x86](https://github.com/simonMettler2000/Power-of-Chaos-Launcher/releases/download/v0.2.0/PowerOfChaos-Launcher-0.2.0-win-x86.zip)** for 32-bit Windows.
+2. Extract the **entire ZIP** into a new folder. Keep all its files together.
+3. Open **PowerOfChaos.Launcher.exe**.
+4. Open **Settings → Add Game path**. Select a game's installation folder, or a parent folder containing all three games. Click **Find games** to add the detected games.
+5. Click **Play** beside the game you want to launch.
 
-The four available mods are **Skip Splash Screens**, **Skip character interactions**, **Original aspect ratio**, and **Temporary all cards**. Executable mods require the exact supported game revisions listed in [mod compatibility](docs/mods.md); finding a folder alone does not prove that revision is supported. Unknown revisions are refused rather than patched speculatively. Temporary all cards requires an existing unambiguous, writable shared save and the supported native card tables. Its switch must be changed with all games closed.
+The Windows download includes the .NET runtime and components needed for the available mods. You do not need to install .NET, a development SDK or a separate mod bundle.
 
-HD Cards, opponent-deck packs and guaranteed-new rewards remain in development and disabled. Development/test builds are not part of this stable download. Future built-in mods are delivered through reviewed launcher updates; see [release and extension workflow](docs/releases.md).
+Use the launcher ZIP, rather than GitHub's **Source code** downloads or the separate component/source archives. The **HD artwork** release is a separate download and is not a launcher installer.
 
-## First run
+Windows 10/11 editions supported by .NET 10 are the target. Windows 7/8.1 and native ARM64 game compatibility are not established. Linux/macOS users can build the launcher from source and configure a Wine runner; game compatibility depends on the platform and runner.
 
-The library starts with **no game path added**. Click **Settings** beneath **About** in the sidebar, then **Add Game path**. Browse to a folder or paste its path. You can select a single game's directory or a parent directory containing all three installations.
+## What you can do
 
-The launcher searches the selected folder and up to **six directory levels below it**, with cancellation and traversal limits. It recognizes the original executable names alongside structurally valid `Data.dat` and `Voice.dat` archives. Executable and archive headers are inspected without starting the games. An unrelated or incomplete folder produces **game not found**; existing library entries are retained.
+- Launch any of the three games you have added.
+- See playtime and card counts beside each game's **Play** button.
+- Browse owned and missing cards in **Collection**.
+- Choose English, German, French, Italian, Spanish or Japanese under **Language**, beneath Settings. This changes the launcher interface and available card names, without changing your game files or the game's own language.
+- Enable the available mods in **Mods**.
 
-Only discovered games appear in the library. Locations and preferences persist between launches. You can rescan or remove launcher entries without deleting installed game files.
+Settings and playtime are saved locally. No account is required. Playtime counts sessions started through this launcher, including time in menus; it does not recover hours played before you used the launcher.
 
-## Current capabilities
+## Your card collection
 
-- Black desktop interface with compact game rows and monochrome controls; no game artwork is bundled.
-- An original gold pyramid-and-eye launcher icon, generated at multiple desktop sizes from the included SVG during build. Generated icon binaries remain outside Git.
-- Character icons are read from each detected game's local archive: Kaiba's start pose, Joey's reaction pose, and Yugi's start pose with the open-eye layer. Green backgrounds become transparent in memory.
-- Cogwheel settings menu, folder browser and pasteable game paths.
-- Discovery of one or all three titles, including nested installations.
-- Per-game launching and recorded session playtime.
-- Read-only collection counts in Games and Collection, with a deduplicated total across all three games.
-- Minimize-on-launch preference and a Wine runner setting for Linux/macOS.
-- Local settings and atomic playtime checkpoints; no accounts, telemetry or always-on network service.
-- Global **Skip Splash Screens**, **Skip character interactions** and **Original aspect ratio** switches for the three supported executable revisions, plus disabled entries for mods still in development.
-- **Temporary all cards** on Windows: a backed-up shared save with three copies of every supported card, restored when unticked.
+| Game | Available cards |
+| --- | ---: |
+| Yugi the Destiny | 155 |
+| Kaiba the Revenge | 466 |
+| Joey the Passion | 771 |
+| **Unique cards across all three** | **771** |
 
-Playtime begins when this launcher starts tracking. It measures elapsed launcher sessions, including menus and idle time. Interrupted sessions retain their last saved checkpoint rather than counting time while the launcher was closed. Windows launches the selected executable directly; non-Windows launches through `wine start /wait /unix`. Actual game compatibility and Wine session behavior require testing on the chosen platform and runner.
+These are cumulative card pools: later games include cards from earlier games. Owning several copies of a card, or having it available in several games, adds only one to the unique total.
 
-Opponent-deck packs, guaranteed-new rewards and HD artwork are **not implemented**. Their mod entries are disabled. Native Linux/macOS ports of the games are not supplied.
+Expand a game in **Collection** to see the cards you own and the cards you are missing. The gallery uses small original images from your installed games, so **HD Cards is not required**. Hover over a card for its name, copy count and the first game where it is available. Clicking a card does not enlarge it.
 
-## Collection
+The stock games share a collection save named **system.dat**. The launcher tries to find it automatically. If the count shows **—/155**, **—/466** or **—/771**, open Collection and select or paste the path to your save, then refresh. A dash means the save could not be read; it does not mean you own zero cards. A total based on only some readable games is marked as partial.
 
-Games shows **owned/available** beside playtime and Play. Collection shows the same per-game counts and a unique-card total: **155** available in Yugi, **466** in Kaiba and **771** in Joey; **771** distinct cards overall. These are the full cumulative playable pools, including earlier games' cards, rather than only each opponent's new reward pool. Multiple copies and cards shared between games count once.
+Browsing Collection does not change your save. Names come from the language tables in your installed games; an unavailable name falls back to the card ID. Custom saves or modified card tables may not be supported. [More about collection detection](docs/collection.md).
 
-The stock games use a shared system.dat. On Windows the launcher looks for its registered CommonDir and ordinary common-folder locations, including the current user's VirtualStore when applicable. If it cannot find one unambiguous save, open Collection and browse to system.dat or paste its full path. Wine users can choose the file inside their Wine prefix. Only the selected path is saved in launcher preferences.
+## Available mods
 
-Collection reads never change saves, installed files or registry values. Counts refresh when opening Collection, activating the launcher, updating a tracked session or pressing Refresh. Missing, busy, damaged or unsupported saves display **—/total**, not a fabricated zero. A valid empty collection displays **0/total**. Only readable added games contribute to a partial unique count, which is labelled accordingly.
+These four mods are available in the stable Windows download:
 
-Expand a game's Collection panel to see **owned cards** and **missing cards**. The launcher reads the small original card images from your installed game files, so no HD card mod is required. Cards keep their native 49/50 × 72 size when clicked. Missing cards are dimmed; hovering shows the card name, number of copies and first game where it is available. Collapsing the panel releases its artwork from memory.
+| Mod | What it does |
+| --- | --- |
+| **Skip Splash Screens** | Skips the publisher logos and opens the normal title menu. |
+| **Skip character interactions** | Skips duel greetings, character dialogue and reaction cut-ins. Keeps card effects, duel music and the result presentation. |
+| **Original aspect ratio** | Keeps the game's 4:3 picture when resizing or using borderless fullscreen. Use **Alt+Enter** to switch fullscreen mode. |
+| **Temporary all cards** | Temporarily grants three copies of each card in your added games' supported pools, with an original-save backup for restoration. |
 
-Use **Language**, beneath Settings, to choose English, German, French, Italian, Spanish or Japanese. The saved choice changes the launcher interface and card names immediately, including navigation, dialogs, settings, mod descriptions, tooltips and messages. Power of Chaos and the game titles remain unchanged. Names come from each installed game's own localized tables; the game language and files are unchanged. A card whose name is missing in the selected table retains its ID as a fallback.
+Executable mods require a supported game revision. The launcher checks compatibility before preparing a private launch copy and leaves installed executables and archives unchanged. If a revision is unsupported, untick those mods to launch normally. Changes to launch mods take effect on the next launch. Skipping character interactions can change the sequence of random choices compared with an unmodified run.
 
-Card pools and identities are read in memory from each installed game's own archive; no card database is bundled. The stock encrypted save's encoding, signature and both checksums are validated. Save identity acceptance by the games is not changed or inferred. Custom save formats and remapped card tables may be unavailable. See [collection format and validation](docs/collection.md).
+[Supported versions and mod details](docs/mods.md) · [Display options](docs/display.md)
 
-## Temporary all cards
+### Before using Temporary all cards
 
-Close all three games, open **Mods**, and tick **Temporary all cards**. The launcher preserves your complete original `system.dat` before granting **three total copies** of each card in the added games' supported pools. With all three games added, the Collection counts become **155/155**, **466/466**, **771/771**, and **771/771 unique**. Each game retains its own available pool.
+**This mod temporarily replaces your shared save. Progress made while it is active belongs to the temporary profile.**
 
-The mod stays active across launcher restarts. Close all games and untick it to restore the exact original `system.dat`, including original card quantities, decks, statistics and other fields. Changes made while active belong to the temporary profile; the last temporary save is archived separately before restoration. Other CommonDir files, including replay and exported deck files, are left alone.
+1. Close all three games.
+2. Tick **Temporary all cards** in Mods. The launcher backs up the complete original save before unlocking cards.
+3. When you want your normal profile back, close all games and untick the mod.
 
-The mod uses the automatically resolved save actually shared by the games. A different file chosen for read-only Collection inspection is never used as its write target. While active, Collection shows the temporary game save. Restore the original profile before changing game locations. The journal and retained backups live in `%LOCALAPPDATA%/PowerOfChaosLauncher/temporary-collection` on Windows; Mods displays the full local path. This directory deliberately ignores `POC_LAUNCHER_DATA_DIR` so ordinary launcher instances share one lock and recovery state.
+Restoration returns your original cards, decks, statistics and other save fields. **Progress made while the mod was active is not merged into your original profile.** The last temporary save is archived separately. Closing the launcher alone does not turn the mod off; its state survives launcher restarts.
 
-Backup writes and transaction state precede each atomic save replacement. Interrupted or damaged transactions block Play until recovery; use **Restore original collection** when offered. Missing or damaged original backups are preserved and block restoration rather than being guessed. Closing the launcher never restores underneath a running game. The feature currently supports Windows; Wine save selection and process exclusion for this mod have not been established. Development checks use synthetic saves and fake games; actual game acceptance remains a manual test with the user's own installations. See [temporary collection transactions](docs/temporary-collection.md).
+Keep the backup directory: `%LOCALAPPDATA%/PowerOfChaosLauncher/temporary-collection`. Restore your normal profile before changing game locations. If the launcher reports an interrupted transaction, use **Restore original collection** when offered. Do not delete the backups to bypass a recovery message.
 
-## Skip Splash Screens
+This feature requires Windows, a supported card table and an existing shared save that the launcher can identify and write. Choosing a different save just for Collection browsing does not change the mod's write target. [Backup and recovery details](docs/temporary-collection.md).
 
-Open **Mods** and tick **Skip Splash Screens**. The same setting applies to Yugi, Kaiba and Joey. On the next launch, the publisher logos are skipped and the normal title menu appears with its entrance fade and music. Untick it to restore normal startup on the next launch. Changing the setting does not rewind a game already running.
+## Features still in development
 
-The launcher verifies the installed executable against an explicitly supported SHA256 before preparing a local modified copy. The installed executable, archives and saves are not patched. Unsupported versions produce an explanation rather than receiving a speculative patch; untick the mod to launch them normally. Only numeric startup fields are changed; no game content is bundled or downloaded.
+**HD Cards, opponent-deck packs and guaranteed-new rewards are disabled in the stable launcher.** Local development builds can differ from the public download.
 
-The local copy lives in the launcher's application-data directory, with assets still read from the installation. Static byte checks, synthetic process tests and UI checks cover the implementation; game startup is not executed during development. Actual rendering, copy-location assumptions and Wine compatibility still need a manual test with your own installation. See [mod behavior and supported versions](docs/mods.md).
+A separate [HD card artwork pack](https://github.com/simonMettler2000/Power-of-Chaos-Launcher/releases/tag/hd-card-artwork-v1) is available for compatible experimental builds. Artwork alone does not enable HD rendering. Full HD coverage for cards in hand, on the field, in deck/graveyard views and during animations is not a released feature.
 
-## Skip character interactions
+Future built-in mods will arrive through launcher updates. [Release and extension workflow](docs/releases.md).
 
-Tick **Skip character interactions** in **Mods** to skip the duel-start greeting and in-duel character dialogue, reaction cut-ins and associated waits. Duel music, card sounds, normal card effects and gameplay continue. The end-of-duel result presentation is retained. Skipping cosmetic reactions also skips their random variant choices; the exact sequence from an identical random seed may therefore differ.
+## Troubleshooting
 
-The mods work independently or together, using a separately verified local executable for each enabled combination. Unticking one restores that behavior on the next launch while keeping the other selections. No installed executable, archive or save is modified. The same supported-input hashes and development no-execution limits apply.
+- **Game not found:** Select the installed game folder or a nearby parent. Discovery searches up to six folder levels below your selection and needs the expected executable, Data.dat and Voice.dat files.
+- **Collection count is a dash:** Choose your shared system.dat in Collection and refresh. Missing, busy or unsupported saves cannot produce a reliable count.
+- **A mod refuses to launch:** Check the supported versions above. Finding a game folder does not guarantee mod compatibility. Try with the executable/display mods unticked.
+- **Files missing after extracting:** Extract the whole launcher ZIP again into a new folder. Do not move only the EXE out of the package.
 
-## Original aspect ratio
+For a reproducible bug, [open an issue](https://github.com/simonMettler2000/Power-of-Chaos-Launcher/issues) with the launcher version, Windows version, affected game, enabled mods and full error text. Please do not attach game executables, archives or personal saves.
 
-The three inspected games use **800 x 600**, a **4:3** picture. Tick **Original aspect ratio** in **Mods** to start in an 800 x 600 window. Dragging a window edge keeps that ratio. Maximize fills the monitor work area, and borderless fullscreen fills the monitor; the game picture stays centered with black bars wherever needed. **Alt+Enter** toggles borderless fullscreen. Unticking the mod restores the ordinary display path on the next launch.
+## For developers
 
-The mod preserves the game's existing timing and adds no frame-rate selection. Resizing can temporarily pause presentation while the window is being dragged. The game's own short catch-up behavior remains unchanged.
-
-The complete Windows download includes the required verified display component. Source builds can acquire the pinned release inputs or rebuild it using [display setup and validation](docs/display.md). Missing or changed components produce an error before starting a game. Installed game files stay local and unchanged. Windows synthetic tests cover the display path; actual gameplay and Wine compatibility remain manual checks.
-
-## Build and run
-
-Source developers need the .NET10 SDK requested by `global.json` (currently10.0.403). The target runtime is pinned to10.0.14; full Windows downloads contain it. C#12 language semantics are retained. NuGet restores the committed dependency locks for Avalonia11.3.22 and its dependencies.
+The launcher is written in C# with Avalonia. Use the .NET SDK pinned in [global.json](global.json).
 
 ```sh
 dotnet restore PowerOfChaos.Launcher.sln --locked-mode
@@ -96,11 +103,7 @@ dotnet build PowerOfChaos.Launcher.sln -c Release --no-restore
 dotnet run --project src/PowerOfChaos.Launcher -c Release --no-build
 ```
 
-Settings and counters are written under the current user's local application-data directory in `PowerOfChaosLauncher`. For isolated settings testing, set `POC_LAUNCHER_DATA_DIR` to a scratch folder before starting the launcher. The temporary-collection journal uses its fixed user-wide location; automated tests inject a private synthetic vault explicitly. Only activating **Temporary all cards** writes the shared game save.
-
-Portrait artwork is loaded asynchronously from the selected installation and kept in memory. No original artwork is bundled, downloaded or written to the repository. Missing or unsupported portrait resources use a neutral placeholder and leave the game launch controls available.
-
-## Verification
+Source builds need the appropriate components for display mods; see [display setup](docs/display.md) and [Windows packaging](docs/releases.md).
 
 ```sh
 dotnet run --project tests/PowerOfChaos.Launcher.Tests -c Release
@@ -108,20 +111,12 @@ dotnet run --project tests/PowerOfChaos.Launcher.UiChecks -c Release
 python tools/publication_guard.py --working-tree
 ```
 
-The independent test harness creates synthetic fixtures, never copies real game data, and uses fake game processes. It covers depth limits, invalid files, persistence, cancellation, launch plans and session accounting. Headless UI checks exercise the actual Avalonia controls and render local screenshots without starting games. Optional `--installed` testing reads installed headers on Windows and never starts a game. Development and CI must not execute the original games.
+Development tests use synthetic fixtures and fake game processes. They do not execute the original games. Automated checks do not establish gameplay compatibility for every installation or Wine runner.
 
-On a machine with the supported installations, `dotnet run --project tests/PowerOfChaos.Launcher.Tests -c Release -- --installed --installed-mods` also verifies all three original and modified whole-file hashes entirely in memory. It writes no game copies and starts no games. UI checks accept `--installed-artwork` to read locally installed portraits and every native card mini for the three cumulative pools.
+Keep game files, saves, extracted assets, local settings and build outputs out of Git. Run the publication guard against the working tree and exact commit before publishing. See [publication rules](docs/publication.md) for the full boundary.
 
-## Source-only publication
+## License
 
-The publication guard admits a narrow set of authored text source/configuration paths. It rejects binaries, game-file extensions, unexpected paths, oversized files and suspicious embedded content. Run it against the working tree and exact commit before publishing. Explicitly stage inspected files; never force-add ignored content. Build products, runtime configuration, tests' generated fixtures and mod packs remain ignored.
+The authored launcher code is [MIT licensed](LICENSE). Dependencies retain their own licenses and notices. The separate HD fan-art pack has its own notice and is not covered by the launcher's MIT license.
 
-The launcher requires separately obtained game installations. Private repository visibility does not authorize redistribution of game content. [Publication rules](docs/publication.md) describe this project's source-only boundary.
-
-The authored launcher is [MIT licensed](LICENSE). Third-party dependencies keep their own licenses and notices. Complete Windows Release assets are separately inspected and include those notices and required corresponding library source; they never include game files or personal data.
-
-## Platform scope
-
-Avalonia supports Windows, Linux and macOS. The launcher source keeps discovery, settings and session logic separate from the desktop interface. Automated platform tests and real game compatibility tests are different: a passing launcher build does not prove the Windows games or future mods work through every Wine runner.
-
-This is an independent launcher project, not an official KONAMI product.
+This is an independent fan project, not an official KONAMI product.
