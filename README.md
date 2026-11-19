@@ -85,7 +85,7 @@ This feature requires Windows, a supported card table and an existing shared sav
 2. In Mods, select **Choose HD image folder** and pick the extracted folder.
 3. Tick **HD card artwork** and press Play.
 
-The game plays in a borderless 4:3 picture; Alt+Enter switches to a resizable window. Cards are in HD at every size and also while they move: dealt from the deck, flying to the field, flipping, fading, dimmed, or under a translucent effect. Cursor, text, numbers and panels drawn over a card stay as the game drew them.
+The game plays in a borderless 4:3 picture; Alt+Enter switches to a resizable window. Cards are in HD at every size and also while they move: dealt from the deck, flying to the field, flipping, fading, dimmed, breaking apart when destroyed, or under a translucent effect. Cursor, text, numbers and panels drawn over a card stay as the game drew them.
 
 The Windows download includes the HD component from version 0.3.0 on; only the pictures are a separate download. [Mod details](docs/mods.md#hd-card-artwork) · [What has been verified](docs/hd-renderer-status.md) · [How the component works](tools/HdCards/README.md)
 

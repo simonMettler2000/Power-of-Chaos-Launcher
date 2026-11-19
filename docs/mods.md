@@ -67,7 +67,7 @@ See [display setup](display.md) for component provenance, local prerequisites, t
 
 ## HD card artwork
 
-This global switch draws cards from high-resolution pictures in the card list, deck construction and duels: large previews, hand cards, field cards, graveyard and card backs, at every size the game uses and also while a card moves: dealt from the deck, flying to the field, flipping, fading, glowing, dimmed, or under a translucent effect such as the shine on a newly summoned monster. It uses the same supported executable hashes as the other mods. Tick it before pressing Play; it applies on the next launch.
+This global switch draws cards from high-resolution pictures in the card list, deck construction and duels: large previews, hand cards, field cards, graveyard and card backs, at every size the game uses and also while a card moves: dealt from the deck, flying to the field, flipping, fading, glowing, dimmed, breaking apart when it is destroyed, or under a translucent effect such as the shine on a newly summoned monster. It uses the same supported executable hashes as the other mods. Tick it before pressing Play; it applies on the next launch.
 
 The pictures are a separate download. Get `Power-of-Chaos-HD-Card-Artwork-v1.zip` from the Releases page, extract it completely, then use **Choose HD image folder** in the HD card artwork row and select the extracted folder or its `images` folder. Keep the file names. The folder stays where it is; the launcher only records its location. The switch cannot be ticked before a folder with pictures is chosen.
 

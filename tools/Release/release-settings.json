@@ -182,9 +182,9 @@
   },
   "hdComponentsProfile": "hd-card-artwork-v2",
   "hdComponentBundle": {
-    "name": "PowerOfChaosLauncher-hd-card-components-v2.zip",
-    "length": 313902,
-    "sha256": "8072e20c1f792583a70befdef03caeec3ffeb2a80eb4a360bf9caba983fa76aa",
-    "url": "https://github.com/simonMettler2000/Power-of-Chaos-Launcher/releases/download/hd-card-components-v2/PowerOfChaosLauncher-hd-card-components-v2.zip"
+    "name": "PowerOfChaosLauncher-hd-card-components-v2.1.zip",
+    "length": 315967,
+    "sha256": "f5323fc36564ee330266e83a4eeb5297a654777d683d6e64d5ce9299e3779a93",
+    "url": "https://github.com/simonMettler2000/Power-of-Chaos-Launcher/releases/download/hd-card-components-v2.1/PowerOfChaosLauncher-hd-card-components-v2.1.zip"
   }
 }

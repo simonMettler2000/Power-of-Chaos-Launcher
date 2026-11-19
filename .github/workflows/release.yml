@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Reviewed release version, for example 0.3.0
+        description: Reviewed release version, for example 0.3.1
         required: true
         type: string
       independent_audit_confirmed:

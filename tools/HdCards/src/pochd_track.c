@@ -33,6 +33,10 @@
 
 #define TABLE_SIZE 4096            /* tracked surfaces (power of two) */
 #define MAX_SURFACE_LAYERS 320
+#define PIECE_AREA 96           /* an unscaled copy of a card smaller than this many pixels is a piece */
+#define PIECE_MARGIN 48         /* room left around the pieces when their layer is made or grows */
+#define PIECE_SEARCH 32         /* how far back the piece layer of the same card is looked for */
+#define MAX_LAYER_PIECES 4096
 #define PROBES 12
 
 typedef struct LAYER
@@ -48,6 +52,9 @@ typedef struct LAYER
     BOOL turned;       /* drawn by the quad routine: the picture's corners are not those of dst */
     unsigned checked;  /* presented-frame count + 1 when the layer was last compared with its surface */
     float corner[4][2];/* turned only: surface position of the corners of the uv part (TL, TR, BL, BR) */
+    POCHD_PIECE* pieces;   /* a card drawn in small pieces: the pieces, in surface pixels; dst is the area they lie in */
+    int piece_count, piece_capacity;
+    float texel[2];    /* pieces only: one bitmap pixel in the oriented source image, 0..1 */
 } LAYER;
 
 typedef struct SURFACE
@@ -85,9 +92,12 @@ static void free_layer(LAYER* layer)
 {
     free(layer->snap);
     free(layer->mix);
+    free(layer->pieces);
     layer->snap = NULL;
     layer->valid = NULL;
     layer->mix = NULL;
+    layer->pieces = NULL;
+    layer->piece_count = layer->piece_capacity = 0;
 }
 
 /* Gives a layer its per-pixel mix: the whole card, nothing added. */
@@ -301,11 +311,11 @@ static void merge_strips(SURFACE* surface)
     int k;
     if (surface->count < 2) return;
     b = &surface->layers[surface->count - 1];
-    if (b->dst.bottom - b->dst.top > 8 || b->turned) return;
+    if (b->dst.bottom - b->dst.top > 8 || b->turned || b->pieces) return;
     for (a = NULL, k = surface->count - 2; k >= 0 && k >= surface->count - 98; k--)
     {
         LAYER* c = &surface->layers[k];
-        if (c->card == b->card && c->orientation == b->orientation && !c->turned && c->gain == b->gain
+        if (c->card == b->card && c->orientation == b->orientation && !c->turned && !c->pieces && c->gain == b->gain
             && (c->mix == NULL) == (b->mix == NULL) && c->dst.left == b->dst.left && c->dst.right == b->dst.right
             && c->dst.bottom == b->dst.top && fabs(c->uv[0] - b->uv[0]) <= 1e-5 && fabs(c->uv[2] - b->uv[2]) <= 1e-5
             && fabs(c->uv[3] - b->uv[1]) <= 0.02)
@@ -374,6 +384,126 @@ static LAYER* add_layer(SURFACE* surface, const RECT* dst)
     return layer;
 }
 
+/* Makes room in a layer for a larger area that contains the present one, keeping what the layer holds. */
+static BOOL grow_layer(LAYER* layer, const RECT* area)
+{
+    int old_w = layer->dst.right - layer->dst.left, old_h = layer->dst.bottom - layer->dst.top;
+    int new_w = area->right - area->left, new_h = area->bottom - area->top, y;
+    int dx = layer->dst.left - area->left, dy = layer->dst.top - area->top;
+    size_t count = (size_t)new_w * new_h, i;
+    WORD* snap;
+    BYTE* valid;
+    BYTE* mix = NULL;
+    if (area->left > layer->dst.left || area->top > layer->dst.top || area->right < layer->dst.right
+        || area->bottom < layer->dst.bottom) return FALSE;
+    snap = (WORD*)calloc(count, 3);
+    if (!snap) return FALSE;
+    if (layer->mix)
+    {
+        mix = (BYTE*)malloc(count * 4);
+        if (!mix) { free(snap); return FALSE; }
+        for (i = 0; i < count; i++) *(DWORD*)(mix + i * 4) = 0xFF000000u;
+    }
+    valid = (BYTE*)(snap + count);
+    for (y = 0; y < old_h; y++)
+    {
+        size_t to = (size_t)(y + dy) * new_w + dx, from = (size_t)y * old_w;
+        memcpy(snap + to, layer->snap + from, (size_t)old_w * 2);
+        memcpy(valid + to, layer->valid + from, (size_t)old_w);
+        if (mix) memcpy(mix + to * 4, layer->mix + from * 4, (size_t)old_w * 4);
+    }
+    free(layer->snap);
+    free(layer->mix);
+    layer->snap = snap;
+    layer->valid = valid;
+    layer->mix = mix;
+    layer->dst = *area;
+    return TRUE;
+}
+
+/* A card drawn in small pieces (the games break a destroyed card into little blocks and scatter them): all
+   pieces of one card drawn for one frame share one layer. Its area grows with them, it holds the pixels of
+   every piece, and it lists the pieces so that each can be drawn from its own part of the HD picture.
+   Hundreds of pieces can then no longer crowd the other cards out of the frame's layers. */
+static void add_piece(SURFACE* surface, const IMAGE* dst, int card, int orientation, const RECT* covered, int sx, int sy,
+    int source_w, int source_h)
+{
+    LAYER* layer = NULL;
+    POCHD_PIECE* piece;
+    RECT bounds, area;
+    float texel[2];
+    int i, y, width = covered->right - covered->left, height = covered->bottom - covered->top, layer_w;
+    texel[0] = 1.0f / source_w;
+    texel[1] = 1.0f / source_h;
+    SetRect(&bounds, 0, 0, dst->width, dst->height);
+    for (i = surface->count - 1; i >= 0 && i >= surface->count - PIECE_SEARCH; i--)
+    {
+        LAYER* c = &surface->layers[i];
+        if (c->pieces && c->card == card && c->orientation == orientation && c->born == g_frame->serial
+            && c->texel[0] == texel[0] && c->texel[1] == texel[1] && c->dst.left >= 0 && c->dst.top >= 0
+            && c->dst.right <= dst->width && c->dst.bottom <= dst->height)
+        {
+            layer = c;
+            break;
+        }
+    }
+    if (!layer)
+    {
+        area = *covered;
+        InflateRect(&area, PIECE_MARGIN, PIECE_MARGIN);
+        IntersectRect(&area, &area, &bounds);
+        layer = add_layer(surface, &area);
+        if (!layer) return;
+        memset(layer->snap, 0, (size_t)(area.right - area.left) * (area.bottom - area.top) * 3);
+        layer->pieces = (POCHD_PIECE*)malloc(64 * sizeof(POCHD_PIECE));
+        if (!layer->pieces)
+        {
+            free_layer(layer);
+            surface->count--;
+            return;
+        }
+        layer->piece_capacity = 64;
+        layer->card = card;
+        layer->orientation = orientation;
+        layer->uv[2] = layer->uv[3] = 1.0f;
+        layer->texel[0] = texel[0];
+        layer->texel[1] = texel[1];
+    }
+    else if (covered->left < layer->dst.left || covered->top < layer->dst.top || covered->right > layer->dst.right
+        || covered->bottom > layer->dst.bottom)
+    {
+        UnionRect(&area, &layer->dst, covered);
+        InflateRect(&area, PIECE_MARGIN, PIECE_MARGIN);
+        IntersectRect(&area, &area, &bounds);
+        if (!grow_layer(layer, &area)) return;
+    }
+    if (layer->piece_count == layer->piece_capacity)
+    {
+        POCHD_PIECE* grown;
+        if (layer->piece_capacity >= MAX_LAYER_PIECES) return;
+        grown = (POCHD_PIECE*)realloc(layer->pieces, (size_t)layer->piece_capacity * 2 * sizeof(POCHD_PIECE));
+        if (!grown) return;
+        layer->pieces = grown;
+        layer->piece_capacity *= 2;
+    }
+    layer_w = layer->dst.right - layer->dst.left;
+    for (y = 0; y < height; y++)
+    {
+        size_t at = (size_t)(covered->top + y - layer->dst.top) * layer_w + (covered->left - layer->dst.left);
+        int x;
+        memcpy(layer->snap + at, pixel_row(dst, covered->top + y) + covered->left, (size_t)width * 2);
+        memset(layer->valid + at, 1, (size_t)width);
+        for (x = 0; layer->mix && x < width; x++) *(DWORD*)(layer->mix + (at + x) * 4) = 0xFF000000u;
+    }
+    piece = &layer->pieces[layer->piece_count++];
+    piece->x = (short)covered->left;
+    piece->y = (short)covered->top;
+    piece->w = (BYTE)width;
+    piece->h = (BYTE)height;
+    piece->sx = (short)sx;
+    piece->sy = (short)sy;
+}
+
 /* A plain copy overwrites what it covers: layers that lie completely inside it are gone. */
 static void drop_covered(SURFACE* surface, const RECT* covered)
 {
@@ -400,6 +530,27 @@ static void snapshot(const IMAGE* image, const RECT* rect, WORD* out)
 static void track_copy(void* dst_object, void* src_object, int x, int y, const RECT* src_rect, const SIZE* dst_size,
     const RECT* clip);
 static void refresh_layers(SURFACE* surface, const IMAGE* image);
+
+/* Diagnostic (debug >= 2): draws of a card that are too small to be followed one by one. The first ones are
+   listed; after that one line a frame says how many there were. */
+static void note_piece(const char* kind, int card, int routine, int level, const RECT* target, const RECT* source)
+{
+    static unsigned frame;
+    static int count;
+    static LONG listed;
+    if (g_pochd.debug < 2 || !g_frame) return;
+    if (g_frame->serial != frame)
+    {
+        if (count) pochd_log("pieces f%u: %d small draws of cards", frame, count);
+        frame = g_frame->serial;
+        count = 0;
+    }
+    count++;
+    if (InterlockedIncrement(&listed) <= 40)
+        pochd_log("piece f%u %s %s r%d level %d to %ld,%ld %ldx%ld from %ld,%ld %ldx%ld", g_frame->serial, kind,
+            pochd_card_name(card), routine, level, target->left, target->top, target->right - target->left,
+            target->bottom - target->top, source->left, source->top, source->right - source->left, source->bottom - source->top);
+}
 
 /* ---- mixing draws ---- */
 typedef struct EFFECT
@@ -550,7 +701,8 @@ static const LAYER* same_card_at(const SURFACE* surface, int x, int y, WORD valu
         /* the topmost layer that holds this pixel decides: what lies under it does not show */
         if (!layer->valid[*index] || layer->snap[*index] != value) { *why = 1; continue; }
         *why = 2;               /* another card, or the same one turned */
-        if (layer->turned || layer->card != like->card || layer->orientation != like->orientation) return NULL;
+        if (layer->turned || layer->pieces || like->pieces || layer->card != like->card || layer->orientation != like->orientation)
+            return NULL;
         card_position(layer, x, y, at, reach);
         *why = 3;               /* the same card at another spot or size */
         if (fabs(reach[0] - want_reach[0]) > 0.02 * fabs(want_reach[0]) || fabs(reach[1] - want_reach[1]) > 0.02 * fabs(want_reach[1])
@@ -951,6 +1103,7 @@ void pochd_track_effect_end(void* draw)
     snapshot(&effect->dst, &effect->covered, after);
     if (effect->quad && effect->card >= 0)
     {
+        if (area < 96) note_piece("quad", effect->card, effect->routine, effect->level, &effect->covered, &effect->source);
         quad_end(effect, after, width, height);
         goto done;
     }
@@ -959,6 +1112,7 @@ void pochd_track_effect_end(void* draw)
         overlay_end(effect, after, width, height);
         goto done;
     }
+    if (area < 96) note_piece("mix", effect->card, effect->routine, effect->level, &effect->covered, &effect->source);
     while ((width / step) * (height / step) > 4000) step++;
     /* Measure the mix on a sample of pixels. */
     for (py = 0; py < height; py += step)
@@ -1117,6 +1271,7 @@ static void track_copy(void* dst_object, void* src_object, int x, int y, const R
         LAYER* layer;
         float uv[4];
         int width = covered.right - covered.left, height = covered.bottom - covered.top;
+        if (width * height < PIECE_AREA) note_piece("copy", card, -1, 255, &covered, &source);
         if (!scaled)
         {
             /* Prove the routine did what this code believes: sampled pixels must be an exact copy. */
@@ -1131,6 +1286,13 @@ static void track_copy(void* dst_object, void* src_object, int x, int y, const R
                     return;
                 }
             }
+        }
+        /* A piece is small both ways. A strip as wide or as high as the card (a card put on screen line by
+           line) is not one: strips are joined into one layer below. */
+        if (!scaled && width * height < PIECE_AREA && source_w < src.width && source_h < src.height)
+        {
+            add_piece(dst_entry, &dst, card, orientation, &covered, copied.left, copied.top, src.width, src.height);
+            return;
         }
         uv[0] = (source.left + (covered.left - target.left) * (float)source_w / target_w) / src.width;
         uv[1] = (source.top + (covered.top - target.top) * (float)source_h / target_h) / src.height;
@@ -1189,6 +1351,38 @@ static void track_copy(void* dst_object, void* src_object, int x, int y, const R
                     layer->corner[c][1] = inherited.corner[c][1] + dy;
                 }
             }
+            if (inherited.pieces)
+            {
+                /* A card in pieces keeps its pieces; they move along with the copy. */
+                int k, carried = 0;
+                layer->pieces = (POCHD_PIECE*)malloc((size_t)inherited.piece_count * sizeof(POCHD_PIECE) + 1);
+                if (!layer->pieces)
+                {
+                    free_layer(layer);
+                    dst_entry->count--;
+                    continue;
+                }
+                for (k = 0; k < inherited.piece_count; k++)
+                {
+                    const POCHD_PIECE* piece = &inherited.pieces[k];
+                    /* only the pieces that reach the copied part */
+                    if (piece->x >= part.right || piece->y >= part.bottom || piece->x + piece->w <= part.left
+                        || piece->y + piece->h <= part.top) continue;
+                    layer->pieces[carried] = *piece;
+                    layer->pieces[carried].x = (short)(piece->x + dx);
+                    layer->pieces[carried].y = (short)(piece->y + dy);
+                    carried++;
+                }
+                layer->piece_count = layer->piece_capacity = carried;
+                layer->texel[0] = inherited.texel[0];
+                layer->texel[1] = inherited.texel[1];
+                if (!carried)
+                {
+                    free_layer(layer);
+                    dst_entry->count--;
+                    continue;
+                }
+            }
             for (py = 0; py < height; py++)
             {
                 const WORD* now = pixel_row(&src, part.top + py) + part.left;
@@ -1213,7 +1407,7 @@ static void track_copy(void* dst_object, void* src_object, int x, int y, const R
                     pochd_log("stale f%u %s at %ld,%ld %dx%d: %d of %d card pixels still held when copied on", g_frame->serial,
                         pochd_card_name(inherited.card), placed.left, placed.top, width, height, matched, was);
             }
-            if (matched * 8 < width * height || (inherited.mix && !need_mix(layer)))
+            if (matched <= 0 || matched * 8 < (inherited.pieces ? was : width * height) || (inherited.mix && !need_mix(layer)))
             {
                 free_layer(layer);
                 dst_entry->count--;
@@ -1309,6 +1503,7 @@ static void claim(POCHD_FRAME* frame, const LAYER* layer, const BYTE* red, const
     POCHD_LAYER* out;
     BYTE id;
     if (frame->layer_count >= POCHD_MAX_LAYERS) return;
+    if (layer->pieces && frame->piece_count + layer->piece_count > POCHD_MAX_PIECES) return;
     out = &frame->layers[frame->layer_count++];
     id = (BYTE)frame->layer_count;
     out->card = layer->card;
@@ -1320,6 +1515,15 @@ static void claim(POCHD_FRAME* frame, const LAYER* layer, const BYTE* red, const
     {
         out->corner[px][0] = layer->turned ? layer->corner[px][0] : (float)((px & 1) ? layer->dst.right : layer->dst.left);
         out->corner[px][1] = layer->turned ? layer->corner[px][1] : (float)((px & 2) ? layer->dst.bottom : layer->dst.top);
+    }
+    out->piece_first = frame->piece_count;
+    out->piece_count = layer->pieces ? layer->piece_count : 0;
+    out->texel[0] = layer->texel[0];
+    out->texel[1] = layer->texel[1];
+    if (out->piece_count)
+    {
+        memcpy(frame->pieces + frame->piece_count, layer->pieces, (size_t)layer->piece_count * sizeof(POCHD_PIECE));
+        frame->piece_count += layer->piece_count;
     }
     out->gain = layer->gain;
     out->mixed = (BYTE)(layer->mix != NULL);
@@ -1390,7 +1594,7 @@ static void refresh_layers(SURFACE* surface, const IMAGE* image)
         {
             /* Something else was drawn there. With next to nothing of the card left the record is dead, as it
                would be on the screen; it must not be compared again for every copy from this surface. */
-            if (matched * 50 < layer_w * layer_h)
+            if (matched * 50 < (layer->pieces ? usable : layer_w * layer_h))
             {
                 free_layer(layer);
                 memmove(layer, layer + 1, (surface->count - i - 1) * sizeof(LAYER));
@@ -1544,6 +1748,7 @@ void pochd_track_present(const WORD* canvas, int pitch_bytes, int width, int hei
         memcpy(frame->pixels + y * POCHD_FRAME_W, (const BYTE*)canvas + y * pitch_bytes, POCHD_FRAME_W * 2);
     memset(frame->owner, 0, sizeof(frame->owner));
     frame->layer_count = 0;
+    frame->piece_count = 0;
     frame->has_mix = 0;
     if (surface && g_pochd.enabled)
     {
@@ -1598,7 +1803,9 @@ void pochd_track_present(const WORD* canvas, int pitch_bytes, int width, int hei
                while most of it is still on screen: the game draws its cards anew for each frame, so an old
                record with little left is a card that has moved on, not one that is partly covered. */
             remaining = transfer ? explained : partly ? matched + explained : matched;
-            if (remaining * 50 < layer_w * layer_h || (layer->born != frame->serial && remaining * 2 < usable))
+            /* A card in pieces is measured against its pieces, not against the area they are spread over. */
+            if (remaining <= 0 || remaining * 50 < (layer->pieces ? usable : layer_w * layer_h)
+                || (layer->born != frame->serial && remaining * 2 < usable))
             {
                 /* The diagnostics look at a card drawn for this frame once every layer has claimed its pixels. */
                 if (g_pochd.debug >= 4 && layer->born == frame->serial)
@@ -1676,6 +1883,8 @@ void pochd_track_dump(void)
                 layer->corner[3][1]);
         if (layer->gain != 1.0f || layer->mixed)
             pochd_log("      mixed: gain %.3f%s", layer->gain, layer->mixed ? ", part and extra per pixel" : "");
+        if (layer->piece_count)
+            pochd_log("      in %d pieces", layer->piece_count);
         if (layer->transfer)
             pochd_log("      red %d..%d green %d..%d blue %d..%d", layer->red[0], layer->red[31], layer->green[0],
                 layer->green[63], layer->blue[0], layer->blue[31]);

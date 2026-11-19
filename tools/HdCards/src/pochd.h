@@ -29,6 +29,7 @@ void pochd_dd_event(int kind, struct IDirectDrawSurfaceImpl* dst, struct IDirect
 #define POCHD_FRAME_W 800
 #define POCHD_FRAME_H 600
 #define POCHD_MAX_LAYERS 255
+#define POCHD_MAX_PIECES 12288
 
 typedef struct POCHD_CONFIG
 {
@@ -62,6 +63,15 @@ const wchar_t* pochd_card_image(int card);   /* full path of the HD picture, or 
 const char* pochd_card_name(int card);
 
 /* ---- draw tracking (pochd_track.c) ---- */
+/* One small piece of a card that the game drew in pieces: where it lies in the frame, its size, and where
+   it was taken from in the card's bitmap (in bitmap pixels). */
+typedef struct POCHD_PIECE
+{
+    short x, y;
+    BYTE w, h;
+    short sx, sy;
+} POCHD_PIECE;
+
 typedef struct POCHD_LAYER
 {
     int card;
@@ -79,6 +89,10 @@ typedef struct POCHD_LAYER
        gain, and when mixed is set a part and an extra for every pixel in the frame's mix plane. */
     float gain;
     BYTE mixed;
+    /* A card drawn in pieces: piece_count pieces from the frame's piece list, each a part of the oriented
+       source image whose pixel is texel wide and high (0..1). dst is then only the area they lie in. */
+    int piece_first, piece_count;
+    float texel[2];
 } POCHD_LAYER;
 
 typedef struct POCHD_FRAME
@@ -86,7 +100,9 @@ typedef struct POCHD_FRAME
     unsigned serial;
     int layer_count;
     int has_mix;                                 /* some layer uses the mix plane */
+    int piece_count;
     POCHD_LAYER layers[POCHD_MAX_LAYERS];
+    POCHD_PIECE pieces[POCHD_MAX_PIECES];
     WORD pixels[POCHD_FRAME_W * POCHD_FRAME_H];
     BYTE owner[POCHD_FRAME_W * POCHD_FRAME_H];   /* 0 = base picture, n = layers[n - 1] */
     DWORD mix[POCHD_FRAME_W * POCHD_FRAME_H];    /* per pixel: extra colour (B, G, R) and the part of the card shown (A) */

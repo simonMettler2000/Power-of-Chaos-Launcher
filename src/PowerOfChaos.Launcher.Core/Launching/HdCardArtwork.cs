@@ -20,7 +20,7 @@ internal static class HdCardArtworkComponents
 
     /// <summary>The provider built from tools/HdCards; the bootstrap and notices are those of the aspect bundle.</summary>
     internal static DisplayComponent Provider { get; } =
-        new("ddraw.dll", 514560, "49e5a8e5b39085a6c7a7f0854dbf43783cfbdbcbe218b6166b2f9427af9ffbb8", true);
+        new("ddraw.dll", 518144, "c8ec14cd5059c9ac7b970d06cda3a0b27dd7473a14cc7050c63ae4a7bec553e4", true);
 
     internal static IReadOnlyList<DisplayComponent> Required { get; } = Array.AsReadOnly(
         new[] { Provider }.Concat(OriginalAspectRatioComponents.Required.Where(component => component.FileName != "ddraw.dll")).ToArray());

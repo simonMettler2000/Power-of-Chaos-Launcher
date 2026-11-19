@@ -27,6 +27,8 @@ namespace {
 template <class T> void release(T*& pointer) { if (pointer) { pointer->Release(); pointer = NULL; } }
 
 struct Vertex { float x, y, u, v, fu, fv, id, recolour, gain, mixed, left, top, right, bottom; };
+/* the whole picture, one quad a layer, and one quad for every piece of a card drawn in pieces */
+enum { MAX_QUADS = POCHD_MAX_LAYERS + 1 + POCHD_MAX_PIECES };
 
 const char kShader[] =
     "struct VI { float2 p : POSITION; float2 uv : TEXCOORD0; float2 fuv : TEXCOORD1; float2 id : TEXCOORD2; float2 mix : TEXCOORD3;\n"
@@ -300,7 +302,7 @@ bool create_device()
     release(vs); release(base); release(card);
 
     D3D11_BUFFER_DESC buffer = {};
-    buffer.ByteWidth = sizeof(Vertex) * 6 * (POCHD_MAX_LAYERS + 1);
+    buffer.ByteWidth = sizeof(Vertex) * 6 * MAX_QUADS;
     buffer.Usage = D3D11_USAGE_DYNAMIC; buffer.BindFlags = D3D11_BIND_VERTEX_BUFFER; buffer.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
     ok = ok && SUCCEEDED(g_device->CreateBuffer(&buffer, NULL, &g_vertices));
     buffer.ByteWidth = 16; buffer.Usage = D3D11_USAGE_DEFAULT; buffer.BindFlags = D3D11_BIND_CONSTANT_BUFFER; buffer.CPUAccessFlags = 0;
@@ -504,8 +506,10 @@ void capture()
 
 void draw(const int* host, bool fresh)
 {
-    static Vertex vertices[6 * (POCHD_MAX_LAYERS + 1)];
+    static Vertex vertices[6 * MAX_QUADS];
     static ID3D11ShaderResourceView* views[POCHD_MAX_LAYERS];
+    static int first_quad[POCHD_MAX_LAYERS], quad_count[POCHD_MAX_LAYERS];
+    int batches = 0;
     const float black[4] = { 0, 0, 0, 1 };
     const float full[4] = { 0, 0, POCHD_FRAME_W, POCHD_FRAME_H };
     const float full_uv[4][2] = { { 0, 0 }, { 1, 0 }, { 0, 1 }, { 1, 1 } };
@@ -518,22 +522,52 @@ void draw(const int* host, bool fresh)
         const POCHD_LAYER& layer = g_frame.layers[i];
         ID3D11ShaderResourceView* view = picture_view(layer.card, uploads);
         if (!view) continue;
-        float uv[4][2];
-        for (int c = 0; c < 4; c++)
+        /* A whole card is one quad. A card drawn in pieces is one quad a piece, in the order the game drew
+           them, all under the layer's number: where pieces overlap, the later one is on top as in the game. */
+        int pieces = layer.piece_count > 0 ? layer.piece_count : 1;
+        if (layer.piece_count > 0 && (layer.piece_first < 0 || layer.piece_first + layer.piece_count > g_frame.piece_count)) continue;
+        if (quads + pieces > MAX_QUADS) continue;
+        views[batches] = view;
+        first_quad[batches] = quads;
+        quad_count[batches] = pieces;
+        batches++;
+        for (int p = 0; p < pieces; p++)
         {
-            float s = (c & 1) ? layer.uv[2] : layer.uv[0], t = (c & 2) ? layer.uv[3] : layer.uv[1];
-            switch (layer.orientation)
+            float part[4], area[4], at[4][2], uv[4][2];
+            if (layer.piece_count > 0)
             {
-            case POCHD_ORIENT_0: uv[c][0] = s; uv[c][1] = t; break;
-            case POCHD_ORIENT_180: uv[c][0] = 1 - s; uv[c][1] = 1 - t; break;
-            case POCHD_ORIENT_90: uv[c][0] = t; uv[c][1] = 1 - s; break;
-            default: uv[c][0] = 1 - t; uv[c][1] = s; break;
+                const POCHD_PIECE& piece = g_frame.pieces[layer.piece_first + p];
+                part[0] = piece.sx * layer.texel[0]; part[1] = piece.sy * layer.texel[1];
+                part[2] = (piece.sx + piece.w) * layer.texel[0]; part[3] = (piece.sy + piece.h) * layer.texel[1];
+                area[0] = (float)piece.x; area[1] = (float)piece.y;
+                area[2] = (float)(piece.x + piece.w); area[3] = (float)(piece.y + piece.h);
+                for (int c = 0; c < 4; c++)
+                {
+                    at[c][0] = (c & 1) ? area[2] : area[0];
+                    at[c][1] = (c & 2) ? area[3] : area[1];
+                }
             }
+            else
+            {
+                memcpy(part, layer.uv, sizeof(part));
+                memcpy(area, layer.dst, sizeof(area));
+                memcpy(at, layer.corner, sizeof(at));
+            }
+            for (int c = 0; c < 4; c++)
+            {
+                float s = (c & 1) ? part[2] : part[0], t = (c & 2) ? part[3] : part[1];
+                switch (layer.orientation)
+                {
+                case POCHD_ORIENT_0: uv[c][0] = s; uv[c][1] = t; break;
+                case POCHD_ORIENT_180: uv[c][0] = 1 - s; uv[c][1] = 1 - t; break;
+                case POCHD_ORIENT_90: uv[c][0] = t; uv[c][1] = 1 - s; break;
+                default: uv[c][0] = 1 - t; uv[c][1] = s; break;
+                }
+            }
+            quad(vertices + quads * 6, area, at, uv, (float)(i + 1), layer.transfer ? 1.0f : 0.0f, layer.gain,
+                g_frame.has_mix && layer.mixed ? 1.0f : 0.0f);
+            quads++;
         }
-        views[quads - 1] = view;
-        quad(vertices + quads * 6, layer.dst, layer.corner, uv, (float)(i + 1), layer.transfer ? 1.0f : 0.0f, layer.gain,
-            g_frame.has_mix && layer.mixed ? 1.0f : 0.0f);
-        quads++;
     }
     D3D11_MAPPED_SUBRESOURCE mapped;
     if (FAILED(g_context->Map(g_vertices, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped))) return;
@@ -557,16 +591,16 @@ void draw(const int* host, bool fresh)
     g_context->PSSetShader(g_ps_base, NULL, 0);
     g_context->PSSetShaderResources(0, 1, &g_base_view);
     g_context->Draw(6, 0);
-    if (quads > 1)
+    if (batches > 0)
     {
         g_context->PSSetShader(g_ps_card, NULL, 0);
         g_context->PSSetShaderResources(1, 1, &g_owner_view);
         g_context->PSSetShaderResources(2, 1, &g_recolour_view);
         g_context->PSSetShaderResources(3, 1, &g_mix_view);
-        for (int q = 1; q < quads; q++)
+        for (int b = 0; b < batches; b++)
         {
-            g_context->PSSetShaderResources(0, 1, &views[q - 1]);
-            g_context->Draw(6, q * 6);
+            g_context->PSSetShaderResources(0, 1, &views[b]);
+            g_context->Draw(6 * quad_count[b], first_quad[b] * 6);
         }
     }
     if (InterlockedExchange(&g_capture_pending, 0)) capture();
