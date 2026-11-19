@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Reviewed release version, for example 0.2.1
+        description: Reviewed release version, for example 0.3.0
         required: true
         type: string
       independent_audit_confirmed:
@@ -73,7 +73,7 @@ jobs:
         run: |
           $inputs = Join-Path $env:RUNNER_TEMP 'release-inputs'
           $output = Join-Path $env:RUNNER_TEMP 'release-output'
-          ./tools/Release/Build-WindowsPackage.ps1 -Version $env:RELEASE_VERSION -RuntimeIdentifier $env:RELEASE_RID -SourceCommit $env:SOURCE_COMMIT -DisplayComponentsDirectory (Join-Path $inputs 'original-aspect-ratio-v1') -NoticesDirectory (Join-Path $inputs 'notices') -PackageOutputDirectory $output
+          ./tools/Release/Build-WindowsPackage.ps1 -Version $env:RELEASE_VERSION -RuntimeIdentifier $env:RELEASE_RID -SourceCommit $env:SOURCE_COMMIT -DisplayComponentsDirectory (Join-Path $inputs 'original-aspect-ratio-v1') -HdComponentsDirectory (Join-Path $inputs 'hd-card-artwork-v2') -NoticesDirectory (Join-Path $inputs 'notices') -PackageOutputDirectory $output
           $zip = Get-ChildItem -LiteralPath $output -Filter '*.zip' -File
           if (@($zip).Count -ne 1) { throw 'Expected one architecture download' }
           ./tools/Release/Test-WindowsPackage.ps1 -PackagePath $zip.FullName -ValidationDirectory (Join-Path $env:RUNNER_TEMP 'release-validation') -ExpectedVersion $env:RELEASE_VERSION -ExpectedSourceCommit $env:SOURCE_COMMIT -ExpectedRuntimeIdentifier $env:RELEASE_RID
@@ -114,4 +114,4 @@ jobs:
           cat release/*.SHA256SUMS > release/SHA256SUMS
           gh release create "v${RELEASE_VERSION}" release/*.zip release/*.manifest.json release/SHA256SUMS \
             --repo "$GITHUB_REPOSITORY" --target "$SOURCE_COMMIT" --title "Power of Chaos Launcher ${RELEASE_VERSION}" \
-            --notes 'Complete Windows downloads. Extract the entire x64 or x86 ZIP, open PowerOfChaos.Launcher.exe, then select your installed game folders. No separate .NET or mod installation is needed. Executable mods require the supported game revisions; see the README. HD Cards and other unfinished mods remain disabled.'
+            --notes 'Complete Windows downloads. Extract the entire x64 or x86 ZIP, open PowerOfChaos.Launcher.exe, then select your installed game folders. No separate .NET or mod installation is needed. Executable mods require the supported game revisions; see the README. HD card artwork also needs the separate HD card picture download (release hd-card-artwork-v1 of this repository); choose its folder under Mods. Unfinished mods remain disabled.'

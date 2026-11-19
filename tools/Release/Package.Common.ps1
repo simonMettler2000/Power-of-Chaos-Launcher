@@ -133,15 +133,16 @@ function Assert-PackagePayloadName([string]$Name) {
         throw 'Game, personal or development content is forbidden in a package.'
     }
     if ($Name -like 'Components/original-aspect-ratio-v1/*') { return }
+    if ($Name -like 'Components/hd-card-artwork-v2/*') { return }
     if ($Name -like 'Notices/*') {
         # Corresponding source required by selected dependency licenses is admitted only through exact notice pins.
         if ($parts.Count -ne 2 -or ([IO.Path]::GetExtension($Name) -notin @('.txt', '.md', '.cpp', '.h', '.c') -and
             $parts[-1] -cne 'CorrespondingSource-libgifcodec-d06d2a6.zip')) { throw 'Unexpected notice path.' }
         return
     }
-    if ($Name -in @('package-manifest.json', 'README.txt', 'component-pins.json', 'release-settings.json',
+    if ($Name -in @('package-manifest.json', 'README.txt', 'component-pins.json', 'hd-component-pins.json', 'release-settings.json',
         'PowerOfChaos.Launcher.deps.json', 'PowerOfChaos.Launcher.runtimeconfig.json', 'LICENSE.txt', 'THIRD-PARTY-NOTICES.txt')) { return }
-    if ([IO.Path]::GetExtension($Name) -ieq '.dll') { return }
+    if ([IO.Path]::GetExtension($Name) -ieq '.dll' -and $parts.Count -eq 1) { return }
     if ($Name -in @('PowerOfChaos.Launcher.exe', 'createdump.exe')) { return }
     throw 'Unexpected published package file type.'
 }
@@ -158,6 +159,47 @@ function Assert-PackagePins([string]$Directory, $Pins) {
         $record = @($records | Where-Object { $_.path -ceq $pin.name })
         if ($record.Count -ne 1 -or $record[0].length -ne $pin.length -or $record[0].sha256 -ine $pin.sha256) { throw ('Pinned file differs: ' + $pin.name) }
     }
+}
+
+function Get-PackageHdComponentPins($HdPins, $DisplayPins) {
+    # The HD card bundle is its own provider plus the bootstrap and every notice of the display bundle, unchanged.
+    if ($HdPins.profile -cne 'hd-card-artwork-v2' -or @($HdPins.components).Count -ne 1 -or
+        $HdPins.components[0].name -cne 'ddraw.dll' -or $HdPins.shared.from -cne 'tools/DisplayComponent/component-pins.json') {
+        throw 'Invalid HD component pins.'
+    }
+    $display = @(@($DisplayPins.components) + @($DisplayPins.notices))
+    $shared = @($HdPins.shared.files)
+    if ($shared.Count -ne $display.Count - 1) { throw 'The HD bundle must share the bootstrap and all display notices.' }
+    $result = [Collections.Generic.List[object]]::new()
+    $result.Add($HdPins.components[0])
+    foreach ($name in $shared) {
+        $pin = @($display | Where-Object { $_.name -ceq $name })
+        if ($pin.Count -ne 1 -or $name -ceq 'ddraw.dll' -or @($result | Where-Object { $_.name -ceq $name }).Count -ne 0) {
+            throw 'Invalid shared HD component file.'
+        }
+        $result.Add($pin[0])
+    }
+    return @($result)
+}
+
+function Expand-PackagePinnedBundle([string]$ArchivePath, $Pins, [string]$Destination) {
+    # A component archive holds exactly its pinned files, flat, as regular entries.
+    $required = @($Pins)
+    $zip = [IO.Compression.ZipFile]::OpenRead((Get-PackageFullPath $ArchivePath))
+    try {
+        if ($zip.Entries.Count -ne $required.Count) { throw 'Unexpected component archive entries.' }
+        $names = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+        foreach ($entry in $zip.Entries) {
+            Assert-PackageRelativeName $entry.FullName
+            $pin = @($required | Where-Object { $_.name -ceq $entry.FullName })
+            if ($pin.Count -ne 1 -or -not $names.Add($entry.FullName) -or $entry.Length -ne $pin[0].length -or
+                (($entry.ExternalAttributes -shr 16) -band 0xf000) -notin @(0, 0x8000)) { throw 'Unexpected component archive member.' }
+            $packed = $entry.Open()
+            $expanded = [IO.File]::Open((Join-Path $Destination $entry.FullName), [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
+            try { Copy-PackageBoundedStream $packed $expanded $entry.Length } finally { $expanded.Dispose(); $packed.Dispose() }
+        }
+    } finally { $zip.Dispose() }
+    Assert-PackagePins $Destination $required
 }
 
 function Assert-PackageCorrespondingSources([string]$Directory, $Pins) {

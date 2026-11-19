@@ -3,6 +3,7 @@ param(
     [Parameter(Mandatory = $true)][ValidateSet('win-x64', 'win-x86', 'win-arm64')][string]$RuntimeIdentifier,
     [Parameter(Mandatory = $true)][string]$SourceCommit,
     [Parameter(Mandatory = $true)][string]$DisplayComponentsDirectory,
+    [Parameter(Mandatory = $true)][string]$HdComponentsDirectory,
     [Parameter(Mandatory = $true)][string]$NoticesDirectory,
     [Parameter(Mandatory = $true)][string]$PackageOutputDirectory,
     [string]$SettingsPath = (Join-Path $PSScriptRoot 'release-settings.json'),
@@ -20,8 +21,9 @@ if ($SourceCommit -cnotmatch '^[a-f0-9]{40}$') { throw 'An exact source commit i
 $repository = Get-PackageFullPath (Join-Path $PSScriptRoot '../..')
 $output = Get-PackageFullPath $PackageOutputDirectory
 $componentInput = Get-PackageFullPath $DisplayComponentsDirectory
+$hdInput = Get-PackageFullPath $HdComponentsDirectory
 $noticeInput = Get-PackageFullPath $NoticesDirectory
-foreach ($sourceInput in @($componentInput, $noticeInput)) { Assert-PackageDisjoint $sourceInput $output; Assert-PackageOrdinaryPath $sourceInput }
+foreach ($sourceInput in @($componentInput, $hdInput, $noticeInput)) { Assert-PackageDisjoint $sourceInput $output; Assert-PackageOrdinaryPath $sourceInput }
 Assert-PackageOrdinaryPath $output
 if (Test-Path -LiteralPath $output) { throw 'Package output directory must be new.' }
 if ($output.Equals($repository, [StringComparison]::OrdinalIgnoreCase)) { throw 'The source checkout cannot be the package output.' }
@@ -33,6 +35,11 @@ if ($RuntimeIdentifier -cnotin $settings.supportedRuntimeIdentifiers) { throw 'T
 $pinsPath = Join-Path $repository 'tools/DisplayComponent/component-pins.json'
 $pins = Read-PackageJson $pinsPath 131072
 Assert-PackagePins $componentInput @(@($pins.components) + @($pins.notices))
+$hdPinsPath = Join-Path $repository 'tools/HdCards/component-pins.json'
+$hdPins = Read-PackageJson $hdPinsPath 131072
+$hdRequired = @(Get-PackageHdComponentPins $hdPins $pins)
+if ($settings.hdComponentsProfile -cne $hdPins.profile) { throw 'Release settings name another HD component profile.' }
+Assert-PackagePins $hdInput $hdRequired
 Assert-PackagePins $noticeInput @($settings.notices)
 Assert-PackageCorrespondingSources $noticeInput @($settings.notices)
 if ([string]::IsNullOrWhiteSpace($SourceManifestPath)) {
@@ -135,10 +142,14 @@ if ($framework.Count -ne 1 -or $framework[0].version -cne $settings.runtimeVersi
 $componentTarget = Join-Path $publish 'Components/original-aspect-ratio-v1'
 [void][IO.Directory]::CreateDirectory($componentTarget)
 foreach ($pin in @(@($pins.components) + @($pins.notices))) { Copy-Item -LiteralPath (Join-Path $componentInput $pin.name) -Destination (Join-Path $componentTarget $pin.name) }
+$hdTarget = Join-Path $publish ('Components/' + $hdPins.profile)
+[void][IO.Directory]::CreateDirectory($hdTarget)
+foreach ($pin in $hdRequired) { Copy-Item -LiteralPath (Join-Path $hdInput $pin.name) -Destination (Join-Path $hdTarget $pin.name) }
 $noticeTarget = Join-Path $publish 'Notices'
 [void][IO.Directory]::CreateDirectory($noticeTarget)
 foreach ($pin in $settings.notices) { Copy-Item -LiteralPath (Join-Path $noticeInput $pin.name) -Destination (Join-Path $noticeTarget $pin.name) }
 Copy-Item -LiteralPath $pinsPath -Destination (Join-Path $publish 'component-pins.json')
+Copy-Item -LiteralPath $hdPinsPath -Destination (Join-Path $publish 'hd-component-pins.json')
 Copy-Item -LiteralPath $SettingsPath -Destination (Join-Path $publish 'release-settings.json')
 $readme = @"
 Power of Chaos Launcher $Version ($RuntimeIdentifier)
@@ -149,6 +160,7 @@ In Settings, choose Add Game path and select your installed game folder or a par
 The launcher reads card counts, original card artwork and names from your own games. No game files or saves are included.
 Supported executable versions are listed in the project's mod documentation; discovery alone does not establish mod compatibility.
 Temporary all cards requires a compatible existing shared save; close all games before switching that mod.
+HD card artwork needs the separate HD card picture download from the project's Releases page; choose its folder under Mods.
 Keep every extracted file together. The Notices directory and component notices belong with the program.
 
 Source: $($settings.sourceRepository)
@@ -168,6 +180,7 @@ $manifest = [ordered]@{
     schemaVersion = 1; name = 'Power of Chaos Launcher'; version = $Version; sourceCommit = $SourceCommit;
     runtimeIdentifier = $RuntimeIdentifier; targetFramework = $settings.targetFramework; runtimeVersion = $settings.runtimeVersion;
     selfContained = $true; sourceRepository = $settings.sourceRepository; componentsProfile = $pins.profile;
+    hdComponentsProfile = $hdPins.profile;
     files = $files; dependencies = $dependencies
 }
 Write-PackageJson (Join-Path $publish 'package-manifest.json') $manifest

@@ -83,8 +83,8 @@
     },
     {
       "name": "SOURCE-PROVENANCE.txt",
-      "length": 1873,
-      "sha256": "cc247299b8458979d4090665e99af7154c4846274d53463404fa763936e2dccf",
+      "length": 2354,
+      "sha256": "b1bd9b724afb267d6af4e1e2691ef6892c7fab492d2d30eed5767a1a224a6bcb",
       "repositoryPath": "tools/Release/SOURCE-PROVENANCE.txt"
     },
     {
@@ -179,5 +179,12 @@
     "length": 256275,
     "sha256": "bae9009322889343d17eb6e81dfdc92662ba2fafd45807def64e43b1ca0d59d9",
     "url": "https://github.com/simonMettler2000/Power-of-Chaos-Launcher/releases/download/v0.2.0/PowerOfChaosLauncher-display-components-v1.zip"
+  },
+  "hdComponentsProfile": "hd-card-artwork-v2",
+  "hdComponentBundle": {
+    "name": "PowerOfChaosLauncher-hd-card-components-v2.zip",
+    "length": 313902,
+    "sha256": "8072e20c1f792583a70befdef03caeec3ffeb2a80eb4a360bf9caba983fa76aa",
+    "url": "https://github.com/simonMettler2000/Power-of-Chaos-Launcher/releases/download/hd-card-components-v2/PowerOfChaosLauncher-hd-card-components-v2.zip"
   }
 }

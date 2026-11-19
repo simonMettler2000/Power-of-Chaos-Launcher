@@ -40,6 +40,12 @@ if ((Get-PackageFileHash (Join-Path $extracted 'component-pins.json')) -cne (Get
 }
 if ($manifest.componentsProfile -cne $pins.profile) { throw 'Package component profile differs.' }
 Assert-PackagePins (Join-Path $extracted 'Components/original-aspect-ratio-v1') @(@($pins.components) + @($pins.notices))
+$hdPins = Read-PackageJson (Join-Path $extracted 'hd-component-pins.json') 131072
+if ((Get-PackageFileHash (Join-Path $extracted 'hd-component-pins.json')) -cne (Get-PackageFileHash (Join-Path $PSScriptRoot '../HdCards/component-pins.json'))) {
+    throw 'Packaged HD component pins differ from the reviewed source pins.'
+}
+if ($manifest.hdComponentsProfile -cne $hdPins.profile -or $settings.hdComponentsProfile -cne $hdPins.profile) { throw 'Package HD component profile differs.' }
+Assert-PackagePins (Join-Path $extracted ('Components/' + $hdPins.profile)) @(Get-PackageHdComponentPins $hdPins $pins)
 Assert-PackagePins (Join-Path $extracted 'Notices') @($settings.notices)
 Assert-PackageCorrespondingSources (Join-Path $extracted 'Notices') @($settings.notices)
 $actual = @(Get-PackageFiles $extracted)
@@ -61,7 +67,7 @@ foreach ($file in $actual) {
 }
 foreach ($required in @('PowerOfChaos.Launcher.exe', 'PowerOfChaos.Launcher.dll', 'PowerOfChaos.Launcher.Core.dll',
     'PowerOfChaos.Launcher.deps.json', 'PowerOfChaos.Launcher.runtimeconfig.json', 'coreclr.dll', 'hostfxr.dll', 'hostpolicy.dll',
-    'System.Private.CoreLib.dll', 'README.txt', 'release-settings.json', 'component-pins.json')) {
+    'System.Private.CoreLib.dll', 'README.txt', 'release-settings.json', 'component-pins.json', 'hd-component-pins.json')) {
     if (-not $expected.ContainsKey($required)) { throw ('Required self-contained file is missing: ' + $required) }
 }
 $runtimeConfig = Read-PackageJson (Join-Path $extracted 'PowerOfChaos.Launcher.runtimeconfig.json')
@@ -75,9 +81,11 @@ $machine = switch ($ExpectedRuntimeIdentifier) { 'win-x86' { 0x014c } 'win-x64' 
 foreach ($native in @('PowerOfChaos.Launcher.exe', 'coreclr.dll', 'hostfxr.dll', 'hostpolicy.dll')) {
     if ((Get-PackagePeMachine (Join-Path $extracted $native)) -ne $machine) { throw 'Native package architecture differs.' }
 }
-foreach ($native in @('ddraw.dll', 'winmm.dll')) {
-    if ((Get-PackagePeMachine (Join-Path $extracted ('Components/original-aspect-ratio-v1/' + $native))) -ne 0x014c) {
-        throw 'The game display component must remain x86 independently of launcher architecture.'
+foreach ($bundle in @('original-aspect-ratio-v1', $hdPins.profile)) {
+    foreach ($native in @('ddraw.dll', 'winmm.dll')) {
+        if ((Get-PackagePeMachine (Join-Path $extracted ('Components/' + $bundle + '/' + $native))) -ne 0x014c) {
+            throw 'The game display components must remain x86 independently of launcher architecture.'
+        }
     }
 }
 $deps = Read-PackageJson (Join-Path $extracted 'PowerOfChaos.Launcher.deps.json')

@@ -68,6 +68,8 @@ pwsh -File tools/HdCards/Build-HdComponent.ps1 `
 
 `-AspectBundleDirectory` is a verified Original aspect ratio bundle; its `winmm.dll` and eight notices are copied unchanged after their pins are checked. Copy the resulting `hd-card-artwork-v2` directory to `Components/` beside the launcher executable.
 
+Adding `-BundleArchive <new .zip path>` also writes the archive a release acquires: the ten bundle files, flat, in ordinal order with fixed timestamps. It is written only when the build matches the pinned provider. `tools/Release/release-settings.json` pins that archive; `docs/releases.md` describes how a Windows download picks it up.
+
 The link is reproducible: the same sources and toolchain give the same `ddraw.dll`. `component-pins.json` records the provider built with MSVC 14.44.35207 and Windows SDK 10.0.26100.0, and `HdCardArtworkComponents.Provider` in the launcher carries the same pin. A different toolchain or any source change produces a different file; update both pins together.
 
 ## Provider settings

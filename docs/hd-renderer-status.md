@@ -31,4 +31,5 @@ On Windows 11 with the three supported installations. The repository owner asked
 - The routine inventory is as complete as the scenes that were run. A card drawn by some other routine in a scene nobody ran would show the game's own picture, and the diagnostics cannot report a card the tracker never saw. Opening the screens of Kaiba the Revenge and Yugi the Destiny that had not been opened before found two such cases (the menu wipe and the dimmed duel scene, both handled now), so more may exist in scenes that are still unopened.
 - An effect that scatters a picture in small fragments exists in the games' code. No card was seen drawn that way; if one is, its fragments stay as the game draws them.
 - The physical screen could not be captured on the development machine; verification used the picture handed to the display.
-- Wine is untested. Release packages do not yet include the HD component; see the component notes for building it.
+- Wine is untested.
+- The release tooling packages the HD component from launcher version 0.3.0 on; the 0.2.0 download does not contain it. See [releases](releases.md).
