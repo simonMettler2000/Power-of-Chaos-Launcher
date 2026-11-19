@@ -82,6 +82,8 @@ This feature requires Windows, a supported card table and an existing shared sav
 
 A separate [HD card artwork pack](https://github.com/simonMettler2000/Power-of-Chaos-Launcher/releases/tag/hd-card-artwork-v1) is available for compatible experimental builds. Artwork alone does not enable HD rendering. Full HD coverage for cards in hand, on the field, in deck/graveyard views and during animations is not a released feature.
 
+See the [HD renderer development status](docs/hd-renderer-status.md) for the latest offline results and the work remaining before gameplay testing.
+
 Future built-in mods will arrive through launcher updates. [Release and extension workflow](docs/releases.md).
 
 ## Troubleshooting
