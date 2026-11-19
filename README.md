@@ -6,9 +6,9 @@ You need your own installed copies of the games. The launcher does not include t
 
 ## Download and start playing
 
-**[Download the Windows launcher](https://github.com/simonMettler2000/Power-of-Chaos-Launcher/releases/tag/v0.2.0)**
+**[Download the Windows launcher](https://github.com/simonMettler2000/Power-of-Chaos-Launcher/releases/tag/v0.3.0)**
 
-1. Choose **[win-x64](https://github.com/simonMettler2000/Power-of-Chaos-Launcher/releases/download/v0.2.0/PowerOfChaos-Launcher-0.2.0-win-x64.zip)** for most Windows PCs, or **[win-x86](https://github.com/simonMettler2000/Power-of-Chaos-Launcher/releases/download/v0.2.0/PowerOfChaos-Launcher-0.2.0-win-x86.zip)** for 32-bit Windows.
+1. Choose **[win-x64](https://github.com/simonMettler2000/Power-of-Chaos-Launcher/releases/download/v0.3.0/PowerOfChaos-Launcher-0.3.0-win-x64.zip)** for most Windows PCs, or **[win-x86](https://github.com/simonMettler2000/Power-of-Chaos-Launcher/releases/download/v0.3.0/PowerOfChaos-Launcher-0.3.0-win-x86.zip)** for 32-bit Windows.
 2. Extract the **entire ZIP** into a new folder. Keep all its files together.
 3. Open **PowerOfChaos.Launcher.exe**.
 4. Open **Settings → Add Game path**. Select a game's installation folder, or a parent folder containing all three games. Click **Find games** to add the detected games.
@@ -16,7 +16,7 @@ You need your own installed copies of the games. The launcher does not include t
 
 The Windows download includes the .NET runtime and components needed for the available mods. You do not need to install .NET, a development SDK or a separate mod bundle.
 
-Use the launcher ZIP, rather than GitHub's **Source code** downloads or the separate component/source archives. The **HD artwork** release is a separate download and is not a launcher installer.
+Use the launcher ZIP, rather than GitHub's **Source code** downloads or the separate component/source archives. The **HD artwork** release is a separate download and is not a launcher installer; the **HD card component** release is already inside the launcher ZIP.
 
 Windows 10/11 editions supported by .NET 10 are the target. Windows 7/8.1 and native ARM64 game compatibility are not established. Linux/macOS users can build the launcher from source and configure a Wine runner; game compatibility depends on the platform and runner.
 
@@ -49,7 +49,7 @@ Browsing Collection does not change your save. Names come from the language tabl
 
 ## Available mods
 
-These four mods are available in the stable Windows download:
+These five mods are available in the stable Windows download:
 
 | Mod | What it does |
 | --- | --- |
@@ -57,6 +57,7 @@ These four mods are available in the stable Windows download:
 | **Skip character interactions** | Skips duel greetings, character dialogue and reaction cut-ins. Keeps card effects, duel music and the result presentation. |
 | **Original aspect ratio** | Keeps the game's 4:3 picture when resizing or using borderless fullscreen. Use **Alt+Enter** to switch fullscreen mode. |
 | **Temporary all cards** | Temporarily grants three copies of each card in your added games' supported pools, with an original-save backup for restoration. |
+| **HD card artwork** | Draws the cards from high-resolution pictures. Needs the separate HD picture download; see below. |
 
 Executable mods require a supported game revision. The launcher checks compatibility before preparing a private launch copy and leaves installed executables and archives unchanged. If a revision is unsupported, untick those mods to launch normally. Changes to launch mods take effect on the next launch. Skipping character interactions can change the sequence of random choices compared with an unmodified run.
 
@@ -86,7 +87,7 @@ This feature requires Windows, a supported card table and an existing shared sav
 
 The game plays in a borderless 4:3 picture; Alt+Enter switches to a resizable window. Cards are in HD at every size and also while they move: dealt from the deck, flying to the field, flipping, fading, dimmed, or under a translucent effect. Cursor, text, numbers and panels drawn over a card stay as the game drew them.
 
-The published download does not include the HD component yet. Until a release does, build it as described in the [component notes](tools/HdCards/README.md) and copy it beside the launcher. [Mod details](docs/mods.md#hd-card-artwork) · [What has been verified](docs/hd-renderer-status.md)
+The Windows download includes the HD component from version 0.3.0 on; only the pictures are a separate download. [Mod details](docs/mods.md#hd-card-artwork) · [What has been verified](docs/hd-renderer-status.md) · [How the component works](tools/HdCards/README.md)
 
 ## Features still in development
 
