@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "sdkVersion": "10.0.403",
+  "sdkVersion": "10.0.404",
   "targetFramework": "net10.0",
-  "runtimeVersion": "10.0.14",
-  "runtimeReleaseDate": "2026-10-25",
+  "runtimeVersion": "10.0.15",
+  "runtimeReleaseDate": "2026-11-10",
   "runtimeEndOfSupport": "2028-11-14",
   "supportedRuntimeIdentifiers": [
     "win-x64",
@@ -162,13 +162,13 @@
     {
       "length": 1116,
       "sha256": "cfc21f5e8bd655ae997eec916138b707b1d290b83272c02a95c9f821b8c87310",
-      "url": "https://raw.githubusercontent.com/dotnet/runtime/v10.0.14/LICENSE.TXT",
+      "url": "https://raw.githubusercontent.com/dotnet/runtime/v10.0.15/LICENSE.TXT",
       "name": "dotnet10-LICENSE.TXT"
     },
     {
       "length": 76623,
       "sha256": "66f1d4e44973185519bb4aa8a9718eb22fc7af2cc532e3ae9cfc4c127ee7fc54",
-      "url": "https://raw.githubusercontent.com/dotnet/runtime/v10.0.14/THIRD-PARTY-NOTICES.TXT",
+      "url": "https://raw.githubusercontent.com/dotnet/runtime/v10.0.15/THIRD-PARTY-NOTICES.TXT",
       "name": "dotnet10-THIRD-PARTY-NOTICES.TXT"
     }
   ],
