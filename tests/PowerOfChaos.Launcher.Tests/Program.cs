@@ -255,6 +255,7 @@ internal static class Program
             await InteractionChecks.RunAll(fixtures.Root, Run);
             await AspectRatioChecks.RunAll(fixtures.Root, Run);
             await PortableDisplayCacheChecks.RunAll(fixtures.Root, Run);
+            await HdCardChecks.RunAll(fixtures.Root, Run);
             await PortraitChecks.RunAll(fixtures.Root, Run);
             await PortraitThumbnailChecks.RunAll(fixtures.Root, Run);
             await CollectionChecks.RunAll(fixtures.Root, Run);

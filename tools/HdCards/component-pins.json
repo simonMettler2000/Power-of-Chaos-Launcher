@@ -1,0 +1,36 @@
+{
+  "profile": "hd-card-artwork-v2",
+  "upstreamCommit": "541b5de218ec3fbd6ea91e606ebfadc07c1786b0",
+  "sourceArchive": {
+    "name": "source-v7.1.0.0.zip",
+    "sha256": "a4f638383364e3bc1e4682b1d549a1f5400fa0cc312ee216d1b42555b1c814eb",
+    "pinnedIn": "tools/DisplayComponent/component-pins.json"
+  },
+  "toolchain": {
+    "msvc": "14.44.35207",
+    "windowsSdk": "10.0.26100.0",
+    "platformToolset": "v143",
+    "configuration": "Release|Win32"
+  },
+  "components": [
+    {
+      "name": "ddraw.dll",
+      "length": 514560,
+      "sha256": "49e5a8e5b39085a6c7a7f0854dbf43783cfbdbcbe218b6166b2f9427af9ffbb8"
+    }
+  ],
+  "shared": {
+    "from": "tools/DisplayComponent/component-pins.json",
+    "files": [
+      "winmm.dll",
+      "upstream-cnc-ddraw-LICENSE.txt",
+      "petool-LICENSE.txt",
+      "Hyllian-Jararaca-LICENSE.txt",
+      "Hyllian-xBR-LICENSE.txt",
+      "LodePNG-LICENSE.txt",
+      "Microsoft-Detours-LICENSE.txt",
+      "MJP-LICENSE.txt",
+      "Khronos-LICENSE.txt"
+    ]
+  }
+}

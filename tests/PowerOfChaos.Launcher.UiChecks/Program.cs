@@ -353,8 +353,19 @@ internal static class Program
                     && description.Contains("normal game speed", StringComparison.Ordinal)
                     && description.Contains("next launch", StringComparison.Ordinal), "Aspect ratio description omits its behavior or timing.");
                 Require(ModNames.All(name => ModCheckBox(window, name).IsChecked == false), "New mod choices should default to off.");
-                var futureNames = new[] { "Custom opponent decks, in development", "New card rewards, in development", "HD card artwork, in development" };
+                var futureNames = new[] { "Custom opponent decks, in development", "New card rewards, in development" };
                 var mods = Find<StackPanel>(window, "ModsView");
+                // HD card artwork is a real choice, but only with its component beside the launcher and a picture folder.
+                var hdCards = Find<CheckBox>(window, "HdCardArtworkCheckBox");
+                Require(AutomationProperties.GetName(hdCards) == "HD card artwork for all three games" && hdCards.IsChecked != true,
+                    "HD card artwork must be named and off by default.");
+                Require(!hdCards.IsEnabled && (Find<SelectableTextBlock>(window, "HdCardArtworkStatus").Text ?? "")
+                    .Contains("not installed", StringComparison.Ordinal), "HD card artwork must say when its component is missing.");
+                Require(Find<Button>(window, "HdCardArtworkFolderButton").IsEnabled, "The HD image folder cannot be chosen.");
+                var hdDescription = Find<TextBlock>(window, "HdCardArtworkDescription").Text ?? "";
+                Require(hdDescription.Contains("4:3", StringComparison.Ordinal) && hdDescription.Contains("Alt+Enter", StringComparison.Ordinal)
+                    && hdDescription.Contains("download", StringComparison.Ordinal) && hdDescription.Contains("next launch", StringComparison.Ordinal),
+                    "HD card artwork description omits its display, its download or its timing.");
                 var availableBottom = ModNames.Max(name => Find<Grid>(window, name + "Row").TranslatePoint(
                     new Point(0, Find<Grid>(window, name + "Row").Bounds.Height), mods)!.Value.Y);
                 foreach (var futureName in futureNames)

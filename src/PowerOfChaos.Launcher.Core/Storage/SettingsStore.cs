@@ -130,6 +130,8 @@ public sealed class SettingsStore
             SkipSplashScreens = settings.SkipSplashScreens,
             SkipCharacterInteractions = settings.SkipCharacterInteractions,
             RestoreOriginalAspectRatio = settings.RestoreOriginalAspectRatio,
+            HdCardArtwork = settings.HdCardArtwork,
+            HdCardImageDirectory = ValidAbsolutePath(settings.HdCardImageDirectory),
             WineExecutable = wine,
             CollectionSavePath = ValidAbsolutePath(settings.CollectionSavePath),
             CardLanguage = Collections.CardLanguages.Normalize(settings.CardLanguage)

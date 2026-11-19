@@ -172,6 +172,18 @@
               </Grid>
             </Border>
             <Border Classes="panel" Padding="20">
+              <Grid x:Name="HdCardArtworkRow" ColumnDefinitions="Auto,210,*" ColumnSpacing="20">
+                <CheckBox x:Name="HdCardArtworkCheckBox" IsEnabled="False" VerticalAlignment="Center"
+                          AutomationProperties.Name="{loc:Tr Text='HD card artwork for all three games'}" Click="HdCardArtwork_Click" />
+                <TextBlock x:Name="HdCardArtworkTitle" Grid.Column="1" Text="{loc:Tr Text='HD card artwork'}" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
+                <StackPanel Grid.Column="2" Spacing="10">
+                  <TextBlock x:Name="HdCardArtworkDescription" Text="{loc:Tr Text='Show every card with high-resolution artwork: previews, hands, decks and the field. Plays in a borderless 4:3 picture; Alt+Enter switches to a resizable window. Needs the separate HD card artwork download. Applies on the next launch.'}" Classes="quiet" TextWrapping="Wrap" LineHeight="21" />
+                  <SelectableTextBlock x:Name="HdCardArtworkStatus" TextWrapping="Wrap" FontSize="12" />
+                  <Button x:Name="HdCardArtworkFolderButton" Content="{loc:Tr Text='Choose HD image folder'}" Classes="secondary" HorizontalAlignment="Left" IsEnabled="False" Click="HdCardArtworkFolder_Click" />
+                </StackPanel>
+              </Grid>
+            </Border>
+            <Border Classes="panel" Padding="20">
               <Grid x:Name="TemporaryAllCardsRow" ColumnDefinitions="Auto,210,*" ColumnSpacing="20">
                 <CheckBox x:Name="TemporaryAllCardsCheckBox" VerticalAlignment="Center" IsEnabled="False"
                           AutomationProperties.Name="{loc:Tr Text='Temporary all cards for all three games'}" Click="TemporaryAllCards_Click" />
@@ -196,13 +208,6 @@
                 <CheckBox IsEnabled="False" VerticalAlignment="Center" AutomationProperties.Name="{loc:Tr Text='New card rewards, in development'}" />
                 <TextBlock Grid.Column="1" Text="{loc:Tr Text='New card rewards'}" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
                 <TextBlock Grid.Column="2" Text="{loc:Tr Text='Award new cards in their permitted quantities. In development.'}" Classes="quiet" TextWrapping="Wrap" LineHeight="21" VerticalAlignment="Center" />
-              </Grid>
-            </Border>
-            <Border Classes="panel" Padding="20">
-              <Grid ColumnDefinitions="Auto,210,*" ColumnSpacing="20">
-                <CheckBox IsEnabled="False" VerticalAlignment="Center" AutomationProperties.Name="{loc:Tr Text='HD card artwork, in development'}" />
-                <TextBlock Grid.Column="1" Text="{loc:Tr Text='HD card artwork'}" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
-                <TextBlock Grid.Column="2" Text="{loc:Tr Text='Support higher-resolution card images. In development.'}" Classes="quiet" TextWrapping="Wrap" LineHeight="21" VerticalAlignment="Center" />
               </Grid>
             </Border>
           </StackPanel>

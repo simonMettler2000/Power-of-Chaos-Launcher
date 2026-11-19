@@ -26,6 +26,8 @@ public sealed class LauncherSettings
     public bool SkipSplashScreens { get; set; }
     public bool SkipCharacterInteractions { get; set; }
     public bool RestoreOriginalAspectRatio { get; set; }
+    public bool HdCardArtwork { get; set; }
+    public string? HdCardImageDirectory { get; set; }
     public string WineExecutable { get; set; } = "wine";
     public string? CollectionSavePath { get; set; }
     public string CardLanguage { get; set; } = "en";

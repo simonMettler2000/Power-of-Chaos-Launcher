@@ -1,15 +1,34 @@
-# HD card renderer development status
+# HD card artwork status
 
-All-card HD is still in development for Yugi the Destiny, Kaiba the Revenge and Joey the Passion. The stable launcher keeps HD Cards disabled. Some experimental builds have HD previews. The goal is to render cards at higher resolution in previews, hands, on the field, and in deck and graveyard views while preserving face-down cards and the player's aspect ratio.
+HD card artwork works in Yugi the Destiny, Kaiba the Revenge and Joey the Passion for the executable revisions listed in [mods](mods.md). Cards are drawn from the HD pictures wherever the games draw them: large previews, hand cards, field cards in both orientations, the opponent's cards, graveyard and deck backs, the card list and deck construction, at every size the games use, and while they move: dealt from the deck, sliding in the hand, flying to the field, flipping, fading, glowing, dimmed, or under a translucent effect. Whatever the games draw opaquely on top of a card stays as the games drew it.
 
-## What passed offline
+## Approach
 
-The latest private Duel diagnostics can follow completed Windows GDI text calls and, on qualifying frames, a CPU shading operation between the canvas unlock and the final copy to the display surface. The team also traced how each title chooses and clips its cursor sprite.
+Earlier work tried to recognise cards in the finished frame. That needed a reference picture, a cursor model and a transition model for every case, and each new case had to be proved offline because no game could be run.
 
-Two independent reviewers checked the exact private diagnostic build. Debug and Release each passed 560 offline cases, with 60 additional review cases in each configuration. The installed games were inspected read-only. Gameplay testing is still pending.
+The present component follows the games' own drawing instead. All three games draw every picture through one image library, and a card reaches the screen through a small set of its routines: the plain copy routine, three mixing routines, and three quad routines that draw a picture turned, scaled or squeezed. The component observes those, recognises card bitmaps by comparing them with the installation's own archive, remembers the pixels each card draw wrote, and at presentation substitutes the HD picture only on pixels that still hold them.
 
-## What remains before gameplay testing
+Motion needs no model of its own. The games animate a card by drawing it again on every frame at its next position, size or pose, so the component substitutes each frame's draw where the game put it, with the same four corners. Mixing draws are measured rather than assumed. An effect the games lay translucently over a card does not end the substitution: the component records, pixel by pixel, how much of the card still shows and what was added, and draws the HD picture the same way. See [the component notes](../tools/HdCards/README.md).
 
-- Capture the selected cursor sprite, final clip and completed pixel writes during the actual draw. A fully clipped draw and a draw that writes the same colors can leave identical pixels in the original frame. The HD renderer still needs to know which pixels the second draw covers.
-- Account for writes through the canvas pointer after unlock and carry them in order through Duel's final copy. A review case showed that a later write can reach the display without appearing in the current record.
-- Verify each title path offline before enabling a private gameplay build. Preserve ordinary rendering for frames with incomplete records to protect the cursor and other foreground pixels.
+## Verified
+
+On Windows 11 with the three supported installations. The repository owner asked for this mod to be tested by running their installed games, so this verification ran the real games from private launch copies; the project's general rule against running game executables during development is unchanged for other work, and the automated checks still run no game. Evidence is the provider's own captures of what it presents, and its diagnostics, which report every card drawn for a frame of which more than a tenth is shown from no HD picture and save what the game drew there.
+
+- **Demo duels in all three games**, about three minutes each: side-panel preview, both hands, field cards in both orientations, graveyard and deck backs. Every turned card (274 to 316 per run) and every mixed card draw (126 to 173 per run) was accepted, and every card on the dimmed copy of the duel scene (5 to 36 per run) was taken over completely. The saved pictures of the reported cards were reviewed (up to 240 per run; all field positions, and a wider sample of the rest): something opaque lay over the card (cursor, attack marker, damage number, banner text, dialog panel, character cut-in or full-screen character picture, speed lines, the rays of a starburst, the demo banner) and the card around it was shown from HD. The reports about cards no longer held on a hidden surface were looked at the same way: a character picture, or the result banner and wipe at the end of the duel, had been drawn over them there.
+- **Cards in motion**, from bursts of consecutive frames: the deal at the start of a duel (the card leaving the deck, growing and flipping into the hand), cards sliding in the hand, the preview flipping through its narrowing poses, glows and flashes on field cards, the shine on a newly summoned monster in Joey the Passion and Yugi the Destiny, the white summon flash in Kaiba the Revenge, a card flying from the hand to the field (Kaiba, Yugi) and a card being set face-down (Kaiba).
+- **Screen changes.** The dark strip that opens behind the "duel start" banner (all three games), the wipe from the starting-player screen into the duel (Kaiba, Yugi), and the way out of the card list and out of deck construction (all three games). In Kaiba the Revenge that menu wipe blacks out every other line before it fades, and in Joey the Passion the next screen replaces the old one line by line; in both, the card lines that are still on screen stay HD.
+- **A duel played by hand** in each game, one turn for each side: choosing who starts, the deal, a normal summon, ending the turn, the opponent's turn; in Joey the Passion and Kaiba the Revenge also setting a card. Same result as the demos.
+- **Card list** in all three games: large preview and all fifty thumbnails per page, including the hover highlight, its glow and the preview flip.
+- **Deck construction** in all three games: preview, the complete deck, fusion deck and the list, including the dimmed (unavailable) cards and hovering over deck and list. 52 to 54 layers for as many visible cards.
+- **Which routines draw cards.** Every drawing routine reachable from the library's dispatch tables was logged in the demo duels of all three games and in deck construction of Joey the Passion. Write breakpoints on field-card positions of the canvas (Joey, Kaiba) and read breakpoints on card bitmaps (Joey) named the code involved. Everything found is hooked, or is the game deriving its own card images, or image loading.
+- **Through the launcher.** Each game was started with Play with the mod ticked and ran from the launcher's private cache with the pinned provider.
+- Maximize/restore and Alt+Enter between the borderless 4:3 picture and a window (checked before the motion work; the presenter's window handling has not changed since).
+- Tracking costs one to two milliseconds per presented frame in a duel with the diagnostics on, a fifth of a millisecond on a still screen.
+
+## Open
+
+- A duel was played by hand for one turn each side in every game, not further. The demos and those turns do not show every card effect and animation the games have: no fusion, tribute, graveyard browsing, match duel, replay or end-of-duel screen was run by hand.
+- The routine inventory is as complete as the scenes that were run. A card drawn by some other routine in a scene nobody ran would show the game's own picture, and the diagnostics cannot report a card the tracker never saw. Opening the screens of Kaiba the Revenge and Yugi the Destiny that had not been opened before found two such cases (the menu wipe and the dimmed duel scene, both handled now), so more may exist in scenes that are still unopened.
+- An effect that scatters a picture in small fragments exists in the games' code. No card was seen drawn that way; if one is, its fragments stay as the game draws them.
+- The physical screen could not be captured on the development machine; verification used the picture handed to the display.
+- Wine is untested. Release packages do not yet include the HD component; see the component notes for building it.

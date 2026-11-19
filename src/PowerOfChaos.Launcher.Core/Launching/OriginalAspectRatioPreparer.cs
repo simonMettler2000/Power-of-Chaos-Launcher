@@ -39,14 +39,19 @@ internal sealed class OriginalAspectRatioPreparer
     private readonly string _componentDirectory;
     private readonly IReadOnlyList<DisplayComponent> _components;
     private readonly WindowsDisplayCacheLocation? _displayCache;
+    private readonly DisplayVariant _variant;
 
     internal OriginalAspectRatioPreparer(string dataDirectory, string? componentDirectory,
-        IReadOnlyList<DisplayComponent>? components, WindowsDisplayCacheLocation? displayCache = null)
+        IReadOnlyList<DisplayComponent>? components, WindowsDisplayCacheLocation? displayCache = null,
+        DisplayVariant? variant = null)
     {
+        _variant = variant ?? DisplayVariant.OriginalAspectRatio;
         _dataDirectory = dataDirectory;
-        _componentDirectory = Path.GetFullPath(componentDirectory
-            ?? Path.Combine(AppContext.BaseDirectory, "Components", OriginalAspectRatioComponents.DirectoryName));
-        _components = Array.AsReadOnly((components ?? OriginalAspectRatioComponents.Required).ToArray());
+        _componentDirectory = Path.GetFullPath(componentDirectory ?? (_variant.HdCards
+            ? HdCardArtworkComponents.DefaultDirectory
+            : Path.Combine(AppContext.BaseDirectory, "Components", OriginalAspectRatioComponents.DirectoryName)));
+        _components = Array.AsReadOnly((components ?? (_variant.HdCards
+            ? HdCardArtworkComponents.Required : OriginalAspectRatioComponents.Required)).ToArray());
         _displayCache = displayCache;
         if (_components.Count < 2 || _components.Select(item => item.FileName).Distinct(StringComparer.OrdinalIgnoreCase).Count() != _components.Count
             || !_components.Any(item => item.FileName == "ddraw.dll" && item.IsDll)
@@ -83,21 +88,42 @@ internal sealed class OriginalAspectRatioPreparer
             var source = Path.Combine(_componentDirectory, component.FileName);
             RefuseLinks(source);
             if (!File.Exists(source))
-                throw new FileNotFoundException("Restore Original Aspect Ratio needs the verified local component bundle. Run the documented component setup, or untick this mod. Missing: " + component.FileName);
-            componentBytes.Add(component.FileName, await ReadComponentAsync(source, component, cancellationToken).ConfigureAwait(false));
+                throw new FileNotFoundException(_variant.HdCards
+                    ? "HD card artwork needs its component bundle beside the launcher. Untick this mod to play without it. Missing: " + component.FileName
+                    : "Restore Original Aspect Ratio needs the verified local component bundle. Run the documented component setup, or untick this mod. Missing: " + component.FileName);
+            componentBytes.Add(component.FileName, await ReadComponentAsync(source, component, _variant.HdCards, cancellationToken).ConfigureAwait(false));
         }
         if (executable.Length != profile.Length || !SkipSplashPatch.MatchesHash(executable, profile.ModifiedHash))
             throw new InvalidDataException("The display launch executable failed verification. No game was started.");
+        // HD card artwork adds one settings file that names the user's picture folder. The pictures stay where they are.
+        var extras = new Dictionary<string, byte[]>(StringComparer.Ordinal);
+        if (_variant.HdCards)
+        {
+            var images = HdCardImages.Require(options.HdCardImageDirectory);
+            RefuseOverlap(root, images);
+            extras.Add(HdCardArtworkComponents.SettingsFileName, Encoding.UTF8.GetBytes(HdCardImages.CreateSettings(images)));
+        }
+        Func<string, string> recipe = _variant.HdCards ? CreateHdConfiguration : CreateConfiguration;
+        // Hash the complete recipe with a fixed bucket placeholder to avoid a circular directory/config hash.
+        var recipeHash = Hash(Encoding.UTF8.GetBytes(recipe(Path.Combine(root, new string('0', 32), "screenshots"))));
 
         // The full identity stays in the manifest; only the directory bucket is shortened for legacy MAX_PATH APIs.
-        var identity = JsonSerializer.Serialize(new
-        {
-            RecipeVersion, installation.GameId, OriginalPath = originalPath, profile.Length,
-            profile.OriginalHash, profile.ModifiedHash, options.SkipSplashScreens, options.SkipCharacterInteractions,
-            // Hash the complete recipe with a fixed bucket placeholder to avoid a circular directory/config hash.
-            ConfigurationRecipeSha256 = Hash(Encoding.UTF8.GetBytes(CreateConfiguration(Path.Combine(root, new string('0', 32), "screenshots")))),
-            Components = _components
-        });
+        var identity = _variant.HdCards
+            ? JsonSerializer.Serialize(new
+            {
+                _variant.RecipeVersion, installation.GameId, OriginalPath = originalPath, profile.Length,
+                profile.OriginalHash, profile.ModifiedHash, options.SkipSplashScreens, options.SkipCharacterInteractions,
+                ConfigurationRecipeSha256 = recipeHash,
+                SettingsSha256 = Hash(extras[HdCardArtworkComponents.SettingsFileName]),
+                Components = _components
+            })
+            : JsonSerializer.Serialize(new
+            {
+                RecipeVersion, installation.GameId, OriginalPath = originalPath, profile.Length,
+                profile.OriginalHash, profile.ModifiedHash, options.SkipSplashScreens, options.SkipCharacterInteractions,
+                ConfigurationRecipeSha256 = recipeHash,
+                Components = _components
+            });
         var identityHash = Hash(Encoding.UTF8.GetBytes(identity));
         var directory = Path.Combine(root, identityHash[..32]);
         var executableName = GameCatalog.Get(installation.GameId).ExecutableName;
@@ -106,7 +132,7 @@ internal sealed class OriginalAspectRatioPreparer
         // cnc-ddraw 7.1 uses ANSI MAX_PATH buffers for module-local INI lookup. Fail closed before a fallback can write in game CWD.
         if (Path.Combine(directory, "ddraw.ini").Length >= 260 || screenshots.Length + 1 >= 260)
             throw new InvalidDataException("The launcher data path is too long for Restore Original Aspect Ratio. Choose a shorter launcher data directory, or untick this mod.");
-        var configuration = Encoding.UTF8.GetBytes(CreateConfiguration(screenshots));
+        var configuration = Encoding.UTF8.GetBytes(recipe(screenshots));
         var manifest = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new
         {
             Identity = identity, IdentitySha256 = identityHash, ConfigurationSha256 = Hash(configuration)
@@ -118,7 +144,7 @@ internal sealed class OriginalAspectRatioPreparer
         RefuseLinks(lockPath);
         await using var ownership = await AcquireLockAsync(lockPath, cancellationToken).ConfigureAwait(false);
         RefuseLinks(directory);
-        if (await VerifyCacheAsync(directory, executableName, profile, configuration, manifest, cancellationToken).ConfigureAwait(false))
+        if (await VerifyCacheAsync(directory, executableName, profile, configuration, manifest, extras, cancellationToken).ConfigureAwait(false))
             return output;
 
         var staging = Path.Combine(root, ".staging-" + Guid.NewGuid().ToString("N"));
@@ -132,8 +158,10 @@ internal sealed class OriginalAspectRatioPreparer
             // Write and verify the INI before publication; a write failure must never fall through to wrapper defaults.
             await WriteAsync(Path.Combine(staging, "ddraw.ini"), configuration, cancellationToken).ConfigureAwait(false);
             await WriteAsync(Path.Combine(staging, "display-manifest.json"), manifest, cancellationToken).ConfigureAwait(false);
+            foreach (var extra in extras)
+                await WriteAsync(Path.Combine(staging, extra.Key), extra.Value, cancellationToken).ConfigureAwait(false);
             Directory.CreateDirectory(Path.Combine(staging, "screenshots"));
-            if (!await VerifyCacheAsync(staging, executableName, profile, configuration, manifest, cancellationToken).ConfigureAwait(false))
+            if (!await VerifyCacheAsync(staging, executableName, profile, configuration, manifest, extras, cancellationToken).ConfigureAwait(false))
                 throw new InvalidDataException("The private display cache failed verification. No game was started.");
             cancellationToken.ThrowIfCancellationRequested();
             RefuseLinks(root);
@@ -149,7 +177,7 @@ internal sealed class OriginalAspectRatioPreparer
                 if (retired is not null && !Directory.Exists(directory)) Directory.Move(retired, directory);
                 throw;
             }
-            if (!await VerifyCacheAsync(directory, executableName, profile, configuration, manifest, cancellationToken).ConfigureAwait(false))
+            if (!await VerifyCacheAsync(directory, executableName, profile, configuration, manifest, extras, cancellationToken).ConfigureAwait(false))
                 throw new InvalidDataException("The published display cache failed verification. No game was started.");
             return output;
         }
@@ -176,6 +204,18 @@ internal sealed class OriginalAspectRatioPreparer
             + "\nsinglecpu=false\nfixchilds=0\nvhack=false\nhook_peekmessage=false\nposX=-32000\nposY=-32000\n";
     }
 
+    /// <summary>The aspect recipe with the HD presenter: borderless 4:3 at desktop size, Alt+Enter for a window.</summary>
+    internal static string CreateHdConfiguration(string screenshotDirectory)
+    {
+        const string window = "width=800\nheight=600\nwindowed=true\nfullscreen=false\n";
+        const string renderer = "\nrenderer=auto\n";
+        var classic = CreateConfiguration(screenshotDirectory);
+        if (!classic.Contains(window, StringComparison.Ordinal) || !classic.Contains(renderer, StringComparison.Ordinal))
+            throw new InvalidDataException("The display recipe changed; the HD card artwork recipe must be reviewed with it.");
+        return classic.Replace(window, "width=1024\nheight=768\nwindowed=true\nfullscreen=true\n", StringComparison.Ordinal)
+            .Replace(renderer, "\nrenderer=hd\n", StringComparison.Ordinal);
+    }
+
     private static void RefuseNonAsciiNativePath(string path)
     {
         if (path.Any(character => character > 0x7F))
@@ -183,17 +223,24 @@ internal sealed class OriginalAspectRatioPreparer
     }
 
     private async Task<bool> VerifyCacheAsync(string directory, string executableName, SplashProfile profile,
-        byte[] configuration, byte[] manifest, CancellationToken cancellationToken)
+        byte[] configuration, byte[] manifest, IReadOnlyDictionary<string, byte[]> extras, CancellationToken cancellationToken)
     {
         if (!Directory.Exists(directory)) return false;
         RefuseLinks(directory);
         var expected = _components.Select(component => component.FileName)
-            .Concat([executableName, "ddraw.ini", "display-manifest.json", "screenshots"]).ToHashSet(StringComparer.Ordinal);
+            .Concat([executableName, "ddraw.ini", "display-manifest.json", "screenshots"]).Concat(extras.Keys)
+            .ToHashSet(StringComparer.Ordinal);
         foreach (var entry in Directory.EnumerateFileSystemEntries(directory))
         {
             RefuseLinks(entry);
-            if (!expected.Contains(Path.GetFileName(entry))) return false;
+            var name = Path.GetFileName(entry);
+            // The HD provider leaves one small diagnostic log beside itself.
+            if (_variant.HdCards && name == HdCardArtworkComponents.LogFileName && File.Exists(entry)) continue;
+            if (!expected.Contains(name)) return false;
         }
+        foreach (var extra in extras)
+            if (!await MatchesFileAsync(Path.Combine(directory, extra.Key), extra.Value.Length, Hash(extra.Value), cancellationToken).ConfigureAwait(false))
+                return false;
         var screenshots = Path.Combine(directory, "screenshots");
         if (!Directory.Exists(screenshots)) return false;
         RefuseLinks(screenshots);
@@ -209,11 +256,14 @@ internal sealed class OriginalAspectRatioPreparer
         return true;
     }
 
-    private static async Task<byte[]> ReadComponentAsync(string path, DisplayComponent component, CancellationToken cancellationToken)
+    private static async Task<byte[]> ReadComponentAsync(string path, DisplayComponent component, bool hdCards,
+        CancellationToken cancellationToken)
     {
         var bytes = await ReadExactAsync(path, component.Length, cancellationToken).ConfigureAwait(false);
         if (!SkipSplashPatch.MatchesHash(bytes, component.Sha256))
-            throw new InvalidDataException("The original aspect ratio component is damaged or the wrong version: " + component.FileName + ". Run the documented component setup again, or untick this mod.");
+            throw new InvalidDataException(hdCards
+                ? "The HD card artwork component is damaged or the wrong version: " + component.FileName + ". Restore the launcher's Components folder, or untick this mod."
+                : "The original aspect ratio component is damaged or the wrong version: " + component.FileName + ". Run the documented component setup again, or untick this mod.");
         if (component.IsDll) ValidateDll(bytes);
         return bytes;
     }

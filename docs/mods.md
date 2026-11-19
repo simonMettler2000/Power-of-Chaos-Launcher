@@ -64,3 +64,15 @@ The wrapper's game-logic limiter is disabled. The game's native timing fields an
 Turning this mod off selects the original or binary-only cache path. The launcher refuses an aspect-off executable directory containing either display proxy DLL, so a stale display cache cannot silently keep the component active. Unsupported executable versions, missing components and invalid caches fail before starting a process.
 
 See [display setup](display.md) for component provenance, local prerequisites, tests and platform limits. A passing synthetic host proves only the exercised DirectDraw calls; it does not prove every game scene, physical device, graphics driver or Wine runner.
+
+## HD card artwork
+
+This global switch draws cards from high-resolution pictures in the card list, deck construction and duels: large previews, hand cards, field cards, graveyard and card backs, at every size the game uses and also while a card moves: dealt from the deck, flying to the field, flipping, fading, glowing, dimmed, or under a translucent effect such as the shine on a newly summoned monster. It uses the same supported executable hashes as the other mods. Tick it before pressing Play; it applies on the next launch.
+
+The pictures are a separate download. Get `Power-of-Chaos-HD-Card-Artwork-v1.zip` from the Releases page, extract it completely, then use **Choose HD image folder** in the HD card artwork row and select the extracted folder or its `images` folder. Keep the file names. The folder stays where it is; the launcher only records its location. The switch cannot be ticked before a folder with pictures is chosen.
+
+The game plays in a borderless 4:3 picture at desktop size with black bars as needed. Alt+Enter switches to a resizable 4:3 window and back. Game speed, saves and installed files are unchanged. HD card artwork brings its own build of the display component, so the picture is the same with or without Original aspect ratio; when both are ticked the HD component is used. It combines with Skip Splash Screens and Skip character interactions.
+
+Only the card itself is replaced. Whatever the game draws opaquely over a card (cursor, text, counters, damage numbers, dialog panels, opaque effect sprites) stays exactly as the game drew it. A highlighted, dimmed or half-faded card keeps that look on its HD picture, and a translucent effect over a card is drawn over the HD picture the way the game mixed it. Cards without an HD picture, and any single draw the component cannot identify or explain with certainty, keep the game's own picture rather than a guess.
+
+The component needs Direct3D 11. Without it the game still runs with its normal picture. The component bundle `Components/hd-card-artwork-v2` must be beside the launcher; the row says so when it is missing. See [the component notes](../tools/HdCards/README.md) for how it works and how to build it, and [HD card artwork status](hd-renderer-status.md) for what has been verified.

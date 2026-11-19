@@ -76,13 +76,21 @@ Keep the backup directory: `%LOCALAPPDATA%/PowerOfChaosLauncher/temporary-collec
 
 This feature requires Windows, a supported card table and an existing shared save that the launcher can identify and write. Choosing a different save just for Collection browsing does not change the mod's write target. [Backup and recovery details](docs/temporary-collection.md).
 
+### HD card artwork
+
+**Draws cards from high-resolution pictures in the card list, deck construction and duels.**
+
+1. Download the [HD card artwork pack](https://github.com/simonMettler2000/Power-of-Chaos-Launcher/releases/tag/hd-card-artwork-v1) and extract it completely.
+2. In Mods, select **Choose HD image folder** and pick the extracted folder.
+3. Tick **HD card artwork** and press Play.
+
+The game plays in a borderless 4:3 picture; Alt+Enter switches to a resizable window. Cards are in HD at every size and also while they move: dealt from the deck, flying to the field, flipping, fading, dimmed, or under a translucent effect. Cursor, text, numbers and panels drawn over a card stay as the game drew them.
+
+The published download does not include the HD component yet. Until a release does, build it as described in the [component notes](tools/HdCards/README.md) and copy it beside the launcher. [Mod details](docs/mods.md#hd-card-artwork) · [What has been verified](docs/hd-renderer-status.md)
+
 ## Features still in development
 
-**HD Cards, opponent-deck packs and guaranteed-new rewards are disabled in the stable launcher.** Local development builds can differ from the public download.
-
-A separate [HD card artwork pack](https://github.com/simonMettler2000/Power-of-Chaos-Launcher/releases/tag/hd-card-artwork-v1) is available for compatible experimental builds. Artwork alone does not enable HD rendering. Full HD coverage for cards in hand, on the field, in deck/graveyard views and during animations is not a released feature.
-
-See the [HD renderer development status](docs/hd-renderer-status.md) for the latest offline results and the work remaining before gameplay testing.
+**Opponent-deck packs and guaranteed-new rewards are disabled.** Local development builds can differ from the public download.
 
 Future built-in mods will arrive through launcher updates. [Release and extension workflow](docs/releases.md).
 

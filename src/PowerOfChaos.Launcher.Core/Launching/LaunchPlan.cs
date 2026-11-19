@@ -23,7 +23,8 @@ public static class LaunchPlan
         if (!File.Exists(preparedExecutable)
             || !string.Equals(Path.GetFileName(preparedExecutable), definition.ExecutableName, StringComparison.OrdinalIgnoreCase))
             throw new FileNotFoundException("The prepared game executable is missing or invalid.");
-        if (!settings.RestoreOriginalAspectRatio && Directory.EnumerateFiles(Path.GetDirectoryName(preparedExecutable)!)
+        var displayComponent = settings.RestoreOriginalAspectRatio || settings.HdCardArtwork;
+        if (!displayComponent && Directory.EnumerateFiles(Path.GetDirectoryName(preparedExecutable)!)
             .Any(path => Path.GetFileName(path).Equals("ddraw.dll", StringComparison.OrdinalIgnoreCase)
                 || Path.GetFileName(path).Equals("winmm.dll", StringComparison.OrdinalIgnoreCase)))
             throw new InvalidDataException("The selected launch directory contains display proxy DLLs. Choose the original installation, or enable Restore Original Aspect Ratio.");
@@ -37,7 +38,7 @@ public static class LaunchPlan
             result.Environment.Clear();
             foreach (var entry in inheritedEnvironment) result.Environment[entry.Key] = entry.Value;
         }
-        if (settings.RestoreOriginalAspectRatio) ConfigureDisplayEnvironment(result, windows);
+        if (displayComponent) ConfigureDisplayEnvironment(result, windows);
         if (windows)
             result.FileName = preparedExecutable;
         else

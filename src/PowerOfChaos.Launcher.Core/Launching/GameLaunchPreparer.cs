@@ -15,6 +15,7 @@ public sealed class GameLaunchPreparer : IGameLaunchPreparer
     private readonly string _dataDirectory;
     private readonly IReadOnlyList<SplashProfile> _profiles;
     private readonly OriginalAspectRatioPreparer _displayPreparer;
+    private readonly OriginalAspectRatioPreparer _hdCardPreparer;
     private static readonly SemaphoreSlim CacheGate = new(1, 1);
     private static readonly StringComparison PathComparison = OperatingSystem.IsWindows()
         ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
@@ -23,11 +24,14 @@ public sealed class GameLaunchPreparer : IGameLaunchPreparer
         : this(dataDirectory, GameModProfiles.Profiles, componentDirectory) { }
     internal GameLaunchPreparer(string? dataDirectory, IReadOnlyList<SplashProfile> profiles,
         string? componentDirectory = null, IReadOnlyList<DisplayComponent>? components = null,
-        WindowsDisplayCacheLocation? displayCache = null)
+        WindowsDisplayCacheLocation? displayCache = null, string? hdComponentDirectory = null,
+        IReadOnlyList<DisplayComponent>? hdComponents = null)
     {
         _dataDirectory = Path.GetFullPath(dataDirectory ?? LauncherPaths.DataDirectory);
         _profiles = profiles;
         _displayPreparer = new OriginalAspectRatioPreparer(_dataDirectory, componentDirectory, components, displayCache);
+        _hdCardPreparer = new OriginalAspectRatioPreparer(_dataDirectory, hdComponentDirectory, hdComponents, displayCache,
+            DisplayVariant.HdCardArtwork);
     }
 
     public Task<string> PrepareExecutableAsync(GameInstallation installation, bool skipSplashScreens,
@@ -60,6 +64,10 @@ public sealed class GameLaunchPreparer : IGameLaunchPreparer
             var original = await ReadBoundedAsync(originalPath, profile.Length, cancellationToken).ConfigureAwait(false);
             var modified = SkipSplashPatch.Apply(original, profile);
             cancellationToken.ThrowIfCancellationRequested();
+            // HD card artwork carries its own provider build, which also keeps the 4:3 picture.
+            if (options.HdCardArtwork)
+                return await _hdCardPreparer.PrepareAsync(installation, options, profile, modified, cancellationToken)
+                    .ConfigureAwait(false);
             if (options.RestoreOriginalAspectRatio)
                 return await _displayPreparer.PrepareAsync(installation, options, profile, modified, cancellationToken)
                     .ConfigureAwait(false);

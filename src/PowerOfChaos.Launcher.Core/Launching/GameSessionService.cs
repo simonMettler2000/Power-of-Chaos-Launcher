@@ -92,7 +92,8 @@ public sealed class GameSessionService : IAsyncDisposable
     {
         // Capture before the first await, including when another launch owns the gate.
         var options = new GameModOptions(settings.SkipSplashScreens, settings.SkipCharacterInteractions,
-            settings.RestoreOriginalAspectRatio);
+            settings.RestoreOriginalAspectRatio, settings.HdCardArtwork,
+            settings.HdCardArtwork ? settings.HdCardImageDirectory : null);
         var installations = new[] { installation }.Concat(settings.Installations)
             .DistinctBy(game => game.GameId).ToArray();
         var launchSettings = new LauncherSettings
@@ -100,6 +101,8 @@ public sealed class GameSessionService : IAsyncDisposable
             SkipSplashScreens = options.SkipSplashScreens,
             SkipCharacterInteractions = options.SkipCharacterInteractions,
             RestoreOriginalAspectRatio = options.RestoreOriginalAspectRatio,
+            HdCardArtwork = options.HdCardArtwork,
+            HdCardImageDirectory = options.HdCardImageDirectory,
             WineExecutable = settings.WineExecutable,
             MinimizeOnLaunch = settings.MinimizeOnLaunch
         };

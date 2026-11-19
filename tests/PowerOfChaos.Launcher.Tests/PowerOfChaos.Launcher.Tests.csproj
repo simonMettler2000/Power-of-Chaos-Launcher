@@ -4,5 +4,6 @@
   <ItemGroup><Compile Include="../Shared/CollectionFixtures.cs" Link="CollectionFixtures.cs" /></ItemGroup>
   <ItemGroup>
     <None Include="../../tools/DisplayComponent/component-pins.json" Link="component-pins.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../tools/HdCards/component-pins.json" Link="hd-component-pins.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

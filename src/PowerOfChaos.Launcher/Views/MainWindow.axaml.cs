@@ -436,6 +436,14 @@ public partial class MainWindow : Window
         SkipCharacterInteractionsCheckBox.IsEnabled = SkipSplashScreensCheckBox.IsEnabled;
         OriginalAspectRatioCheckBox.IsChecked = _settings.RestoreOriginalAspectRatio;
         OriginalAspectRatioCheckBox.IsEnabled = SkipSplashScreensCheckBox.IsEnabled;
+        var hdComponent = HdCardArtworkSupport.ComponentPresent();
+        var hdImages = HdCardImages.Locate(_settings.HdCardImageDirectory);
+        HdCardArtworkCheckBox.IsChecked = _settings.HdCardArtwork;
+        HdCardArtworkCheckBox.IsEnabled = SkipSplashScreensCheckBox.IsEnabled && hdComponent;
+        HdCardArtworkFolderButton.IsEnabled = SkipSplashScreensCheckBox.IsEnabled;
+        HdCardArtworkStatus.Text = !hdComponent ? Texts.Translate("The HD component is not installed beside this launcher.")
+            : hdImages is not null ? Texts.Format("Image folder: {0}", hdImages)
+            : Texts.Translate("No image folder chosen yet. Download the HD card artwork from the launcher's Releases page, extract it and choose its images folder.");
         _renderingCardLanguage = true;
         try { CardLanguageSelector.SelectedItem = CardLanguages.Get(_settings.CardLanguage); }
         finally { _renderingCardLanguage = false; }
@@ -547,7 +555,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private enum ModSelection { SkipSplashScreens, SkipCharacterInteractions, OriginalAspectRatio }
+    private enum ModSelection { SkipSplashScreens, SkipCharacterInteractions, OriginalAspectRatio, HdCardArtwork }
 
     private async void SkipSplashScreens_Click(object? sender, RoutedEventArgs e) => await SaveModSelectionAsync(ModSelection.SkipSplashScreens);
 
@@ -555,11 +563,57 @@ public partial class MainWindow : Window
 
     private async void OriginalAspectRatio_Click(object? sender, RoutedEventArgs e) => await SaveModSelectionAsync(ModSelection.OriginalAspectRatio);
 
+    private async void HdCardArtwork_Click(object? sender, RoutedEventArgs e) => await SaveModSelectionAsync(ModSelection.HdCardArtwork);
+
+    private async void HdCardArtworkFolder_Click(object? sender, RoutedEventArgs e)
+    {
+        if (!_settingsReady || _savingMod || _pendingLaunch || _busy || _closed) return;
+        try
+        {
+            if (!StorageProvider.CanPickFolder) { Notice("The folder picker is not available on this system."); return; }
+            var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+            {
+                Title = Texts.Translate("Choose the HD card image folder"), AllowMultiple = false
+            });
+            if (_closed || folders.Count == 0 || folders[0].TryGetLocalPath() is not { } chosen) return;
+            if (_savingMod || _pendingLaunch || _busy) return;
+            var located = HdCardImages.Locate(chosen);
+            if (located is null)
+            {
+                Notice("That folder has no HD card pictures. Choose the images folder from the extracted HD card artwork download.");
+                return;
+            }
+            var previous = _settings.HdCardImageDirectory;
+            _settings.HdCardImageDirectory = located;
+            _savingMod = true;
+            RefreshModControls();
+            try
+            {
+                if (await SaveSettingsAsync()) NoticeFormat("HD card image folder saved: {0} pictures found.", HdCardImages.Count(located));
+                else _settings.HdCardImageDirectory = previous;
+            }
+            finally
+            {
+                _savingMod = false;
+                if (!_closed)
+                {
+                    RefreshModControls();
+                    if (_closeWhenIdle && !_sessions.AnyRunning && !_pendingLaunch) Close();
+                }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            if (!_closed) Notice("The folder picker could not open.");
+        }
+    }
+
     private bool GetModSelection(ModSelection mod) => mod switch
     {
         ModSelection.SkipSplashScreens => _settings.SkipSplashScreens,
         ModSelection.SkipCharacterInteractions => _settings.SkipCharacterInteractions,
         ModSelection.OriginalAspectRatio => _settings.RestoreOriginalAspectRatio,
+        ModSelection.HdCardArtwork => _settings.HdCardArtwork,
         _ => throw new ArgumentOutOfRangeException(nameof(mod))
     };
 
@@ -570,6 +624,7 @@ public partial class MainWindow : Window
             case ModSelection.SkipSplashScreens: _settings.SkipSplashScreens = selected; break;
             case ModSelection.SkipCharacterInteractions: _settings.SkipCharacterInteractions = selected; break;
             case ModSelection.OriginalAspectRatio: _settings.RestoreOriginalAspectRatio = selected; break;
+            case ModSelection.HdCardArtwork: _settings.HdCardArtwork = selected; break;
             default: throw new ArgumentOutOfRangeException(nameof(mod));
         }
     }
@@ -586,10 +641,17 @@ public partial class MainWindow : Window
             ModSelection.SkipSplashScreens => (SkipSplashScreensCheckBox, "Skip Splash Screens"),
             ModSelection.SkipCharacterInteractions => (SkipCharacterInteractionsCheckBox, "Skip character interactions"),
             ModSelection.OriginalAspectRatio => (OriginalAspectRatioCheckBox, "Original aspect ratio"),
+            ModSelection.HdCardArtwork => (HdCardArtworkCheckBox, "HD card artwork"),
             _ => throw new ArgumentOutOfRangeException(nameof(mod))
         };
         var previous = GetModSelection(mod);
         var selected = checkbox.IsChecked == true;
+        if (mod == ModSelection.HdCardArtwork && selected && HdCardImages.Locate(_settings.HdCardImageDirectory) is null)
+        {
+            RefreshModControls();
+            Notice("Choose the HD card image folder first.");
+            return;
+        }
         SetModSelection(mod, selected);
         _savingMod = true;
         RefreshModControls();
