@@ -81,7 +81,7 @@ This feature requires Windows, a supported card table and an existing shared sav
 
 **Draws cards from high-resolution pictures in the card list, deck construction and duels.**
 
-1. Download the [HD card artwork pack](https://github.com/simonMettler2000/Power-of-Chaos-Launcher/releases/tag/hd-card-artwork-v1) and extract it completely.
+1. Download the [HD card artwork pack v2](https://github.com/simonMettler2000/Power-of-Chaos-Launcher/releases/tag/hd-card-artwork-v2) and extract it completely.
 2. In Mods, select **Choose HD image folder** and pick the extracted folder.
 3. Tick **HD card artwork** and press Play.
 
