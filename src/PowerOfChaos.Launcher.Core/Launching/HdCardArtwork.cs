@@ -31,7 +31,7 @@ internal static class HdCardArtworkComponents
 /// <summary>Read-only facts the interface needs about the HD card artwork mod.</summary>
 public static class HdCardArtworkSupport
 {
-    public const string ArtworkDownloadName = "Power-of-Chaos-HD-Card-Artwork-v2.zip";
+    public const string ArtworkDownloadName = "Power-of-Chaos-HD-Card-Artwork-v3.zip";
 
     /// <summary>True when every file of the HD component bundle is present. Contents are verified on Play.</summary>
     public static bool ComponentPresent(string? componentDirectory = null)
