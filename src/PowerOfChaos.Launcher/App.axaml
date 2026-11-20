@@ -89,6 +89,18 @@
     <Style Selector="Button.navigation.active:pointerover /template/ ContentPresenter">
       <Setter Property="Background" Value="#2B2B2B" />
     </Style>
+    <Style Selector="Button.copyPath">
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Left" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Foreground" Value="{StaticResource QuietBrush}" />
+      <Setter Property="Padding" Value="0,3" />
+      <Setter Property="MinHeight" Value="0" />
+    </Style>
+    <Style Selector="Button.copyPath:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#232323" />
+    </Style>
     <Style Selector="TextBox">
       <Setter Property="CornerRadius" Value="4" />
       <Setter Property="Padding" Value="11,9" />

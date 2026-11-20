@@ -81,11 +81,9 @@ internal static class TemporaryCollectionUiChecks
                 var expectedStatus = LauncherText.Current.Translate(OperatingSystem.IsWindows()
                     ? OffMessage : "Temporary all cards is available on Windows only.");
                 Require(Find<SelectableTextBlock>(window, "TemporaryCollectionStatus").Text == expectedStatus, "Initial mod status is incorrect.");
-                var backups = Find<SelectableTextBlock>(window, "TemporaryCollectionBackups");
-                Require(backups.Text == LauncherText.Current.Format("Backups: {0}", vault), "The private backup location is missing or points outside the fixture.");
-                backups.SelectAll();
-                Require(backups.SelectedText == backups.Text, "Backup path cannot be selected in full.");
-                backups.ClearSelection();
+                var backups = Find<CopyPathButton>(window, "TemporaryCollectionBackups");
+                Require(backups.FilePath == vault && backups.Content?.ToString() == LauncherText.Current.Format("Backups: {0}", vault),
+                    "The private backup location is missing or points outside the fixture.");
                 Require(!Find<Button>(window, "RestoreCollectionButton").IsVisible, "Restore recovery action appears before activation.");
                 Require(File.ReadAllBytes(shared).AsSpan().SequenceEqual(original), "Opening the launcher changed the game save.");
                 Require(File.ReadAllBytes(settingsPath).AsSpan().SequenceEqual(settingsOriginal), "Opening the mod changed launcher preferences.");
@@ -187,7 +185,7 @@ internal static class TemporaryCollectionUiChecks
                     var status = Find<SelectableTextBlock>(window, "TemporaryCollectionStatus");
                     Require(status.Text == text.Translate(OnMessage), "Active mod status remained in the previous language.");
                     Require(language == "en" || status.Text != OnMessage, "The active status has no translation in " + language + ".");
-                    Require(Find<SelectableTextBlock>(window, "TemporaryCollectionBackups").Text == text.Format("Backups: {0}", vault),
+                    Require(Find<CopyPathButton>(window, "TemporaryCollectionBackups").Content?.ToString() == text.Format("Backups: {0}", vault),
                         "Backup label did not translate, or its private path was translated.");
                     window.Width = 880; window.Height = 600;
                     row.BringIntoView();

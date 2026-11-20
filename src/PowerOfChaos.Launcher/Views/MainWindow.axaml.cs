@@ -156,6 +156,7 @@ public partial class MainWindow : Window
         _portraitResizeCancellation.Dispose();
         _portraitResizeCancellation = new CancellationTokenSource();
         _portraitSources.Clear();
+        var selectedGameId = (GameCards.SelectedItem as GameCardViewModel)?.Installation.GameId;
         var retired = _cards.ToArray();
         _cards.Clear();
         foreach (var card in retired) card.Dispose();
@@ -169,6 +170,8 @@ public partial class MainWindow : Window
                 _cards.Add(card);
             }
         }
+        GameCards.SelectedItem = _cards.FirstOrDefault(card => card.Installation.GameId == selectedGameId)
+            ?? _cards.FirstOrDefault();
         LibraryEmpty.IsVisible = _cards.Count == 0;
         InstalledLibrary.IsVisible = _cards.Count > 0;
         GameCount.Text = Texts.Format("{0} of 3 games installed", _cards.Count);
@@ -216,8 +219,8 @@ public partial class MainWindow : Window
     {
         // Prepare the actual display-pixel footprint off the UI thread, including fractional monitor scaling.
         var scale = double.IsFinite(RenderScaling) && RenderScaling > 0 ? Math.Min(RenderScaling, 8) : 1;
-        var width = (int)Math.Ceiling(112 * scale);
-        var height = (int)Math.Ceiling(104 * scale);
+        var width = (int)Math.Ceiling(280 * scale);
+        var height = (int)Math.Ceiling(209 * scale);
         try
         {
             var thumbnail = await Task.Run(() => PortraitThumbnail.Create(pixels, width, height, cancellationToken),
@@ -250,7 +253,7 @@ public partial class MainWindow : Window
         {
             var remove = new Button { Classes = { "secondary" }, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right };
             remove.Bind(ContentControl.ContentProperty, new Binding("Value") { Source = Texts.Entry("Remove") });
-            var path = new TextBlock { Text = root, TextWrapping = Avalonia.Media.TextWrapping.Wrap, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center };
+            var path = new CopyPathButton { FilePath = root, Content = root, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center };
             var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 16 };
             Grid.SetColumn(remove, 1);
             grid.Children.Add(path); grid.Children.Add(remove);
@@ -441,9 +444,12 @@ public partial class MainWindow : Window
         HdCardArtworkCheckBox.IsChecked = _settings.HdCardArtwork;
         HdCardArtworkCheckBox.IsEnabled = SkipSplashScreensCheckBox.IsEnabled && hdComponent;
         HdCardArtworkFolderButton.IsEnabled = SkipSplashScreensCheckBox.IsEnabled;
+        HdCardArtworkStatus.IsVisible = !hdComponent || hdImages is null;
         HdCardArtworkStatus.Text = !hdComponent ? Texts.Translate("The HD component is not installed beside this launcher.")
-            : hdImages is not null ? Texts.Format("Image folder: {0}", hdImages)
             : Texts.Translate("No image folder chosen yet. Download the HD card artwork from the launcher's Releases page, extract it and choose its images folder.");
+        HdCardArtworkPath.FilePath = hdImages;
+        HdCardArtworkPath.IsVisible = hdImages is not null;
+        RefreshHdArtworkPathLabel();
         _renderingCardLanguage = true;
         try { CardLanguageSelector.SelectedItem = CardLanguages.Get(_settings.CardLanguage); }
         finally { _renderingCardLanguage = false; }
@@ -480,8 +486,12 @@ public partial class MainWindow : Window
     {
         TemporaryCollectionStatus.Text = Texts.Translate(OperatingSystem.IsWindows()
             ? _temporaryState.Message : "Temporary all cards is available on Windows only.");
-        TemporaryCollectionBackups.Text = Texts.Format("Backups: {0}", _temporaryCollections.VaultDirectory);
+        TemporaryCollectionBackups.FilePath = _temporaryCollections.VaultDirectory;
+        TemporaryCollectionBackups.Content = Texts.Format("Backups: {0}", _temporaryCollections.VaultDirectory);
     }
+
+    private void RefreshHdArtworkPathLabel()
+        => HdCardArtworkPath.Content = HdCardArtworkPath.FilePath is { } path ? Texts.Format("Image folder: {0}", path) : null;
 
     private async void TemporaryAllCards_Click(object? sender, RoutedEventArgs e)
         => await ChangeTemporaryCollectionAsync(TemporaryAllCardsCheckBox.IsChecked == true);
@@ -745,8 +755,9 @@ public partial class MainWindow : Window
         }
         SetCopyCaption(_copyCaption);
         RenderTemporaryCollectionStatus();
+        RefreshHdArtworkPathLabel();
         CollectionStatus.Text = Texts.Translate(_collectionStatusEnglish);
-        CollectionSaveSource.Text = _collectionSaveName ?? Texts.Translate("Automatic location");
+        CollectionSaveSource.Content = _collectionSaveName ?? Texts.Translate("Automatic location");
         RenderLocations();
     }
 
@@ -754,18 +765,8 @@ public partial class MainWindow : Window
     {
         var message = StatusText.Text;
         if (_closed || string.IsNullOrEmpty(message)) return;
-        try
-        {
-            if (Clipboard is not { } clipboard) { SetCopyCaption("Select text"); return; }
-            await clipboard.SetTextAsync(message);
-            if (!_closed && StatusText.Text == message) SetCopyCaption("Copied");
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
-            or InvalidOperationException or NotSupportedException or System.Runtime.InteropServices.ExternalException)
-        {
-            // Keep the diagnostic available even when another application owns the clipboard.
-            if (!_closed && StatusText.Text == message) SetCopyCaption("Select text");
-        }
+        var copied = await ClipboardText.TryCopyAsync(this, message);
+        if (!_closed && StatusText.Text == message) SetCopyCaption(copied ? "Copied" : "Select text");
     }
     private void Library_Click(object? sender, RoutedEventArgs e) => ShowPage("library");
     private async void Mods_Click(object? sender, RoutedEventArgs e)
@@ -810,8 +811,8 @@ public partial class MainWindow : Window
             UniqueCollectionProgress.Value = snapshot.UniqueCards ?? 0;
             SetCollectionStatus(snapshot.Message);
             _collectionSaveName = snapshot.SavePath is null ? null : Path.GetFileName(snapshot.SavePath);
-            CollectionSaveSource.Text = _collectionSaveName ?? Texts.Translate("Automatic location");
-            CollectionSaveSource.SetValue(ToolTip.TipProperty, snapshot.SavePath);
+            CollectionSaveSource.FilePath = snapshot.SavePath;
+            CollectionSaveSource.Content = _collectionSaveName ?? Texts.Translate("Automatic location");
             foreach (var card in _cards)
                 card.SetCollection(snapshot.Games.Single(p => p.GameId == card.Installation.GameId));
         }

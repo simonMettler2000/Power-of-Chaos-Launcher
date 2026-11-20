@@ -215,6 +215,34 @@ internal static class Program
             });
             Capture(window, "three-games.png");
 
+            Check("selecting a game updates its portrait, path and Play target without launching", () =>
+            {
+                var picker = Find<ListBox>(window, "GameCards");
+                var games = picker.Items.OfType<GameCardViewModel>().ToArray();
+                Require(ReferenceEquals(picker.SelectedItem, games[0]), "The first installed game was not selected by default.");
+                foreach (var index in new[] { 1, 2, 0 })
+                {
+                    ClickInput(window, (Control)picker.ContainerFromIndex(index)!);
+                    var game = games[index];
+                    var detail = Find<ContentControl>(window, "SelectedGame");
+                    Require(ReferenceEquals(detail.Content, game), "The selected game did not reach the detail pane.");
+                    Require(detail.GetVisualDescendants().OfType<Image>().Single().Source == game.Portrait,
+                        "The detail did not use the selected portrait.");
+                    var play = detail.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "SelectedGamePlayButton");
+                    Require(ReferenceEquals(play.Tag, game.Installation),
+                        "Play did not target the selected installation.");
+                    RequireCopiedPath(window, detail.GetVisualDescendants().OfType<CopyPathButton>().Single(), game.Folder);
+                }
+            });
+            Check("game locations copy the exact registered root", () =>
+            {
+                Find<Button>(window, "LocationsNav").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Pump(TimeSpan.FromMilliseconds(80));
+                var location = Find<StackPanel>(window, "LocationRows").GetVisualDescendants().OfType<CopyPathButton>().Single();
+                RequireCopiedPath(window, location, parent, viaMenu: true);
+                Find<Button>(window, "LibraryNav").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            });
+
             dialog = OpenAddPath(window, flyout);
             Check("invalid addition preserves all three existing games", () =>
             {
@@ -257,6 +285,7 @@ internal static class Program
                 Require(Find<TextBlock>(window, "CollectionStatus").Text!.Contains("Duplicate cards count once", StringComparison.Ordinal), "Shared counting is unexplained.");
                 using var settings = JsonDocument.Parse(File.ReadAllText(Path.Combine(data, "launcher-settings.json")));
                 Require(settings.RootElement.GetProperty("CollectionSavePath").GetString() == collectionSave, "Selected save path did not persist.");
+                RequireCopiedPath(window, Find<CopyPathButton>(window, "CollectionSaveSource"), collectionSave);
             });
             Capture(window, "collection.png");
             CheckNativeGalleries(window, "synthetic");
@@ -269,8 +298,9 @@ internal static class Program
                 Require(cards.Select(card => card.CollectionCount).SequenceEqual(new[] { "3/155", "5/466", "7/771" }), "Games and Collection counts disagree.");
                 window.Width = 880; window.Height = 600;
                 Pump(TimeSpan.FromMilliseconds(150));
-                foreach (var button in Find<ItemsControl>(window, "GameCards").GetVisualDescendants().OfType<Button>())
-                    Require(button.Bounds.Width >= 90, "Play button was squeezed by the card counter.");
+                var play = Find<ContentControl>(window, "SelectedGame").GetVisualDescendants().OfType<Button>()
+                    .Single(button => button.Name == "SelectedGamePlayButton");
+                Require(play.Bounds.Width >= 90, "Play button was squeezed by the card counter.");
             });
             Capture(window, "games-collection-minimum.png");
             window.Width = 1100; window.Height = 720;
@@ -381,6 +411,31 @@ internal static class Program
                 Pump(TimeSpan.FromMilliseconds(80));
             });
             Capture(window, "mods.png");
+            Check("Mods copies the raw backup and HD image paths through both gestures", () =>
+            {
+                var backups = Find<CopyPathButton>(window, "TemporaryCollectionBackups");
+                RequireCopiedPath(window, backups, Path.Combine(data, "temporary-profiles"));
+                RequireCopiedPath(window, backups, Path.Combine(data, "temporary-profiles"), viaMenu: true);
+                var imageFolder = Path.Combine(runRoot, "demo images");
+                Directory.CreateDirectory(imageFolder);
+                File.WriteAllBytes(Path.Combine(imageFolder, "0001 synthetic.png"), []);
+                var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                var launcherSettings = (LauncherSettings)typeof(MainWindow).GetField("_settings", flags)!.GetValue(window)!;
+                var refresh = typeof(MainWindow).GetMethod("RefreshModControls", flags)!;
+                launcherSettings.HdCardImageDirectory = imageFolder;
+                try
+                {
+                    refresh.Invoke(window, null);
+                    RequireCopiedPath(window, Find<CopyPathButton>(window, "HdCardArtworkPath"), imageFolder);
+                }
+                finally
+                {
+                    launcherSettings.HdCardImageDirectory = null;
+                    refresh.Invoke(window, null);
+                    Find<Grid>(window, "SkipSplashScreensRow").BringIntoView();
+                    Pump(TimeSpan.FromMilliseconds(80));
+                }
+            });
             Check("saving a mod disables every choice and Play until persistence finishes", () =>
             {
                 // Hold the real settings store's gate so the asynchronous save stays pending deterministically.
@@ -569,12 +624,9 @@ internal static class Program
                         .OfType<GameCardViewModel>().All(c => c.Folder.StartsWith(installedRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)),
                         "Installed game locations were not discovered.");
                     WaitUntil(() => PortraitCount(window) == 3, "Installed character portraits did not load.");
-                    var expected = new Dictionary<string, PixelSize>
-                    {
-                        ["yugi"] = new(110, 104), ["kaiba"] = new(112, 85), ["joey"] = new(112, 100)
-                    };
                     foreach (var card in Find<ItemsControl>(window, "GameCards").Items.OfType<GameCardViewModel>())
-                        Require(card.Portrait?.PixelSize == expected[card.Installation.GameId], "Installed portrait thumbnail does not fit its display-pixel footprint.");
+                        Require(card.Portrait?.PixelSize is { Width: > 112 and <= 280, Height: > 104 and <= 209 },
+                            "Installed portrait was not prepared for the larger detail view.");
                 });
                 Capture(window, "installed-portraits.png");
                 Find<Button>(window, "CollectionNav").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
@@ -898,12 +950,35 @@ internal static class Program
         button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
     }
 
-    private static void ClickInput(Window window, Control control)
+    private static void RequireCopiedPath(Window window, CopyPathButton button, string expected, bool viaMenu = false)
+    {
+        var clipboard = window.Clipboard ?? throw new InvalidOperationException("Headless clipboard is unavailable.");
+        Require(button.FilePath == expected && button.IsVisible && button.IsEnabled, "The path is missing or disabled.");
+        button.BringIntoView();
+        Pump(TimeSpan.FromMilliseconds(80));
+        clipboard.SetTextAsync("previous clipboard").GetAwaiter().GetResult();
+        ClickInput(window, button, viaMenu ? MouseButton.Right : MouseButton.Left);
+        if (viaMenu)
+        {
+            var menu = button.ContextMenu!;
+            WaitUntil(() => menu.IsOpen, "Right-click did not open the path menu.");
+            Require(clipboard.TryGetTextAsync().GetAwaiter().GetResult() == "previous clipboard", "Opening the path menu copied before an action was selected.");
+            var copy = menu.Items.OfType<MenuItem>().Single();
+            Require(copy.Header?.ToString() == LauncherText.Current.Translate("Copy path"), "The path menu has no translated copy action.");
+            copy.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+            menu.Close();
+        }
+        var copied = clipboard.TryGetTextAsync();
+        WaitUntil(() => copied.IsCompleted, "Path copy did not complete.");
+        Require(copied.GetAwaiter().GetResult() == expected, "The clipboard did not contain the complete raw path.");
+    }
+
+    private static void ClickInput(Window window, Control control, MouseButton button = MouseButton.Left)
     {
         var point = control.TranslatePoint(new Point(control.Bounds.Width / 2, control.Bounds.Height / 2), window)
             ?? throw new InvalidOperationException("Cannot locate control in headless window.");
-        window.MouseDown(point, MouseButton.Left);
-        window.MouseUp(point, MouseButton.Left);
+        window.MouseDown(point, button);
+        window.MouseUp(point, button);
         Pump(TimeSpan.FromMilliseconds(80));
     }
 

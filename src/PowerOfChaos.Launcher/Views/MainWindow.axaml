@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:PowerOfChaos.Launcher.ViewModels"
         xmlns:loc="using:PowerOfChaos.Launcher.Localization"
+        xmlns:views="using:PowerOfChaos.Launcher.Views"
         x:Class="PowerOfChaos.Launcher.Views.MainWindow"
         Title="Power of Chaos" Icon="avares://PowerOfChaos.Launcher/!__AvaloniaDefaultWindowIcon"
         Width="1100" Height="720" MinWidth="880" MinHeight="600"
@@ -99,39 +100,89 @@
                 <TextBlock x:Name="GameCount" Text="{loc:Tr Text='Installed games'}" Classes="caption" VerticalAlignment="Center" />
                 <Button Grid.Column="1" Content="{loc:Tr Text='Add folder'}" Classes="secondary" Click="AddPath_Click" />
               </Grid>
-              <ItemsControl x:Name="GameCards">
-                <ItemsControl.ItemTemplate>
-                  <DataTemplate DataType="vm:GameCardViewModel">
-                    <Border Classes="panel" Margin="0,0,0,10" Padding="16,12">
-                      <Grid ColumnDefinitions="112,*,76,120,96" ColumnSpacing="14">
-                        <Grid Width="112" Height="104" ClipToBounds="True" VerticalAlignment="Center">
-                          <Border Background="#191919" CornerRadius="4" IsVisible="{Binding ShowPortraitPlaceholder}">
-                            <Path Width="24" Height="30" Stroke="#656565" StrokeThickness="1.5"
-                                  Data="M3,1 L21,1 L21,29 L3,29 Z M7,7 L17,7 M7,12 L17,12" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                          </Border>
-                          <Image x:Name="GamePortrait" Source="{Binding Portrait}" Stretch="Uniform" IsVisible="{Binding HasPortrait}"
-                                 RenderOptions.BitmapInterpolationMode="HighQuality"
-                                 AutomationProperties.Name="{Binding PortraitAutomationName}" />
-                        </Grid>
-                        <StackPanel Grid.Column="1" Spacing="8" VerticalAlignment="Center">
-                          <TextBlock Text="{Binding Title}" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
-                          <TextBlock Text="{Binding Folder}" Classes="quiet" FontSize="11" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Folder}" />
+              <Grid ColumnDefinitions="5*,8*" ColumnSpacing="14">
+                <ListBox x:Name="GameCards" Background="Transparent" BorderThickness="0" Padding="0"
+                         VerticalAlignment="Top" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         AutomationProperties.Name="{loc:Tr Text='Installed games'}">
+                  <ListBox.Styles>
+                    <Style Selector="ListBoxItem">
+                      <Setter Property="Padding" Value="10,12" />
+                      <Setter Property="Margin" Value="0,0,0,8" />
+                      <Setter Property="MinHeight" Value="82" />
+                      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                      <Setter Property="VerticalContentAlignment" Value="Center" />
+                      <Setter Property="Background" Value="{StaticResource PanelBrush}" />
+                      <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
+                      <Setter Property="BorderThickness" Value="1" />
+                      <Setter Property="CornerRadius" Value="6" />
+                    </Style>
+                    <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
+                      <Setter Property="Background" Value="#191919" />
+                    </Style>
+                    <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+                      <Setter Property="Background" Value="#232323" />
+                      <Setter Property="BorderBrush" Value="#777777" />
+                    </Style>
+                  </ListBox.Styles>
+                  <ListBox.ItemsPanel><ItemsPanelTemplate><StackPanel /></ItemsPanelTemplate></ListBox.ItemsPanel>
+                  <ListBox.ItemTemplate>
+                    <DataTemplate DataType="vm:GameCardViewModel">
+                      <Grid ColumnDefinitions="46,*" ColumnSpacing="10">
+                        <Image x:Name="GamePortrait" Source="{Binding Portrait}" Width="46" Height="46" Stretch="Uniform"
+                               RenderOptions.BitmapInterpolationMode="HighQuality" AutomationProperties.Name="{Binding PortraitAutomationName}" />
+                        <StackPanel Grid.Column="1" Spacing="5" VerticalAlignment="Center">
+                          <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap" />
+                          <WrapPanel>
+                            <TextBlock Text="{Binding CollectionCount}" Classes="caption" FontSize="11" Margin="0,0,12,0"
+                                       ToolTip.Tip="{Binding CollectionMessage}" AutomationProperties.Name="{Binding CollectionAutomationName}" />
+                            <TextBlock Text="{Binding Playtime}" Classes="caption" FontSize="11" />
+                          </WrapPanel>
                         </StackPanel>
-                        <StackPanel Grid.Column="2" Spacing="6" VerticalAlignment="Center">
-                          <TextBlock Text="{loc:Tr Text='Cards'}" Classes="caption" FontSize="11" />
-                          <TextBlock Text="{Binding CollectionCount}" FontSize="13" Foreground="#D4D4D4" ToolTip.Tip="{Binding CollectionMessage}"
-                                     AutomationProperties.Name="{Binding CollectionAutomationName}" />
-                        </StackPanel>
-                        <StackPanel Grid.Column="3" Spacing="6" VerticalAlignment="Center">
-                          <TextBlock Text="{loc:Tr Text='Playtime'}" Classes="caption" FontSize="11" />
-                          <TextBlock Text="{Binding Playtime}" FontSize="13" Foreground="#D4D4D4" />
-                        </StackPanel>
-                        <Button Grid.Column="4" Content="{Binding PlayLabel}" Classes="primary" HorizontalAlignment="Stretch" VerticalAlignment="Center" HorizontalContentAlignment="Center" Tag="{Binding Installation}" IsEnabled="{Binding CanPlay}" Click="PlayGame_Click" AutomationProperties.Name="{Binding PlayAutomationName}" />
                       </Grid>
-                    </Border>
-                  </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+                <ContentControl x:Name="SelectedGame" Grid.Column="1" Content="{Binding #GameCards.SelectedItem}" VerticalAlignment="Top">
+                  <ContentControl.ContentTemplate>
+                    <DataTemplate DataType="vm:GameCardViewModel">
+                      <Border Classes="panel" ClipToBounds="True">
+                        <StackPanel>
+                          <Border Height="220" Background="#191919" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1">
+                            <Grid Margin="12,10,12,0">
+                              <Path Width="24" Height="30" Stroke="#656565" StrokeThickness="1.5" IsVisible="{Binding ShowPortraitPlaceholder}"
+                                    Data="M3,1 L21,1 L21,29 L3,29 Z M7,7 L17,7 M7,12 L17,12" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                              <Image x:Name="SelectedGamePortrait" Source="{Binding Portrait}" MaxWidth="280" Height="209"
+                                     HorizontalAlignment="Center" VerticalAlignment="Bottom" Stretch="Uniform" IsVisible="{Binding HasPortrait}"
+                                     RenderOptions.BitmapInterpolationMode="HighQuality" AutomationProperties.Name="{Binding PortraitAutomationName}" />
+                            </Grid>
+                          </Border>
+                          <StackPanel Margin="16,14,16,16" Spacing="11">
+                            <StackPanel Spacing="4">
+                              <TextBlock Text="{Binding Title}" FontSize="23" FontWeight="SemiBold" TextWrapping="Wrap" />
+                              <views:CopyPathButton x:Name="SelectedGamePath" FilePath="{Binding Folder}" Content="{Binding Folder}" FontSize="11" />
+                            </StackPanel>
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
+                              <StackPanel Spacing="4">
+                                <TextBlock Text="{loc:Tr Text='Cards'}" Classes="caption" FontSize="11" />
+                                <TextBlock Text="{Binding CollectionCount}" FontWeight="SemiBold" ToolTip.Tip="{Binding CollectionMessage}"
+                                           AutomationProperties.Name="{Binding CollectionAutomationName}" />
+                              </StackPanel>
+                              <StackPanel Grid.Column="1" Spacing="4">
+                                <TextBlock Text="{loc:Tr Text='Playtime'}" Classes="caption" FontSize="11" TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding Playtime}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                              </StackPanel>
+                              <Button x:Name="SelectedGamePlayButton" Grid.Column="2" Content="{Binding PlayLabel}" Classes="primary"
+                                      MinWidth="96" HorizontalContentAlignment="Center" VerticalAlignment="Bottom"
+                                      Tag="{Binding Installation}" IsEnabled="{Binding CanPlay}" Click="PlayGame_Click"
+                                      AutomationProperties.Name="{Binding PlayAutomationName}" />
+                            </Grid>
+                          </StackPanel>
+                        </StackPanel>
+                      </Border>
+                    </DataTemplate>
+                  </ContentControl.ContentTemplate>
+                </ContentControl>
+              </Grid>
             </StackPanel>
             <TextBlock Text="{loc:Tr Text='Playtime counts sessions started from this launcher.'}" Classes="quiet" FontSize="11" Margin="0,0,0,8" />
           </StackPanel>
@@ -179,6 +230,7 @@
                 <StackPanel Grid.Column="2" Spacing="10">
                   <TextBlock x:Name="HdCardArtworkDescription" Text="{loc:Tr Text='Show every card with high-resolution artwork: previews, hands, decks and the field. Plays in a borderless 4:3 picture; Alt+Enter switches to a resizable window. Needs the separate HD card artwork download. Applies on the next launch.'}" Classes="quiet" TextWrapping="Wrap" LineHeight="21" />
                   <SelectableTextBlock x:Name="HdCardArtworkStatus" TextWrapping="Wrap" FontSize="12" />
+                  <views:CopyPathButton x:Name="HdCardArtworkPath" IsVisible="False" FontSize="12" />
                   <Button x:Name="HdCardArtworkFolderButton" Content="{loc:Tr Text='Choose HD image folder'}" Classes="secondary" HorizontalAlignment="Left" IsEnabled="False" Click="HdCardArtworkFolder_Click" />
                 </StackPanel>
               </Grid>
@@ -191,7 +243,7 @@
                 <StackPanel Grid.Column="2" Spacing="10">
                   <TextBlock Text="{loc:Tr Text='Use three copies of every supported card in the added games. Untick to restore your complete original collection save, including decks and statistics. Progress in the temporary save is archived separately. Close all games before switching.'}" Classes="quiet" TextWrapping="Wrap" LineHeight="21" />
                   <SelectableTextBlock x:Name="TemporaryCollectionStatus" TextWrapping="Wrap" FontSize="12" />
-                  <SelectableTextBlock x:Name="TemporaryCollectionBackups" TextWrapping="Wrap" Classes="quiet" FontSize="11" />
+                  <views:CopyPathButton x:Name="TemporaryCollectionBackups" FontSize="11" />
                   <Button x:Name="RestoreCollectionButton" Content="{loc:Tr Text='Restore original collection'}" Classes="secondary" IsVisible="False" Click="RestoreCollection_Click" />
                 </StackPanel>
               </Grid>
@@ -275,10 +327,10 @@
                 <Button Grid.Column="1" Content="{loc:Tr Text='Browse…'}" Click="BrowseCollectionSave_Click" Classes="secondary" />
                 <Button Grid.Column="2" Content="{loc:Tr Text='Use path'}" Click="UseCollectionSave_Click" Classes="secondary" />
               </Grid>
-              <StackPanel Orientation="Horizontal" Spacing="12">
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
                 <Button Content="{loc:Tr Text='Use automatic location'}" Click="AutomaticCollectionSave_Click" Classes="secondary" />
-                <TextBlock x:Name="CollectionSaveSource" Classes="quiet" FontSize="11" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
-              </StackPanel>
+                <views:CopyPathButton x:Name="CollectionSaveSource" Grid.Column="1" FontSize="11" VerticalAlignment="Center" />
+              </Grid>
             </StackPanel>
           </StackPanel>
           <StackPanel x:Name="LocationsView" Spacing="18" IsVisible="False">
