@@ -14,6 +14,8 @@ You need your own installed copies of the games. The launcher does not include t
 4. Open **Settings → Add Game path**. Select a game's installation folder, or a parent folder containing all three games. Click **Find games** to add the detected games.
 5. Select a game in **Games**, then click **Play**.
 
+**If Windows asks whether the launcher is safe:** the launcher has no publisher signature, so Windows may warn the first time you open a downloaded copy, and again for each new version. The warning means Windows does not know the program yet, not that it found something in it. To avoid it, right-click the downloaded ZIP before extracting it, choose **Properties**, tick **Unblock** and confirm. Otherwise choose **More info**, then **Run anyway** in the warning. The **SHA256SUMS** file on the release page lets you check that your ZIP is the published one.
+
 The Windows download includes the .NET runtime and components needed for the available mods. You do not need to install .NET, a development SDK or a separate mod bundle.
 
 Use the launcher ZIP, rather than GitHub's **Source code** downloads or the separate component/source archives. The **HD artwork** release is a separate download and is not a launcher installer; the **HD card component** release is already inside the launcher ZIP.
