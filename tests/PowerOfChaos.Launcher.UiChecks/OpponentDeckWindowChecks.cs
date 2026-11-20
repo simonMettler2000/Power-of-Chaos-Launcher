@@ -150,16 +150,25 @@ internal static class OpponentDeckWindowChecks
                 window.Close();
                 Dispatcher.UIThread.RunJobs();
                 Require(asked == 1 && window.IsVisible && (title.Text ?? "").Contains("not saved yet", StringComparison.Ordinal), "An unsaved deck was dropped by closing the window.");
-                // The deck file cannot be written: nothing is taken over, and the name stays free.
+                // The deck file cannot be written, because a folder stands in its place: nothing is taken over, and the name stays free.
+                // (A folder rather than a locked file: locks do not stop a replacement on every operating system.)
                 var file = Path.Combine(root, "data", OpponentDeckStore.FileName);
                 var before = File.ReadAllBytes(file);
-                using (new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.None))
+                File.Delete(file);
+                Directory.CreateDirectory(file);
+                try
                 {
                     Click(save);
                     waitUntil(() => status.Text == "Your opponent decks could not be saved.", "A failed save was not reported.");
                 }
-                Require(File.ReadAllBytes(file).SequenceEqual(before) && (title.Text ?? "").Contains("not saved yet", StringComparison.Ordinal) && save.IsEnabled
-                    && decks.Items.OfType<DeckListEntry>().Count(entry => entry.Custom is not null) == 1, "A deck that could not be saved was taken over.");
+                finally
+                {
+                    Directory.Delete(file);
+                    File.WriteAllBytes(file, before);
+                }
+                Require((title.Text ?? "").Contains("not saved yet", StringComparison.Ordinal) && save.IsEnabled
+                    && decks.Items.OfType<DeckListEntry>().Count(entry => entry.Custom is not null) == 1
+                    && Directory.GetFileSystemEntries(Path.Combine(root, "data")).Length == 1, "A deck that could not be saved was taken over or left files behind.");
                 Click(save);
                 waitUntil(() => Stored().Count == 2, "The deck could not be saved after the failed attempt.");
                 Require(Stored()[1].Name == "My second deck" && decks.Items.OfType<DeckListEntry>().Count(entry => entry.Custom is not null) == 2,
