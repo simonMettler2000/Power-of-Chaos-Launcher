@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Reviewed release version, for example 0.3.1
+        description: Reviewed release version, for example 0.3.2
         required: true
         type: string
       independent_audit_confirmed:
@@ -46,6 +46,7 @@ jobs:
         shell: pwsh
         run: |
           if ($env:RELEASE_VERSION -cnotmatch '^\d+\.\d+\.\d+(?:-[0-9A-Za-z][0-9A-Za-z.-]*)?$') { throw 'Invalid version' }
+          if (([xml](Get-Content -Raw -LiteralPath 'Directory.Build.props')).Project.PropertyGroup.Version -cne $env:RELEASE_VERSION) { throw 'Release version does not match Directory.Build.props' }
           git show-ref --verify --quiet ('refs/tags/v' + $env:RELEASE_VERSION)
           if ($LASTEXITCODE -eq 0) { throw 'Release tag already exists' }
           python -B tools/publication_guard.py --commit $env:SOURCE_COMMIT
@@ -88,7 +89,7 @@ jobs:
             ${{ runner.temp }}/release-output/*.manifest.json
           if-no-files-found: error
           retention-days: 14
-  publish:
+  prepare_release:
     needs: package
     runs-on: ubuntu-latest
     permissions:
@@ -103,7 +104,7 @@ jobs:
           pattern: Windows-*
           path: release
           merge-multiple: true
-      - name: Publish a new versioned download
+      - name: Draft a new versioned download for audit
         shell: bash
         run: |
           set -euo pipefail
@@ -113,5 +114,5 @@ jobs:
           fi
           cat release/*.SHA256SUMS > release/SHA256SUMS
           gh release create "v${RELEASE_VERSION}" release/*.zip release/*.manifest.json release/SHA256SUMS \
-            --repo "$GITHUB_REPOSITORY" --target "$SOURCE_COMMIT" --title "Power of Chaos Launcher ${RELEASE_VERSION}" \
+            --repo "$GITHUB_REPOSITORY" --target "$SOURCE_COMMIT" --title "Power of Chaos Launcher ${RELEASE_VERSION}" --draft \
             --notes 'Complete Windows downloads. Extract the entire x64 or x86 ZIP, open PowerOfChaos.Launcher.exe, then select your installed game folders. No separate .NET or mod installation is needed. Executable mods require the supported game revisions; see the README. HD card artwork also needs the separate HD card picture download (release hd-card-artwork-v3 of this repository); choose its folder under Mods. Unfinished mods remain disabled.'

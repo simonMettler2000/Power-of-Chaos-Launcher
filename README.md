@@ -6,13 +6,13 @@ You need your own installed copies of the games. The launcher does not include t
 
 ## Download and start playing
 
-**[Download the Windows launcher](https://github.com/simonMettler2000/Power-of-Chaos-Launcher/releases/tag/v0.3.1)**
+**[Download the latest Windows launcher](https://github.com/simonMettler2000/Power-of-Chaos-Launcher/releases/latest)**
 
-1. Choose **[win-x64](https://github.com/simonMettler2000/Power-of-Chaos-Launcher/releases/download/v0.3.1/PowerOfChaos-Launcher-0.3.1-win-x64.zip)** for most Windows PCs, or **[win-x86](https://github.com/simonMettler2000/Power-of-Chaos-Launcher/releases/download/v0.3.1/PowerOfChaos-Launcher-0.3.1-win-x86.zip)** for 32-bit Windows.
+1. Under **Assets**, choose the **win-x64** launcher ZIP for most Windows PCs or the **win-x86** launcher ZIP for 32-bit Windows.
 2. Extract the **entire ZIP** into a new folder. Keep all its files together.
 3. Open **PowerOfChaos.Launcher.exe**.
 4. Open **Settings → Add Game path**. Select a game's installation folder, or a parent folder containing all three games. Click **Find games** to add the detected games.
-5. Click **Play** beside the game you want to launch.
+5. Select a game in **Games**, then click **Play**.
 
 The Windows download includes the .NET runtime and components needed for the available mods. You do not need to install .NET, a development SDK or a separate mod bundle.
 
@@ -23,7 +23,8 @@ Windows 10/11 editions supported by .NET 10 are the target. Windows 7/8.1 and na
 ## What you can do
 
 - Launch any of the three games you have added.
-- See playtime and card counts beside each game's **Play** button.
+- Select a game to see its larger portrait, card count and playtime beside **Play**.
+- Click a displayed path to copy it, or right-click it and choose **Copy path**.
 - Browse owned and missing cards in **Collection**.
 - Choose English, German, French, Italian, Spanish or Japanese under **Language**, beneath Settings. This changes the launcher interface and available card names, without changing your game files or the game's own language.
 - Enable the available mods in **Mods**.
