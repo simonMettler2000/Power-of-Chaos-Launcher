@@ -16,6 +16,8 @@ public sealed class GameLaunchPreparer : IGameLaunchPreparer
     private readonly IReadOnlyList<SplashProfile> _profiles;
     private readonly OriginalAspectRatioPreparer _displayPreparer;
     private readonly OriginalAspectRatioPreparer _hdCardPreparer;
+    private readonly string? _gameplayDirectory;
+    private readonly DisplayComponent? _gameplayLibrary;
     private static readonly SemaphoreSlim CacheGate = new(1, 1);
     private static readonly StringComparison PathComparison = OperatingSystem.IsWindows()
         ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
@@ -25,10 +27,13 @@ public sealed class GameLaunchPreparer : IGameLaunchPreparer
     internal GameLaunchPreparer(string? dataDirectory, IReadOnlyList<SplashProfile> profiles,
         string? componentDirectory = null, IReadOnlyList<DisplayComponent>? components = null,
         WindowsDisplayCacheLocation? displayCache = null, string? hdComponentDirectory = null,
-        IReadOnlyList<DisplayComponent>? hdComponents = null)
+        IReadOnlyList<DisplayComponent>? hdComponents = null, string? gameplayComponentDirectory = null,
+        DisplayComponent? gameplayLibrary = null)
     {
         _dataDirectory = Path.GetFullPath(dataDirectory ?? LauncherPaths.DataDirectory);
         _profiles = profiles;
+        _gameplayDirectory = gameplayComponentDirectory;
+        _gameplayLibrary = gameplayLibrary;
         _displayPreparer = new OriginalAspectRatioPreparer(_dataDirectory, componentDirectory, components, displayCache);
         _hdCardPreparer = new OriginalAspectRatioPreparer(_dataDirectory, hdComponentDirectory, hdComponents, displayCache,
             DisplayVariant.HdCardArtwork);
@@ -64,16 +69,27 @@ public sealed class GameLaunchPreparer : IGameLaunchPreparer
             var original = await ReadBoundedAsync(originalPath, profile.Length, cancellationToken).ConfigureAwait(false);
             var modified = SkipSplashPatch.Apply(original, profile);
             cancellationToken.ThrowIfCancellationRequested();
+            // The gameplay component is read and checked against its pin before anything is written.
+            // The decks the user ticked for this game become deck files; each is checked against the game's own cards.
+            IReadOnlyList<KeyValuePair<string, byte[]>> deckFiles = options.CustomOpponentDecks
+                ? await Decks.OpponentDeckLaunch.BuildAsync(installation,
+                    await new Decks.OpponentDeckStore(_dataDirectory).LoadAsync(cancellationToken).ConfigureAwait(false), cancellationToken).ConfigureAwait(false)
+                : [];
+            var gameplay = options.UsesGameplayComponent
+                ? await GameplayLaunchFiles.ReadAsync(_gameplayDirectory, _gameplayLibrary, options, deckFiles, cancellationToken).ConfigureAwait(false)
+                : null;
             // HD card artwork carries its own provider build, which also keeps the 4:3 picture.
             if (options.HdCardArtwork)
-                return await _hdCardPreparer.PrepareAsync(installation, options, profile, modified, cancellationToken)
+                return await _hdCardPreparer.PrepareAsync(installation, options, profile, modified, cancellationToken, gameplay)
                     .ConfigureAwait(false);
             if (options.RestoreOriginalAspectRatio)
-                return await _displayPreparer.PrepareAsync(installation, options, profile, modified, cancellationToken)
+                return await _displayPreparer.PrepareAsync(installation, options, profile, modified, cancellationToken, gameplay)
                     .ConfigureAwait(false);
             // Keep a full SHA256 identity without nesting the verbose selection and both full hashes.
             // .NET can write paths which Windows CreateProcess cannot open (including the old v2 cache).
             var identity = string.Join('\n', profile.GameId, options.CacheKey, profile.OriginalHash, profile.ModifiedHash);
+            // A launch with the gameplay component never shares a directory with one without it.
+            if (gameplay is not null) identity += "\ngameplay\n" + gameplay.Identity;
             var bucket = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(identity))).ToLowerInvariant();
             var directory = Path.Combine(_dataDirectory, "mod-cache", "v3", profile.GameId, bucket);
             var outputPath = Path.Combine(directory, definition.ExecutableName);
@@ -82,6 +98,7 @@ public sealed class GameLaunchPreparer : IGameLaunchPreparer
             if (directory.Equals(installDirectory, PathComparison)
                 || directory.StartsWith(Path.TrimEndingDirectorySeparator(installDirectory) + Path.DirectorySeparatorChar, PathComparison))
                 throw new InvalidDataException("The mod cache must be outside the game installation. Choose a separate launcher data directory.");
+            gameplay?.RequireReachableFrom(directory);
             RefuseLinks(directory);
             Directory.CreateDirectory(directory);
             RefuseLinks(directory);
@@ -90,30 +107,16 @@ public sealed class GameLaunchPreparer : IGameLaunchPreparer
             RefuseLinks(lockPath);
             // Cross-process ownership prevents concurrent launchers replacing a cache under preparation.
             await using var ownership = new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+            // The gameplay files go in first: an executable is only ever published beside a complete, checked set.
+            if (gameplay is not null)
+                foreach (var file in gameplay.Files)
+                    await PublishAsync(directory, file.Key, file.Value, cancellationToken).ConfigureAwait(false);
             if (File.Exists(outputPath) && new FileInfo(outputPath).Length == profile.Length)
             {
                 var cached = await ReadBoundedAsync(outputPath, profile.Length, cancellationToken).ConfigureAwait(false);
                 if (SkipSplashPatch.MatchesHash(cached, profile.ModifiedHash)) return outputPath;
             }
-            var temporary = Path.Combine(directory, ".preparing-" + Guid.NewGuid().ToString("N"));
-            try
-            {
-                await using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None,
-                    65536, FileOptions.Asynchronous | FileOptions.WriteThrough))
-                {
-                    await stream.WriteAsync(modified, cancellationToken).ConfigureAwait(false);
-                    await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
-                    stream.Flush(flushToDisk: true);
-                }
-                cancellationToken.ThrowIfCancellationRequested();
-                RefuseLinks(directory);
-                RefuseLinks(outputPath);
-                File.Move(temporary, outputPath, overwrite: true);
-            }
-            finally
-            {
-                if (File.Exists(temporary)) File.Delete(temporary);
-            }
+            await PublishAsync(directory, definition.ExecutableName, modified, cancellationToken, verifyExisting: false).ConfigureAwait(false);
             // A final read checks the file selected for launch, rather than trusting only the write buffer.
             var result = await ReadBoundedAsync(outputPath, profile.Length, cancellationToken).ConfigureAwait(false);
             if (!SkipSplashPatch.MatchesHash(result, profile.ModifiedHash))
@@ -121,6 +124,46 @@ public sealed class GameLaunchPreparer : IGameLaunchPreparer
             return outputPath;
         }
         finally { CacheGate.Release(); }
+    }
+
+    /// <summary>Puts one file with exactly these bytes into a private cache directory, keeping an identical file as it is.</summary>
+    private static async Task PublishAsync(string directory, string name, byte[] content, CancellationToken cancellationToken,
+        bool verifyExisting = true)
+    {
+        var path = Path.Combine(directory, name);
+        RefuseLinks(path);
+        if (verifyExisting && await HasContentAsync(path, content, cancellationToken).ConfigureAwait(false)) return;
+        var temporary = Path.Combine(directory, ".preparing-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            await using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None,
+                65536, FileOptions.Asynchronous | FileOptions.WriteThrough))
+            {
+                await stream.WriteAsync(content, cancellationToken).ConfigureAwait(false);
+                await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+                stream.Flush(flushToDisk: true);
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+            RefuseLinks(directory);
+            RefuseLinks(path);
+            File.Move(temporary, path, overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(temporary)) File.Delete(temporary);
+        }
+        if (verifyExisting && !await HasContentAsync(path, content, cancellationToken).ConfigureAwait(false))
+            throw new InvalidDataException("The private mod cache failed verification. No game was started.");
+    }
+
+    private static async Task<bool> HasContentAsync(string path, byte[] content, CancellationToken cancellationToken)
+    {
+        if (!File.Exists(path) || new FileInfo(path).Length != content.Length) return false;
+        await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, FileOptions.Asynchronous);
+        if (stream.Length != content.Length) return false;
+        var present = new byte[content.Length];
+        await stream.ReadExactlyAsync(present, cancellationToken).ConfigureAwait(false);
+        return present.AsSpan().SequenceEqual(content);
     }
 
     private static async Task<byte[]> ReadBoundedAsync(string path, int length, CancellationToken cancellationToken)

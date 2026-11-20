@@ -119,6 +119,13 @@ internal static class GameArchive
             return result;
         }
 
+        /// <summary>The names of the indexed resources that pass the test. Nothing is read.</summary>
+        public IReadOnlyList<string> Names(Func<string, bool> test)
+        {
+            ArgumentNullException.ThrowIfNull(test);
+            return _entries.Keys.Where(test).ToArray();
+        }
+
         private static ArchiveEntry RequireEntry(ArchiveEntry? entry, int maximumPayloadBytes)
         {
             if (entry is not { } value || value.Expanded <= 0 || value.Expanded > maximumPayloadBytes

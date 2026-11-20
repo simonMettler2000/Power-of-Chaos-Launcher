@@ -28,6 +28,8 @@ public sealed class LauncherSettings
     public bool RestoreOriginalAspectRatio { get; set; }
     public bool HdCardArtwork { get; set; }
     public string? HdCardImageDirectory { get; set; }
+    public bool NewCardRewards { get; set; }
+    public bool CustomOpponentDecks { get; set; }
     public string WineExecutable { get; set; } = "wine";
     public string? CollectionSavePath { get; set; }
     public string CardLanguage { get; set; } = "en";

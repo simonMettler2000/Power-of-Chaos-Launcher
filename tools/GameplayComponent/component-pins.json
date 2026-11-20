@@ -1,0 +1,15 @@
+{
+  "profile": "gameplay-v1",
+  "toolchain": {
+    "msvc": "14.44.35207",
+    "windowsSdk": "10.0.26100.0",
+    "platform": "x86"
+  },
+  "components": [
+    {
+      "name": "msacm32.dll",
+      "length": 122880,
+      "sha256": "3745a071f3cef16a0a5ef5d8511f0f52fd2491c981153fd3748255baa99e33ce"
+    }
+  ]
+}

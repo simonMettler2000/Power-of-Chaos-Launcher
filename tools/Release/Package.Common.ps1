@@ -134,14 +134,15 @@ function Assert-PackagePayloadName([string]$Name) {
     }
     if ($Name -like 'Components/original-aspect-ratio-v1/*') { return }
     if ($Name -like 'Components/hd-card-artwork-v2/*') { return }
+    if ($Name -like 'Components/gameplay-v1/*') { return }
     if ($Name -like 'Notices/*') {
         # Corresponding source required by selected dependency licenses is admitted only through exact notice pins.
         if ($parts.Count -ne 2 -or ([IO.Path]::GetExtension($Name) -notin @('.txt', '.md', '.cpp', '.h', '.c') -and
             $parts[-1] -cne 'CorrespondingSource-libgifcodec-d06d2a6.zip')) { throw 'Unexpected notice path.' }
         return
     }
-    if ($Name -in @('package-manifest.json', 'README.txt', 'component-pins.json', 'hd-component-pins.json', 'release-settings.json',
-        'PowerOfChaos.Launcher.deps.json', 'PowerOfChaos.Launcher.runtimeconfig.json', 'LICENSE.txt', 'THIRD-PARTY-NOTICES.txt')) { return }
+    if ($Name -in @('package-manifest.json', 'README.txt', 'component-pins.json', 'hd-component-pins.json', 'gameplay-component-pins.json',
+        'release-settings.json', 'PowerOfChaos.Launcher.deps.json', 'PowerOfChaos.Launcher.runtimeconfig.json', 'LICENSE.txt', 'THIRD-PARTY-NOTICES.txt')) { return }
     if ([IO.Path]::GetExtension($Name) -ieq '.dll' -and $parts.Count -eq 1) { return }
     if ($Name -in @('PowerOfChaos.Launcher.exe', 'createdump.exe')) { return }
     throw 'Unexpected published package file type.'
@@ -180,6 +181,16 @@ function Get-PackageHdComponentPins($HdPins, $DisplayPins) {
         $result.Add($pin[0])
     }
     return @($result)
+}
+
+function Get-PackageGameplayComponentPins($GameplayPins) {
+    # The gameplay bundle is its one authored library and nothing else: no bootstrap, no notices.
+    if ($GameplayPins.profile -cne 'gameplay-v1' -or @($GameplayPins.components).Count -ne 1 -or
+        $GameplayPins.components[0].name -cne 'msacm32.dll' -or $GameplayPins.ContainsKey('shared') -or
+        $GameplayPins.ContainsKey('notices')) {
+        throw 'Invalid gameplay component pins.'
+    }
+    return @($GameplayPins.components[0])
 }
 
 function Expand-PackagePinnedBundle([string]$ArchivePath, $Pins, [string]$Destination) {

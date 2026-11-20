@@ -28,6 +28,13 @@ public static class LaunchPlan
             .Any(path => Path.GetFileName(path).Equals("ddraw.dll", StringComparison.OrdinalIgnoreCase)
                 || Path.GetFileName(path).Equals("winmm.dll", StringComparison.OrdinalIgnoreCase)))
             throw new InvalidDataException("The selected launch directory contains display proxy DLLs. Choose the original installation, or enable Restore Original Aspect Ratio.");
+        // A private launch copy may only have the gameplay component beside it when a mod asks for it.
+        // The installation itself is the user's: a library of that name there is theirs and is left alone.
+        var gameplayComponent = settings.NewCardRewards || settings.CustomOpponentDecks;
+        if (!gameplayComponent && !preparedExecutable.Equals(executable, windows ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal)
+            && Directory.EnumerateFiles(Path.GetDirectoryName(preparedExecutable)!)
+                .Any(path => Path.GetFileName(path).Equals(GameplayComponents.Library.FileName, StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidDataException("The private launch directory contains the gameplay component although no mod uses it. No game was started; tick New card rewards or clear the launcher's mod cache.");
         var result = new ProcessStartInfo
         {
             WorkingDirectory = Path.GetDirectoryName(executable)!,
@@ -39,6 +46,11 @@ public static class LaunchPlan
             foreach (var entry in inheritedEnvironment) result.Environment[entry.Key] = entry.Value;
         }
         if (displayComponent) ConfigureDisplayEnvironment(result, windows);
+        if (gameplayComponent && !windows)
+        {
+            result.Environment.TryGetValue("WINEDLLOVERRIDES", out var inherited);
+            result.Environment["WINEDLLOVERRIDES"] = WithGameplayOverride(inherited);
+        }
         if (windows)
             result.FileName = preparedExecutable;
         else
@@ -91,13 +103,31 @@ public static class LaunchPlan
         return string.Join(';', retained);
     }
 
-    private static bool IsDisplayModule(string module)
+    internal static string WithGameplayOverride(string? inherited)
+    {
+        // The component beside the executable is a native library; the real one it forwards to is Wine's built-in,
+        // which it loads by full path. "native, then builtin" serves both.
+        var retained = new List<string>();
+        foreach (var entry in (inherited ?? "").Split(';', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var equal = entry.IndexOf('=');
+            if (equal < 0) { retained.Add(entry); continue; }
+            var modules = entry[..equal].Split(',').Where(module => ModuleName(module) != "msacm32").ToArray();
+            if (modules.Length > 0) retained.Add(string.Join(',', modules) + entry[equal..]);
+        }
+        retained.Add("msacm32=n,b");
+        return string.Join(';', retained);
+    }
+
+    private static bool IsDisplayModule(string module) => ModuleName(module) is "winmm" or "ddraw";
+
+    private static string ModuleName(string module)
     {
         var name = module.Trim();
         var separator = Math.Max(name.LastIndexOf('/'), name.LastIndexOf('\\'));
         if (separator >= 0) name = name[(separator + 1)..];
         if (name.StartsWith('*')) name = name[1..];
         if (name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)) name = name[..^4];
-        return name.Equals("winmm", StringComparison.OrdinalIgnoreCase) || name.Equals("ddraw", StringComparison.OrdinalIgnoreCase);
+        return name.ToLowerInvariant();
     }
 }

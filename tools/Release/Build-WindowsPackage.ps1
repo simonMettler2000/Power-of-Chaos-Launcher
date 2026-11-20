@@ -4,6 +4,7 @@ param(
     [Parameter(Mandatory = $true)][string]$SourceCommit,
     [Parameter(Mandatory = $true)][string]$DisplayComponentsDirectory,
     [Parameter(Mandatory = $true)][string]$HdComponentsDirectory,
+    [Parameter(Mandatory = $true)][string]$GameplayComponentsDirectory,
     [Parameter(Mandatory = $true)][string]$NoticesDirectory,
     [Parameter(Mandatory = $true)][string]$PackageOutputDirectory,
     [string]$SettingsPath = (Join-Path $PSScriptRoot 'release-settings.json'),
@@ -22,8 +23,9 @@ $repository = Get-PackageFullPath (Join-Path $PSScriptRoot '../..')
 $output = Get-PackageFullPath $PackageOutputDirectory
 $componentInput = Get-PackageFullPath $DisplayComponentsDirectory
 $hdInput = Get-PackageFullPath $HdComponentsDirectory
+$gameplayInput = Get-PackageFullPath $GameplayComponentsDirectory
 $noticeInput = Get-PackageFullPath $NoticesDirectory
-foreach ($sourceInput in @($componentInput, $hdInput, $noticeInput)) { Assert-PackageDisjoint $sourceInput $output; Assert-PackageOrdinaryPath $sourceInput }
+foreach ($sourceInput in @($componentInput, $hdInput, $gameplayInput, $noticeInput)) { Assert-PackageDisjoint $sourceInput $output; Assert-PackageOrdinaryPath $sourceInput }
 Assert-PackageOrdinaryPath $output
 if (Test-Path -LiteralPath $output) { throw 'Package output directory must be new.' }
 if ($output.Equals($repository, [StringComparison]::OrdinalIgnoreCase)) { throw 'The source checkout cannot be the package output.' }
@@ -40,6 +42,11 @@ $hdPins = Read-PackageJson $hdPinsPath 131072
 $hdRequired = @(Get-PackageHdComponentPins $hdPins $pins)
 if ($settings.hdComponentsProfile -cne $hdPins.profile) { throw 'Release settings name another HD component profile.' }
 Assert-PackagePins $hdInput $hdRequired
+$gameplayPinsPath = Join-Path $repository 'tools/GameplayComponent/component-pins.json'
+$gameplayPins = Read-PackageJson $gameplayPinsPath 131072
+$gameplayRequired = @(Get-PackageGameplayComponentPins $gameplayPins)
+if ($settings.gameplayComponentsProfile -cne $gameplayPins.profile) { throw 'Release settings name another gameplay component profile.' }
+Assert-PackagePins $gameplayInput $gameplayRequired
 Assert-PackagePins $noticeInput @($settings.notices)
 Assert-PackageCorrespondingSources $noticeInput @($settings.notices)
 if ([string]::IsNullOrWhiteSpace($SourceManifestPath)) {
@@ -145,17 +152,21 @@ foreach ($pin in @(@($pins.components) + @($pins.notices))) { Copy-Item -Literal
 $hdTarget = Join-Path $publish ('Components/' + $hdPins.profile)
 [void][IO.Directory]::CreateDirectory($hdTarget)
 foreach ($pin in $hdRequired) { Copy-Item -LiteralPath (Join-Path $hdInput $pin.name) -Destination (Join-Path $hdTarget $pin.name) }
+$gameplayTarget = Join-Path $publish ('Components/' + $gameplayPins.profile)
+[void][IO.Directory]::CreateDirectory($gameplayTarget)
+foreach ($pin in $gameplayRequired) { Copy-Item -LiteralPath (Join-Path $gameplayInput $pin.name) -Destination (Join-Path $gameplayTarget $pin.name) }
 $noticeTarget = Join-Path $publish 'Notices'
 [void][IO.Directory]::CreateDirectory($noticeTarget)
 foreach ($pin in $settings.notices) { Copy-Item -LiteralPath (Join-Path $noticeInput $pin.name) -Destination (Join-Path $noticeTarget $pin.name) }
 Copy-Item -LiteralPath $pinsPath -Destination (Join-Path $publish 'component-pins.json')
 Copy-Item -LiteralPath $hdPinsPath -Destination (Join-Path $publish 'hd-component-pins.json')
+Copy-Item -LiteralPath $gameplayPinsPath -Destination (Join-Path $publish 'gameplay-component-pins.json')
 Copy-Item -LiteralPath $SettingsPath -Destination (Join-Path $publish 'release-settings.json')
 $readme = @"
 Power of Chaos Launcher $Version ($RuntimeIdentifier)
 
 Extract the entire ZIP into a new folder and open PowerOfChaos.Launcher.exe.
-The .NET runtime and required display-mod components are included. No separate .NET installation is needed.
+The .NET runtime and the components the mods use are included. No separate .NET installation is needed.
 In Settings, choose Add Game path and select your installed game folder or a parent folder containing all three games.
 The launcher reads card counts, original card artwork and names from your own games. No game files or saves are included.
 Supported executable versions are listed in the project's mod documentation; discovery alone does not establish mod compatibility.
@@ -180,7 +191,7 @@ $manifest = [ordered]@{
     schemaVersion = 1; name = 'Power of Chaos Launcher'; version = $Version; sourceCommit = $SourceCommit;
     runtimeIdentifier = $RuntimeIdentifier; targetFramework = $settings.targetFramework; runtimeVersion = $settings.runtimeVersion;
     selfContained = $true; sourceRepository = $settings.sourceRepository; componentsProfile = $pins.profile;
-    hdComponentsProfile = $hdPins.profile;
+    hdComponentsProfile = $hdPins.profile; gameplayComponentsProfile = $gameplayPins.profile;
     files = $files; dependencies = $dependencies
 }
 Write-PackageJson (Join-Path $publish 'package-manifest.json') $manifest

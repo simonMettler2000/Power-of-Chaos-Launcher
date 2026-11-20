@@ -1,6 +1,6 @@
 # Mods
 
-The checkbox at the left of each row controls that mod for all three games. A title and description follow it. Disabled rows describe features still in development.
+The checkbox at the left of each row controls that mod for all three games. A title and description follow it.
 
 ## Skip Splash Screens
 
@@ -78,3 +78,40 @@ The game plays in a borderless 4:3 picture at desktop size with black bars as ne
 Only the card itself is replaced. Whatever the game draws opaquely over a card (cursor, text, counters, damage numbers, dialog panels, opaque effect sprites) stays exactly as the game drew it. A highlighted, dimmed or half-faded card keeps that look on its HD picture, and a translucent effect over a card is drawn over the HD picture the way the game mixed it. Cards without an HD picture, and any single draw the component cannot identify or explain with certainty, keep the game's own picture rather than a guess.
 
 The component needs Direct3D 11. Without it the game still runs with its normal picture. The component bundle `Components/hd-card-artwork-v2` must be beside the launcher; the row says so when it is missing. See [the component notes](../tools/HdCards/README.md) for how it works and how to build it, and [HD card artwork status](hd-renderer-status.md) for what has been verified.
+
+## New card rewards
+
+This global switch decides which cards the games give you for winning, and how many copies of them. The number of different cards is the games' own and stays as it is: one card for a won duel, three for a won match. With the switch on, every one of those cards is a card you do not own yet, and you get it three times at once, the most a deck can hold. A match gives three different new cards, three copies of each. Tick it before pressing Play; it applies on the next launch and uses the same supported executable hashes as the other mods.
+
+Without the mod the games draw each reward card evenly from their whole pool, owned or not, and add one copy. They only draw again, at most twice, once you own four fifths of the pool, and only when no card of the reward was new. With nine tenths of a pool owned, a single-duel reward is new about one time in four.
+
+- Cards you do not own come first. Once none is missing, rewards go to the cards you hold once or twice and bring them to three copies.
+- When a reward has more cards than there are cards of that kind left, the next kind fills it: missing cards, then cards held once or twice, then any other card.
+- When you hold three copies of every card a game can give, rewards are what they are without the mod: any card, one more copy.
+- Each game gives cards from its own reward pool only, with or without the mod: 155 cards in Yugi the Destiny, 315 in Kaiba the Revenge and 350 in Joey the Passion on the inspected installations. Copies are counted in the shared collection save.
+- While Temporary all cards is on, every card is held three times, so this mod has nothing to give; the Mods row says so.
+
+The game's own reward screen shows each card once; the three copies are in your collection when you look at the card list or build a deck. The game counts and saves the cards itself. The mod writes no save and changes no installed file. It combines with every other mod.
+
+The mod works through the gameplay component, a small library written for this launcher. The launcher places it, with a one-line settings file, beside its private copy of the executable; with Original aspect ratio or HD card artwork it goes into their display cache. A launch without the mod never has the component beside it. The bundle `Components/gameplay-v1` must be beside the launcher; the row says so when it is missing. See [the component notes](../tools/GameplayComponent/README.md) for how it works, how it was verified and what was not covered.
+
+## Custom opponent decks
+
+This global switch lets the opponent play decks you made. Press **Open opponent decks** in its row to see and build decks; the switch decides whether your ticked decks are used. It applies on the next launch and uses the same supported executable hashes as the other mods.
+
+**Looking.** For each added game the window lists the decks that game brings for its opponent (8 in Yugi the Destiny, 19 in Kaiba the Revenge, 58 in Joey the Passion on the inspected installations) under the names of their files. Selecting one shows its main, Fusion and side deck: the game's own small card picture, the card's name in the launcher language, its kind, level, ATK and DEF, and how many copies the deck holds. The **i** beside a card, or selecting it, shows the card's text. Everything is read from your installation when the window opens; nothing of it is stored by the launcher.
+
+**Building.** The game's own decks are read-only. **Copy to my decks** makes a copy you can change; **New deck** starts empty. Add cards from the list at the right, which can be searched by name and narrowed to monsters, Spell cards, Trap cards or Fusion monsters; **+** and **−** beside a card of the deck add or remove one copy. **Save deck** asks for a name the first time. Your decks are kept in `opponent-decks.json` in the launcher's data folder.
+
+**Rules.** They are the sizes the games' own deck storage has, and the launcher holds every deck to them before it can be saved and again before each launch:
+
+- 40 to 80 cards in the main deck, up to 15 in the Fusion deck, up to 15 in the side deck;
+- at most three copies of a card, counted over all three parts;
+- only cards that game supports (Yugi the Destiny 155, Kaiba the Revenge 466, Joey the Passion 771);
+- Fusion monsters in the Fusion deck, and nothing else there.
+
+**Choosing.** Tick the decks the opponent may use. A deck you just saved is ticked. With several ticked for a game, each duel takes one of them at random; in a match the opponent keeps one deck for all its duels. With none ticked for a game, or with the switch off, that game uses its own decks and its own way of choosing among them. The Mods row says how many of your decks are in use for each game.
+
+**What the opponent does with a deck.** The games' opponent was only ever written for its own decks. Cards that are in none of them are marked "Not in any of the game's own decks" in the list. In the runs that were made the opponent summoned and attacked with such monsters in all three games, but it chooses by attack strength and will, for example, summon a monster whose own effect then destroys it. How it handles every Spell and Trap card it never had is not known; a deck of such cards may play weaker than you expect.
+
+The tutorial and the title demo do not use these decks. Installed files are not changed: at launch the ticked decks are written as deck files beside the gameplay component in the launcher's private copy, and the component hands them to the game when it asks for an opponent deck. With Original aspect ratio or HD card artwork they go into the display cache. The bundle `Components/gameplay-v1` must be beside the launcher; the row says so when it is missing. See [the component notes](../tools/GameplayComponent/README.md).

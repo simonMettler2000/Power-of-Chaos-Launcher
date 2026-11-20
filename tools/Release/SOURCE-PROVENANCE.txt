@@ -9,7 +9,9 @@ The display component is the documented locally adapted cnc-ddraw profile: no co
 
 The HD card artwork component is the same adapted cnc-ddraw source built together with the launcher's own HD card provider units (tools/HdCards in the source repository, MIT licensed with the launcher). Its pinned x86 provider DLL, the unchanged bootstrap DLL and the same notices are under Components/hd-card-artwork-v2. It holds no game code, card data or artwork. HD card pictures are a separate download that each user chooses; none are included here.
 
+The gameplay component under Components/gameplay-v1 is one x86 library written for this launcher (tools/GameplayComponent in the source repository, MIT licensed with the launcher). It stands in for the Windows audio compression library beside a private copy of a game executable, passes that library's functions on to the system's own, and serves New card rewards and Custom opponent decks. It holds no third-party source and no game code, card data or decks.
+
 No Power of Chaos game executable, archive, save, artwork, card database or game-derived cached patch belongs to this download. Those remain local inputs supplied by each user.
 
 Project source and build recipes: https://github.com/simonMettler2000/Power-of-Chaos-Launcher
-Exact dependency source identities and all notice hashes are in release-settings.json, component-pins.json and hd-component-pins.json; resolved package versions are in package-manifest.json and the application's .deps.json.
+Exact dependency source identities and all notice hashes are in release-settings.json, component-pins.json, hd-component-pins.json and gameplay-component-pins.json; resolved package versions are in package-manifest.json and the application's .deps.json.

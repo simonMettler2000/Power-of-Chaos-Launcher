@@ -1,6 +1,7 @@
-param([Parameter(Mandatory=$true)][string]$Destination,[string]$LocalHdComponentsArchive)
+param([Parameter(Mandatory=$true)][string]$Destination,[string]$LocalHdComponentsArchive,[string]$LocalGameplayComponentsArchive)
 # -LocalHdComponentsArchive: the maintainer's local copy of the pinned HD component archive, for a candidate
 # built before that archive is public. It must be the pinned file itself; only its download is skipped.
+# -LocalGameplayComponentsArchive: the same for the pinned gameplay component archive.
 $ErrorActionPreference='Stop'
 Set-StrictMode -Version Latest
 if($PSVersionTable.PSVersion.Major -lt 7){throw 'PowerShell 7 or later is required.'}
@@ -24,12 +25,25 @@ if(-not [string]::IsNullOrWhiteSpace($LocalHdComponentsArchive)){
     Assert-PackageDisjoint $localHdBundle $target
     if([IO.Path]::GetFileName($localHdBundle) -cne $hdBundlePin.name -or (Get-Item -LiteralPath $localHdBundle).Length -ne $hdBundlePin.length -or (Get-PackageFileHash $localHdBundle) -cne $hdBundlePin.sha256){throw 'The local HD component archive is not the pinned archive.'}
 }
+$gameplayPins=Read-PackageJson (Join-Path $repository 'tools/GameplayComponent/component-pins.json')
+$gameplayRequired=@(Get-PackageGameplayComponentPins $gameplayPins)
+if($settings.gameplayComponentsProfile -cne $gameplayPins.profile){throw 'Release settings name another gameplay component profile.'}
+$gameplayBundlePin=$settings.gameplayComponentBundle
+if($gameplayBundlePin.name -cnotmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.zip$' -or -not ([Uri]$gameplayBundlePin.url).AbsolutePath.EndsWith('/'+$gameplayBundlePin.name,[StringComparison]::Ordinal)){throw 'Invalid gameplay component archive pin.'}
+$localGameplayBundle=$null
+if(-not [string]::IsNullOrWhiteSpace($LocalGameplayComponentsArchive)){
+    $localGameplayBundle=Get-PackageFullPath $LocalGameplayComponentsArchive
+    Assert-PackageOrdinaryPath $localGameplayBundle
+    Assert-PackageDisjoint $localGameplayBundle $target
+    if([IO.Path]::GetFileName($localGameplayBundle) -cne $gameplayBundlePin.name -or (Get-Item -LiteralPath $localGameplayBundle).Length -ne $gameplayBundlePin.length -or (Get-PackageFileHash $localGameplayBundle) -cne $gameplayBundlePin.sha256){throw 'The local gameplay component archive is not the pinned archive.'}
+}
 [void](New-Item -ItemType Directory -Path $target)
 $cache=Join-Path $target 'download-cache'
 $notices=Join-Path $target 'notices'
 $components=Join-Path $target 'original-aspect-ratio-v1'
 $hdComponents=Join-Path $target 'hd-card-artwork-v2'
-foreach($directory in @($cache,$notices,$components,$hdComponents)){[void](New-Item -ItemType Directory -Path $directory)}
+$gameplayComponents=Join-Path $target 'gameplay-v1'
+foreach($directory in @($cache,$notices,$components,$hdComponents,$gameplayComponents)){[void](New-Item -ItemType Directory -Path $directory)}
 function Get-PinnedDownload([string]$Url,[string]$ExpectedHash,[long]$ExpectedLength=0){
     $uri=[Uri]$Url
     if($uri.Scheme -cne 'https' -or $uri.UserInfo -or $uri.Host -notin @('github.com','raw.githubusercontent.com','api.nuget.org','builds.dotnet.microsoft.com','api.github.com')){throw 'Unapproved release input origin.'}
@@ -89,4 +103,6 @@ $bundle=Get-PinnedDownload $settings.componentBundle.url $settings.componentBund
 Expand-PackagePinnedBundle $bundle @(@($pins.components)+@($pins.notices)) $components
 $hdBundle=if($null -eq $localHdBundle){Get-PinnedDownload $hdBundlePin.url $hdBundlePin.sha256 $hdBundlePin.length}else{$localHdBundle}
 Expand-PackagePinnedBundle $hdBundle $hdRequired $hdComponents
-[ordered]@{schemaVersion=1;displayComponentsDirectory=$components;hdComponentsDirectory=$hdComponents;noticesDirectory=$notices;downloadedInputsVerified=$true;hdComponentArchiveDownloaded=($null -eq $localHdBundle)} | ConvertTo-Json
+$gameplayBundle=if($null -eq $localGameplayBundle){Get-PinnedDownload $gameplayBundlePin.url $gameplayBundlePin.sha256 $gameplayBundlePin.length}else{$localGameplayBundle}
+Expand-PackagePinnedBundle $gameplayBundle $gameplayRequired $gameplayComponents
+[ordered]@{schemaVersion=1;displayComponentsDirectory=$components;hdComponentsDirectory=$hdComponents;gameplayComponentsDirectory=$gameplayComponents;noticesDirectory=$notices;downloadedInputsVerified=$true;hdComponentArchiveDownloaded=($null -eq $localHdBundle);gameplayComponentArchiveDownloaded=($null -eq $localGameplayBundle)} | ConvertTo-Json

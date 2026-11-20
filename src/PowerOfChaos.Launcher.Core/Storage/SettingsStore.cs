@@ -132,6 +132,8 @@ public sealed class SettingsStore
             RestoreOriginalAspectRatio = settings.RestoreOriginalAspectRatio,
             HdCardArtwork = settings.HdCardArtwork,
             HdCardImageDirectory = ValidAbsolutePath(settings.HdCardImageDirectory),
+            NewCardRewards = settings.NewCardRewards,
+            CustomOpponentDecks = settings.CustomOpponentDecks,
             WineExecutable = wine,
             CollectionSavePath = ValidAbsolutePath(settings.CollectionSavePath),
             CardLanguage = Collections.CardLanguages.Normalize(settings.CardLanguage)

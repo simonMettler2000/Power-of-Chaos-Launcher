@@ -37,7 +37,10 @@ public sealed class LauncherText
             "Restore Original Aspect Ratio needs the verified local component bundle. Run the documented component setup, or untick this mod. Missing: {0}",
             "The original aspect ratio component is damaged or the wrong version: {0}. Run the documented component setup again, or untick this mod.",
             "HD card artwork needs its component bundle beside the launcher. Untick this mod to play without it. Missing: {0}",
-            "The HD card artwork component is damaged or the wrong version: {0}. Restore the launcher's Components folder, or untick this mod."
+            "The HD card artwork component is damaged or the wrong version: {0}. Restore the launcher's Components folder, or untick this mod.",
+            "The gameplay component is missing beside the launcher. Untick New card rewards and Custom opponent decks to play without it. Missing: {0}",
+            "The opponent deck \"{0}\" cannot be used in this game. Open Opponent decks in Mods to correct it, or untick Custom opponent decks.",
+            "The gameplay component is damaged or the wrong version: {0}. Restore the launcher's Components folder, or untick this mod."
         }.Select(key => new Template(key, key is "Could not start the game: {0}" or "The session could not be monitored: {0}" or "Session tracking stopped: {0}")).ToArray();
     }
 

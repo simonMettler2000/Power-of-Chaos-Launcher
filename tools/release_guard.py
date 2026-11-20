@@ -33,6 +33,11 @@ def inspect(path,expected_commit=None):
     if hd['profile']!='hd-card-artwork-v2' or settings.get('hdComponentsProfile')!=hd['profile'] or [item['name'] for item in hd['components']]!=['ddraw.dll'] or sorted(shared)!=sorted(item['name'] for item in display_pins if item['name']!='ddraw.dll'):raise ValueError('Invalid HD component pins')
     hd_pins=hd['components']+[item for item in display_pins if item['name'] in shared]
     hd_prefix='Components/'+hd['profile']+'/'
+    # The gameplay bundle: its one authored library and nothing else.
+    gameplay_bytes=(ROOT/'tools/GameplayComponent/component-pins.json').read_bytes();gameplay=load(gameplay_bytes)
+    gameplay_pins=gameplay['components']
+    if gameplay['profile']!='gameplay-v1' or settings.get('gameplayComponentsProfile')!=gameplay['profile'] or [item['name'] for item in gameplay_pins]!=['msacm32.dll'] or 'shared' in gameplay or 'notices' in gameplay:raise ValueError('Invalid gameplay component pins')
+    gameplay_prefix='Components/'+gameplay['profile']+'/'
     with zipfile.ZipFile(path) as archive:
         entries=archive.infolist();total=0;names={};content={}
         if not 20<=len(entries)<=5000:raise ValueError('Package entry count out of bounds')
@@ -53,8 +58,9 @@ def inspect(path,expected_commit=None):
         if manifest['runtimeIdentifier'] not in settings['supportedRuntimeIdentifiers'] or manifest['runtimeVersion']!=settings['runtimeVersion'] or manifest['targetFramework']!=settings['targetFramework']:raise ValueError('Package runtime differs from reviewed pins')
         if not re.fullmatch(r'[a-f0-9]{40}',manifest['sourceCommit']) or expected_commit and manifest['sourceCommit']!=expected_commit:raise ValueError('Unexpected source commit')
         if not re.fullmatch(r'\d+\.\d+\.\d+(?:-[0-9A-Za-z][0-9A-Za-z.-]*)?',manifest['version']):raise ValueError('Invalid version')
-        if content['release-settings.json']!=settings_bytes or content['component-pins.json']!=component_bytes or content['hd-component-pins.json']!=hd_bytes:raise ValueError('Self-authorized replacement pins are forbidden')
+        if content['release-settings.json']!=settings_bytes or content['component-pins.json']!=component_bytes or content['hd-component-pins.json']!=hd_bytes or content['gameplay-component-pins.json']!=gameplay_bytes:raise ValueError('Self-authorized replacement pins are forbidden')
         if manifest.get('hdComponentsProfile')!=hd['profile']:raise ValueError('Package HD component profile differs')
+        if manifest.get('gameplayComponentsProfile')!=gameplay['profile']:raise ValueError('Package gameplay component profile differs')
         listed={}
         for item in manifest['files']:
             name=item['path'];safe_name(name)
@@ -64,13 +70,13 @@ def inspect(path,expected_commit=None):
             if len(data)!=item['length'] or hashlib.sha256(data).hexdigest()!=item['sha256']:raise ValueError('Package file identity mismatch: '+name)
         if set(content)!=(set(listed)|{'package-manifest.json'}):raise ValueError('Unlisted or missing ZIP payload')
         notice_names={'Notices/'+item['name'] for item in settings['notices']}
-        component_names={'Components/original-aspect-ratio-v1/'+item['name'] for item in display_pins}|{hd_prefix+item['name'] for item in hd_pins}
-        root_text={'README.txt','package-manifest.json','component-pins.json','hd-component-pins.json','release-settings.json','PowerOfChaos.Launcher.deps.json','PowerOfChaos.Launcher.runtimeconfig.json','LICENSE.txt','THIRD-PARTY-NOTICES.txt'}
+        component_names={'Components/original-aspect-ratio-v1/'+item['name'] for item in display_pins}|{hd_prefix+item['name'] for item in hd_pins}|{gameplay_prefix+item['name'] for item in gameplay_pins}
+        root_text={'README.txt','package-manifest.json','component-pins.json','hd-component-pins.json','gameplay-component-pins.json','release-settings.json','PowerOfChaos.Launcher.deps.json','PowerOfChaos.Launcher.runtimeconfig.json','LICENSE.txt','THIRD-PARTY-NOTICES.txt'}
         for name,data in content.items():
             if name in notice_names or name in component_names or name in root_text:continue
             if '/' in name or not (name.lower().endswith('.dll') or name in ('PowerOfChaos.Launcher.exe','createdump.exe')):raise ValueError('Unexpected published payload: '+name)
             machine(data)
-        for prefix,pins in [('Notices/',settings['notices']),('Components/original-aspect-ratio-v1/',display_pins),(hd_prefix,hd_pins)]:
+        for prefix,pins in [('Notices/',settings['notices']),('Components/original-aspect-ratio-v1/',display_pins),(hd_prefix,hd_pins),(gameplay_prefix,gameplay_pins)]:
             for pin in pins:
                 data=content[prefix+pin['name']]
                 if len(data)!=pin['length'] or hashlib.sha256(data).hexdigest()!=pin['sha256']:raise ValueError('A pinned release dependency changed')
@@ -80,6 +86,7 @@ def inspect(path,expected_commit=None):
         for prefix in ('Components/original-aspect-ratio-v1/',hd_prefix):
             for name in ('ddraw.dll','winmm.dll'):
                 if machine(content[prefix+name])!=0x14c:raise ValueError('Game-side display dependency is not x86')
+        if machine(content[gameplay_prefix+'msacm32.dll'])!=0x14c:raise ValueError('Game-side gameplay component is not x86')
         config=load(content['PowerOfChaos.Launcher.runtimeconfig.json'])['runtimeOptions']
         if 'framework' in config or 'frameworks' in config:raise ValueError('Global .NET runtime prerequisite remains')
         frameworks=config.get('includedFrameworks',[])

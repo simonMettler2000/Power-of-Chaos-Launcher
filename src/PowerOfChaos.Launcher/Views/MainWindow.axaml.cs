@@ -8,6 +8,7 @@ using Avalonia.Threading;
 using PowerOfChaos.Launcher.Core;
 using PowerOfChaos.Launcher.Core.Artwork;
 using PowerOfChaos.Launcher.Core.Collections;
+using PowerOfChaos.Launcher.Core.Decks;
 using PowerOfChaos.Launcher.Core.Discovery;
 using PowerOfChaos.Launcher.Core.Launching;
 using PowerOfChaos.Launcher.Core.Localization;
@@ -127,6 +128,8 @@ public partial class MainWindow : Window
             Texts.SetLanguage(_settings.CardLanguage);
             CollectionSaveInput.Text = _settings.CollectionSavePath;
             await RefreshTemporaryCollectionAsync();
+            if (_closed) return;
+            await RefreshOpponentDecksAsync();
             if (_closed) return;
             RenderLibrary();
             RenderLocations();
@@ -442,7 +445,8 @@ public partial class MainWindow : Window
         var hdComponent = HdCardArtworkSupport.ComponentPresent();
         var hdImages = HdCardImages.Locate(_settings.HdCardImageDirectory);
         HdCardArtworkCheckBox.IsChecked = _settings.HdCardArtwork;
-        HdCardArtworkCheckBox.IsEnabled = SkipSplashScreensCheckBox.IsEnabled && hdComponent;
+        // A ticked mod can always be unticked, also when its component has gone missing.
+        HdCardArtworkCheckBox.IsEnabled = SkipSplashScreensCheckBox.IsEnabled && (hdComponent || _settings.HdCardArtwork);
         HdCardArtworkFolderButton.IsEnabled = SkipSplashScreensCheckBox.IsEnabled;
         HdCardArtworkStatus.IsVisible = !hdComponent || hdImages is null;
         HdCardArtworkStatus.Text = !hdComponent ? Texts.Translate("The HD component is not installed beside this launcher.")
@@ -450,6 +454,20 @@ public partial class MainWindow : Window
         HdCardArtworkPath.FilePath = hdImages;
         HdCardArtworkPath.IsVisible = hdImages is not null;
         RefreshHdArtworkPathLabel();
+        var gameplayComponent = GameplaySupport.ComponentPresent();
+        NewCardRewardsCheckBox.IsChecked = _settings.NewCardRewards;
+        NewCardRewardsCheckBox.IsEnabled = SkipSplashScreensCheckBox.IsEnabled && (gameplayComponent || _settings.NewCardRewards);
+        // With every card owned there is nothing new to give; say so rather than let the switch look broken.
+        NewCardRewardsStatus.IsVisible = !gameplayComponent || _temporaryState.Enabled;
+        NewCardRewardsStatus.Text = !gameplayComponent ? Texts.Translate("The gameplay component is not installed beside this launcher.")
+            : Texts.Translate("Temporary all cards is on: every card counts as owned, so the game picks rewards as usual.");
+        CustomOpponentDecksCheckBox.IsChecked = _settings.CustomOpponentDecks;
+        CustomOpponentDecksCheckBox.IsEnabled = SkipSplashScreensCheckBox.IsEnabled && (gameplayComponent || _settings.CustomOpponentDecks);
+        // The decks can be looked at and built without the component; only using them in a game needs it.
+        OpponentDecksButton.IsEnabled = SkipSplashScreensCheckBox.IsEnabled && _settings.Installations.Count > 0;
+        CustomOpponentDecksStatus.Text = !gameplayComponent ? Texts.Translate("The gameplay component is not installed beside this launcher.")
+            : _opponentDecksInUse.Length == 0 ? Texts.Translate("None of your decks is in use, so the opponent plays the game's own decks.")
+            : Texts.Format("Decks in use: {0}", _opponentDecksInUse);
         _renderingCardLanguage = true;
         try { CardLanguageSelector.SelectedItem = CardLanguages.Get(_settings.CardLanguage); }
         finally { _renderingCardLanguage = false; }
@@ -565,7 +583,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private enum ModSelection { SkipSplashScreens, SkipCharacterInteractions, OriginalAspectRatio, HdCardArtwork }
+    private enum ModSelection { SkipSplashScreens, SkipCharacterInteractions, OriginalAspectRatio, HdCardArtwork, NewCardRewards, CustomOpponentDecks }
 
     private async void SkipSplashScreens_Click(object? sender, RoutedEventArgs e) => await SaveModSelectionAsync(ModSelection.SkipSplashScreens);
 
@@ -574,6 +592,36 @@ public partial class MainWindow : Window
     private async void OriginalAspectRatio_Click(object? sender, RoutedEventArgs e) => await SaveModSelectionAsync(ModSelection.OriginalAspectRatio);
 
     private async void HdCardArtwork_Click(object? sender, RoutedEventArgs e) => await SaveModSelectionAsync(ModSelection.HdCardArtwork);
+
+    private async void NewCardRewards_Click(object? sender, RoutedEventArgs e) => await SaveModSelectionAsync(ModSelection.NewCardRewards);
+
+    private async void CustomOpponentDecks_Click(object? sender, RoutedEventArgs e) => await SaveModSelectionAsync(ModSelection.CustomOpponentDecks);
+
+    /// <summary>Game titles with the number of the user's decks in use, for the games that have any. Empty when none is in use.</summary>
+    private string _opponentDecksInUse = "";
+
+    private async Task RefreshOpponentDecksAsync()
+    {
+        var summary = "";
+        try
+        {
+            var decks = await new OpponentDeckStore().LoadAsync();
+            summary = string.Join(" · ", GameCatalog.All
+                .Select(game => (game.Title, Count: decks.Count(deck => deck.Enabled && deck.GameId == game.Id)))
+                .Where(item => item.Count > 0).Select(item => item.Title + " " + item.Count.ToString(Texts.Culture)));
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or InvalidDataException) { }
+        _opponentDecksInUse = summary;
+        if (!_closed) RefreshModControls();
+    }
+
+    private async void OpponentDecks_Click(object? sender, RoutedEventArgs e)
+    {
+        if (!_settingsReady || _savingMod || _pendingLaunch || _busy || _closed || _settings.Installations.Count == 0) return;
+        var window = new OpponentDecksWindow(_settings.Installations.ToArray(), _settings.CardLanguage, new OpponentDeckStore());
+        await window.ShowDialog(this);
+        if (!_closed) await RefreshOpponentDecksAsync();
+    }
 
     private async void HdCardArtworkFolder_Click(object? sender, RoutedEventArgs e)
     {
@@ -624,6 +672,8 @@ public partial class MainWindow : Window
         ModSelection.SkipCharacterInteractions => _settings.SkipCharacterInteractions,
         ModSelection.OriginalAspectRatio => _settings.RestoreOriginalAspectRatio,
         ModSelection.HdCardArtwork => _settings.HdCardArtwork,
+        ModSelection.NewCardRewards => _settings.NewCardRewards,
+        ModSelection.CustomOpponentDecks => _settings.CustomOpponentDecks,
         _ => throw new ArgumentOutOfRangeException(nameof(mod))
     };
 
@@ -635,6 +685,8 @@ public partial class MainWindow : Window
             case ModSelection.SkipCharacterInteractions: _settings.SkipCharacterInteractions = selected; break;
             case ModSelection.OriginalAspectRatio: _settings.RestoreOriginalAspectRatio = selected; break;
             case ModSelection.HdCardArtwork: _settings.HdCardArtwork = selected; break;
+            case ModSelection.NewCardRewards: _settings.NewCardRewards = selected; break;
+            case ModSelection.CustomOpponentDecks: _settings.CustomOpponentDecks = selected; break;
             default: throw new ArgumentOutOfRangeException(nameof(mod));
         }
     }
@@ -652,6 +704,8 @@ public partial class MainWindow : Window
             ModSelection.SkipCharacterInteractions => (SkipCharacterInteractionsCheckBox, "Skip character interactions"),
             ModSelection.OriginalAspectRatio => (OriginalAspectRatioCheckBox, "Original aspect ratio"),
             ModSelection.HdCardArtwork => (HdCardArtworkCheckBox, "HD card artwork"),
+            ModSelection.NewCardRewards => (NewCardRewardsCheckBox, "New card rewards"),
+            ModSelection.CustomOpponentDecks => (CustomOpponentDecksCheckBox, "Custom opponent decks"),
             _ => throw new ArgumentOutOfRangeException(nameof(mod))
         };
         var previous = GetModSelection(mod);

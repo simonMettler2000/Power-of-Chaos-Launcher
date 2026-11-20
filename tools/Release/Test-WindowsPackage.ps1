@@ -46,6 +46,13 @@ if ((Get-PackageFileHash (Join-Path $extracted 'hd-component-pins.json')) -cne (
 }
 if ($manifest.hdComponentsProfile -cne $hdPins.profile -or $settings.hdComponentsProfile -cne $hdPins.profile) { throw 'Package HD component profile differs.' }
 Assert-PackagePins (Join-Path $extracted ('Components/' + $hdPins.profile)) @(Get-PackageHdComponentPins $hdPins $pins)
+$gameplayPins = Read-PackageJson (Join-Path $extracted 'gameplay-component-pins.json') 131072
+if ((Get-PackageFileHash (Join-Path $extracted 'gameplay-component-pins.json')) -cne (Get-PackageFileHash (Join-Path $PSScriptRoot '../GameplayComponent/component-pins.json'))) {
+    throw 'Packaged gameplay component pins differ from the reviewed source pins.'
+}
+if ($manifest.gameplayComponentsProfile -cne $gameplayPins.profile -or $settings.gameplayComponentsProfile -cne $gameplayPins.profile) { throw 'Package gameplay component profile differs.' }
+$gameplayRequired = @(Get-PackageGameplayComponentPins $gameplayPins)
+Assert-PackagePins (Join-Path $extracted ('Components/' + $gameplayPins.profile)) $gameplayRequired
 Assert-PackagePins (Join-Path $extracted 'Notices') @($settings.notices)
 Assert-PackageCorrespondingSources (Join-Path $extracted 'Notices') @($settings.notices)
 $actual = @(Get-PackageFiles $extracted)
@@ -67,7 +74,8 @@ foreach ($file in $actual) {
 }
 foreach ($required in @('PowerOfChaos.Launcher.exe', 'PowerOfChaos.Launcher.dll', 'PowerOfChaos.Launcher.Core.dll',
     'PowerOfChaos.Launcher.deps.json', 'PowerOfChaos.Launcher.runtimeconfig.json', 'coreclr.dll', 'hostfxr.dll', 'hostpolicy.dll',
-    'System.Private.CoreLib.dll', 'README.txt', 'release-settings.json', 'component-pins.json', 'hd-component-pins.json')) {
+    'System.Private.CoreLib.dll', 'README.txt', 'release-settings.json', 'component-pins.json', 'hd-component-pins.json',
+    'gameplay-component-pins.json')) {
     if (-not $expected.ContainsKey($required)) { throw ('Required self-contained file is missing: ' + $required) }
 }
 $runtimeConfig = Read-PackageJson (Join-Path $extracted 'PowerOfChaos.Launcher.runtimeconfig.json')
@@ -86,6 +94,11 @@ foreach ($bundle in @('original-aspect-ratio-v1', $hdPins.profile)) {
         if ((Get-PackagePeMachine (Join-Path $extracted ('Components/' + $bundle + '/' + $native))) -ne 0x014c) {
             throw 'The game display components must remain x86 independently of launcher architecture.'
         }
+    }
+}
+foreach ($pin in $gameplayRequired) {
+    if ((Get-PackagePeMachine (Join-Path $extracted ('Components/' + $gameplayPins.profile + '/' + $pin.name))) -ne 0x014c) {
+        throw 'The gameplay component must remain x86 independently of launcher architecture.'
     }
 }
 $deps = Read-PackageJson (Join-Path $extracted 'PowerOfChaos.Launcher.deps.json')

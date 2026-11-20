@@ -249,17 +249,26 @@
               </Grid>
             </Border>
             <Border Classes="panel" Padding="20">
-              <Grid ColumnDefinitions="Auto,210,*" ColumnSpacing="20">
-                <CheckBox IsEnabled="False" VerticalAlignment="Center" AutomationProperties.Name="{loc:Tr Text='Custom opponent decks, in development'}" />
-                <TextBlock Grid.Column="1" Text="{loc:Tr Text='Custom opponent decks'}" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
-                <TextBlock Grid.Column="2" Text="{loc:Tr Text='Change the decks used by the opponent. In development.'}" Classes="quiet" TextWrapping="Wrap" LineHeight="21" VerticalAlignment="Center" />
+              <Grid x:Name="NewCardRewardsRow" ColumnDefinitions="Auto,210,*" ColumnSpacing="20">
+                <CheckBox x:Name="NewCardRewardsCheckBox" IsEnabled="False" VerticalAlignment="Center"
+                          AutomationProperties.Name="{loc:Tr Text='New card rewards for all three games'}" Click="NewCardRewards_Click" />
+                <TextBlock x:Name="NewCardRewardsTitle" Grid.Column="1" Text="{loc:Tr Text='New card rewards'}" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
+                <StackPanel Grid.Column="2" Spacing="10" VerticalAlignment="Center">
+                  <TextBlock x:Name="NewCardRewardsDescription" Text="{loc:Tr Text='Every card you win is one you do not own yet, and you get three copies of it at once. Once no card is missing, rewards fill up the cards you hold fewer than three of. A duel still gives one card and a match three different ones. Applies on the next launch.'}" Classes="quiet" TextWrapping="Wrap" LineHeight="21" />
+                  <SelectableTextBlock x:Name="NewCardRewardsStatus" TextWrapping="Wrap" FontSize="12" IsVisible="False" />
+                </StackPanel>
               </Grid>
             </Border>
             <Border Classes="panel" Padding="20">
-              <Grid ColumnDefinitions="Auto,210,*" ColumnSpacing="20">
-                <CheckBox IsEnabled="False" VerticalAlignment="Center" AutomationProperties.Name="{loc:Tr Text='New card rewards, in development'}" />
-                <TextBlock Grid.Column="1" Text="{loc:Tr Text='New card rewards'}" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
-                <TextBlock Grid.Column="2" Text="{loc:Tr Text='Award new cards in their permitted quantities. In development.'}" Classes="quiet" TextWrapping="Wrap" LineHeight="21" VerticalAlignment="Center" />
+              <Grid x:Name="CustomOpponentDecksRow" ColumnDefinitions="Auto,210,*" ColumnSpacing="20">
+                <CheckBox x:Name="CustomOpponentDecksCheckBox" IsEnabled="False" VerticalAlignment="Center"
+                          AutomationProperties.Name="{loc:Tr Text='Custom opponent decks for all three games'}" Click="CustomOpponentDecks_Click" />
+                <TextBlock x:Name="CustomOpponentDecksTitle" Grid.Column="1" Text="{loc:Tr Text='Custom opponent decks'}" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
+                <StackPanel Grid.Column="2" Spacing="10" VerticalAlignment="Center">
+                  <TextBlock x:Name="CustomOpponentDecksDescription" Text="{loc:Tr Text='See the decks your opponent plays, build your own from them and choose which ones the opponent uses. A deck needs at least 40 cards. Applies on the next launch.'}" Classes="quiet" TextWrapping="Wrap" LineHeight="21" />
+                  <SelectableTextBlock x:Name="CustomOpponentDecksStatus" TextWrapping="Wrap" FontSize="12" />
+                  <Button x:Name="OpponentDecksButton" Content="{loc:Tr Text='Open opponent decks'}" Classes="secondary" HorizontalAlignment="Left" IsEnabled="False" Click="OpponentDecks_Click" />
+                </StackPanel>
               </Grid>
             </Border>
           </StackPanel>

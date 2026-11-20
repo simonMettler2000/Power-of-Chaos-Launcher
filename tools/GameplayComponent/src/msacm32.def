@@ -1,0 +1,47 @@
+; Gameplay component: the names and ordinals of the system audio compression library.
+LIBRARY msacm32
+EXPORTS
+    XRegThunkEntry=pocgp_forward_0 @1
+    acmDriverAddA=pocgp_forward_1 @2
+    acmDriverAddW=pocgp_forward_2 @3
+    acmDriverClose=pocgp_forward_3 @4
+    acmDriverDetailsA=pocgp_forward_4 @5
+    acmDriverDetailsW=pocgp_forward_5 @6
+    acmDriverEnum=pocgp_forward_6 @7
+    acmDriverID=pocgp_forward_7 @8
+    acmDriverMessage=pocgp_forward_8 @9
+    acmDriverOpen=pocgp_forward_9 @10
+    acmDriverPriority=pocgp_forward_10 @11
+    acmDriverRemove=pocgp_forward_11 @12
+    acmFilterChooseA=pocgp_forward_12 @13
+    acmFilterChooseW=pocgp_forward_13 @14
+    acmFilterDetailsA=pocgp_forward_14 @15
+    acmFilterDetailsW=pocgp_forward_15 @16
+    acmFilterEnumA=pocgp_forward_16 @17
+    acmFilterEnumW=pocgp_forward_17 @18
+    acmFilterTagDetailsA=pocgp_forward_18 @19
+    acmFilterTagDetailsW=pocgp_forward_19 @20
+    acmFilterTagEnumA=pocgp_forward_20 @21
+    acmFilterTagEnumW=pocgp_forward_21 @22
+    acmFormatChooseA=pocgp_forward_22 @23
+    acmFormatChooseW=pocgp_forward_23 @24
+    acmFormatDetailsA=pocgp_forward_24 @25
+    acmFormatDetailsW=pocgp_forward_25 @26
+    acmFormatEnumA=pocgp_forward_26 @27
+    acmFormatEnumW=pocgp_forward_27 @28
+    acmFormatSuggest=pocgp_forward_28 @29
+    acmFormatTagDetailsA=pocgp_forward_29 @30
+    acmFormatTagDetailsW=pocgp_forward_30 @31
+    acmFormatTagEnumA=pocgp_forward_31 @32
+    acmFormatTagEnumW=pocgp_forward_32 @33
+    acmGetVersion=pocgp_forward_33 @34
+    acmMessage32=pocgp_forward_34 @35
+    acmMetrics=pocgp_forward_35 @36
+    acmStreamClose=pocgp_forward_36 @37
+    acmStreamConvert=pocgp_forward_37 @38
+    acmStreamMessage=pocgp_forward_38 @39
+    acmStreamOpen=pocgp_forward_39 @40
+    acmStreamPrepareHeader=pocgp_forward_40 @41
+    acmStreamReset=pocgp_forward_41 @42
+    acmStreamSize=pocgp_forward_42 @43
+    acmStreamUnprepareHeader=pocgp_forward_43 @44

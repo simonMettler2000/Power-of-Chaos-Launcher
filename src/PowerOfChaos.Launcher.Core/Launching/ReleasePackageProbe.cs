@@ -16,7 +16,7 @@ public static class ReleasePackageProbe
     {
         if (!Path.IsPathFullyQualified(reportPath)) throw new ArgumentException("An absolute report path is required.", nameof(reportPath));
         if (!Path.GetExtension(reportPath).Equals(".json", StringComparison.OrdinalIgnoreCase)
-            || new[] { "launcher-settings.json", "playtime.json", "state.json", "recovery.json", "package-manifest.json", "release-settings.json", "component-pins.json", "hd-component-pins.json" }
+            || new[] { "launcher-settings.json", "playtime.json", "state.json", "recovery.json", "package-manifest.json", "release-settings.json", "component-pins.json", "hd-component-pins.json", "gameplay-component-pins.json" }
                 .Contains(Path.GetFileName(reportPath), StringComparer.OrdinalIgnoreCase))
             throw new ArgumentException("A new diagnostic JSON report filename is required.", nameof(reportPath));
         var root = Path.GetFullPath(AppContext.BaseDirectory);
@@ -28,11 +28,12 @@ public static class ReleasePackageProbe
             && new[] { "coreclr.dll", "hostfxr.dll", "hostpolicy.dll", "System.Private.CoreLib.dll" }.All(name => File.Exists(Path.Combine(root, name)));
         if (!localRuntime) errors.Add("The runtime is not contained in the package.");
         var componentsValid = true;
-        // Both game-side bundles are only hashed here; nothing in them is loaded.
-        foreach (var (directory, components) in new (string, IReadOnlyList<DisplayComponent>)[]
+        // The game-side bundles are only hashed here; nothing in them is loaded.
+        foreach (var (directory, components, kind) in new (string, IReadOnlyList<DisplayComponent>, string)[]
         {
-            (OriginalAspectRatioComponents.DirectoryName, OriginalAspectRatioComponents.Required),
-            (HdCardArtworkComponents.DirectoryName, HdCardArtworkComponents.Required)
+            (OriginalAspectRatioComponents.DirectoryName, OriginalAspectRatioComponents.Required, "display"),
+            (HdCardArtworkComponents.DirectoryName, HdCardArtworkComponents.Required, "display"),
+            (GameplayComponents.DirectoryName, new[] { GameplayComponents.Library }, "gameplay")
         })
         {
             foreach (var component in components)
@@ -49,7 +50,7 @@ public static class ReleasePackageProbe
                 catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException)
                 {
                     componentsValid = false;
-                    errors.Add("Missing or changed display component: " + directory + "/" + component.FileName);
+                    errors.Add("Missing or changed " + kind + " component: " + directory + "/" + component.FileName);
                 }
             }
             // A bundle holds its pinned files and nothing else.
@@ -97,7 +98,7 @@ public static class ReleasePackageProbe
             actualVersion = Environment.Version.ToString(),
             componentsValid,
             desktopDependenciesValid,
-            builtInMods = new[] { "skip-splash-screens", "skip-character-interactions", "original-aspect-ratio", "temporary-all-cards", "hd-card-artwork" },
+            builtInMods = new[] { "skip-splash-screens", "skip-character-interactions", "original-aspect-ratio", "temporary-all-cards", "hd-card-artwork", "new-card-rewards", "custom-opponent-decks" },
             gameFilesRead = false,
             userSettingsRead = false,
             errors

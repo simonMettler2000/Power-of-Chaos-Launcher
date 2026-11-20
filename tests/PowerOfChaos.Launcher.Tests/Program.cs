@@ -256,6 +256,8 @@ internal static class Program
             await AspectRatioChecks.RunAll(fixtures.Root, Run);
             await PortableDisplayCacheChecks.RunAll(fixtures.Root, Run);
             await HdCardChecks.RunAll(fixtures.Root, Run);
+            await GameplayComponentChecks.RunAll(fixtures.Root, Run);
+            await OpponentDeckChecks.RunAll(fixtures.Root, Run);
             await PortraitChecks.RunAll(fixtures.Root, Run);
             await PortraitThumbnailChecks.RunAll(fixtures.Root, Run);
             await CollectionChecks.RunAll(fixtures.Root, Run);

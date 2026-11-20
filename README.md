@@ -50,7 +50,7 @@ Browsing Collection does not change your save. Names come from the language tabl
 
 ## Available mods
 
-These five mods are available in the stable Windows download:
+These mods are available in the stable Windows download:
 
 | Mod | What it does |
 | --- | --- |
@@ -59,6 +59,8 @@ These five mods are available in the stable Windows download:
 | **Original aspect ratio** | Keeps the game's 4:3 picture when resizing or using borderless fullscreen. Use **Alt+Enter** to switch fullscreen mode. |
 | **Temporary all cards** | Temporarily grants three copies of each card in your added games' supported pools, with an original-save backup for restoration. |
 | **HD card artwork** | Draws the cards from high-resolution pictures. Needs the separate HD picture download; see below. |
+| **New card rewards** | Every card you win is one you do not own yet, and you get three copies of it at once. |
+| **Custom opponent decks** | Look at the decks your opponent plays, build your own and choose which ones the opponent uses. |
 
 Executable mods require a supported game revision. The launcher checks compatibility before preparing a private launch copy and leaves installed executables and archives unchanged. If a revision is unsupported, untick those mods to launch normally. Changes to launch mods take effect on the next launch. Skipping character interactions can change the sequence of random choices compared with an unmodified run.
 
@@ -90,9 +92,17 @@ The game plays in a borderless 4:3 picture; Alt+Enter switches to a resizable wi
 
 The Windows download includes the HD component from version 0.3.0 on; only the pictures are a separate download. [Mod details](docs/mods.md#hd-card-artwork) · [What has been verified](docs/hd-renderer-status.md) · [How the component works](tools/HdCards/README.md)
 
-## Features still in development
+### Custom opponent decks
 
-**Opponent-deck packs and guaranteed-new rewards are disabled.** Local development builds can differ from the public download.
+1. In **Mods**, press **Open opponent decks** and pick a game.
+2. Select one of the game's own decks to see its cards. The **i** beside a card shows its text.
+3. Press **Copy to my decks** (or **New deck**), add cards with **+**, remove them with **−**, then **Save deck** and give it a name. A deck needs 40 to 80 main cards and at most three copies of a card.
+4. Tick the decks the opponent may use. With several ticked, each duel takes one of them at random; with none ticked, the game's own decks are used.
+5. Tick **Custom opponent decks** and press Play.
+
+[Mod details](docs/mods.md#custom-opponent-decks)
+
+Local development builds can differ from the public download.
 
 Future built-in mods will arrive through launcher updates. [Release and extension workflow](docs/releases.md).
 

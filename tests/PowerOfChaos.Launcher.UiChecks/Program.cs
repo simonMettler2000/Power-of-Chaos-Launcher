@@ -383,7 +383,7 @@ internal static class Program
                     && description.Contains("normal game speed", StringComparison.Ordinal)
                     && description.Contains("next launch", StringComparison.Ordinal), "Aspect ratio description omits its behavior or timing.");
                 Require(ModNames.All(name => ModCheckBox(window, name).IsChecked == false), "New mod choices should default to off.");
-                var futureNames = new[] { "Custom opponent decks, in development", "New card rewards, in development" };
+                var futureNames = Array.Empty<string>();
                 var mods = Find<StackPanel>(window, "ModsView");
                 // HD card artwork is a real choice, but only with its component beside the launcher and a picture folder.
                 var hdCards = Find<CheckBox>(window, "HdCardArtworkCheckBox");
@@ -396,6 +396,56 @@ internal static class Program
                 Require(hdDescription.Contains("4:3", StringComparison.Ordinal) && hdDescription.Contains("Alt+Enter", StringComparison.Ordinal)
                     && hdDescription.Contains("download", StringComparison.Ordinal) && hdDescription.Contains("next launch", StringComparison.Ordinal),
                     "HD card artwork description omits its display, its download or its timing.");
+                // New card rewards is a real choice too, but only with the gameplay component beside the launcher.
+                var rewards = Find<CheckBox>(window, "NewCardRewardsCheckBox");
+                Require(AutomationProperties.GetName(rewards) == "New card rewards for all three games" && rewards.IsChecked != true,
+                    "New card rewards must be named and off by default.");
+                var rewardsStatus = Find<SelectableTextBlock>(window, "NewCardRewardsStatus");
+                Require(!rewards.IsEnabled && rewardsStatus.IsVisible && (rewardsStatus.Text ?? "").Contains("not installed", StringComparison.Ordinal),
+                    "New card rewards must say when its component is missing.");
+                Require(Find<TextBlock>(window, "NewCardRewardsTitle").Text == "New card rewards", "New card rewards title differs.");
+                var rewardsDescription = Find<TextBlock>(window, "NewCardRewardsDescription").Text ?? "";
+                Require(rewardsDescription.Contains("do not own yet", StringComparison.Ordinal) && rewardsDescription.Contains("three copies", StringComparison.Ordinal)
+                    && rewardsDescription.Contains("one card", StringComparison.Ordinal)
+                    && rewardsDescription.Contains("match three", StringComparison.Ordinal) && rewardsDescription.Contains("next launch", StringComparison.Ordinal),
+                    "New card rewards description omits what it gives or its timing.");
+                Require(!mods.GetVisualDescendants().OfType<CheckBox>().Any(c => (AutomationProperties.GetName(c) ?? "").Contains("New card rewards, in development", StringComparison.Ordinal)),
+                    "The placeholder row for New card rewards is still shown.");
+                // A saved selection whose component has gone missing must stay untickable; otherwise every Play is refused for good.
+                var modSettings = (LauncherSettings)typeof(MainWindow).GetField("_settings", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(window)!;
+                var refreshMods = typeof(MainWindow).GetMethod("RefreshModControls", BindingFlags.Instance | BindingFlags.NonPublic)!;
+                // Custom opponent decks is a real choice as well; its decks can be opened without the component.
+                var opponentDecks = Find<CheckBox>(window, "CustomOpponentDecksCheckBox");
+                var opponentDecksStatus = Find<SelectableTextBlock>(window, "CustomOpponentDecksStatus");
+                Require(AutomationProperties.GetName(opponentDecks) == "Custom opponent decks for all three games" && opponentDecks.IsChecked != true
+                    && !opponentDecks.IsEnabled && (opponentDecksStatus.Text ?? "").Contains("not installed", StringComparison.Ordinal),
+                    "Custom opponent decks must be named, off by default and say when its component is missing.");
+                var opponentDecksDescription = Find<TextBlock>(window, "CustomOpponentDecksDescription").Text ?? "";
+                Require(Find<TextBlock>(window, "CustomOpponentDecksTitle").Text == "Custom opponent decks"
+                    && opponentDecksDescription.Contains("at least 40 cards", StringComparison.Ordinal)
+                    && opponentDecksDescription.Contains("next launch", StringComparison.Ordinal), "Custom opponent decks omits its rule or its timing.");
+                Require((Find<Button>(window, "OpponentDecksButton").Content as string ?? "") == "Open opponent decks", "The opponent decks cannot be opened from Mods.");
+                Require(!mods.GetVisualDescendants().OfType<CheckBox>().Any(c => (AutomationProperties.GetName(c) ?? "").Contains("in development", StringComparison.Ordinal)),
+                    "A placeholder row is still shown.");
+                modSettings.NewCardRewards = true;
+                modSettings.HdCardArtwork = true;
+                modSettings.CustomOpponentDecks = true;
+                try
+                {
+                    refreshMods.Invoke(window, null);
+                    Require(opponentDecks.IsEnabled && opponentDecks.IsChecked == true, "A ticked Custom opponent decks without its component cannot be unticked.");
+                    Require(rewards.IsEnabled && rewards.IsChecked == true && rewardsStatus.IsVisible, "A ticked New card rewards without its component cannot be unticked.");
+                    Require(hdCards.IsEnabled && hdCards.IsChecked == true, "A ticked HD card artwork without its component cannot be unticked.");
+                }
+                finally
+                {
+                    modSettings.NewCardRewards = false;
+                    modSettings.HdCardArtwork = false;
+                    modSettings.CustomOpponentDecks = false;
+                    refreshMods.Invoke(window, null);
+                }
+                Require(!rewards.IsEnabled && rewards.IsChecked != true && !hdCards.IsEnabled && hdCards.IsChecked != true,
+                    "The mods without components did not return to off and unavailable.");
                 var availableBottom = ModNames.Max(name => Find<Grid>(window, name + "Row").TranslatePoint(
                     new Point(0, Find<Grid>(window, name + "Row").Bounds.Height), mods)!.Value.Y);
                 foreach (var futureName in futureNames)
@@ -411,6 +461,7 @@ internal static class Program
                 Pump(TimeSpan.FromMilliseconds(80));
             });
             Capture(window, "mods.png");
+            OpponentDeckWindowChecks.RunAll(Path.Combine(runRoot, "opponent-decks"), Check, WaitUntil, Path.Combine(artifacts, "opponent-decks.png"));
             Check("Mods copies the raw backup and HD image paths through both gestures", () =>
             {
                 var backups = Find<CopyPathButton>(window, "TemporaryCollectionBackups");

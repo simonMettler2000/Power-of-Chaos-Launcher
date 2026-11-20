@@ -93,7 +93,7 @@ public sealed class GameSessionService : IAsyncDisposable
         // Capture before the first await, including when another launch owns the gate.
         var options = new GameModOptions(settings.SkipSplashScreens, settings.SkipCharacterInteractions,
             settings.RestoreOriginalAspectRatio, settings.HdCardArtwork,
-            settings.HdCardArtwork ? settings.HdCardImageDirectory : null);
+            settings.HdCardArtwork ? settings.HdCardImageDirectory : null, settings.NewCardRewards, settings.CustomOpponentDecks);
         var installations = new[] { installation }.Concat(settings.Installations)
             .DistinctBy(game => game.GameId).ToArray();
         var launchSettings = new LauncherSettings
@@ -103,6 +103,8 @@ public sealed class GameSessionService : IAsyncDisposable
             RestoreOriginalAspectRatio = options.RestoreOriginalAspectRatio,
             HdCardArtwork = options.HdCardArtwork,
             HdCardImageDirectory = options.HdCardImageDirectory,
+            NewCardRewards = options.NewCardRewards,
+            CustomOpponentDecks = options.CustomOpponentDecks,
             WineExecutable = settings.WineExecutable,
             MinimizeOnLaunch = settings.MinimizeOnLaunch
         };

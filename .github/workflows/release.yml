@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Reviewed release version, for example 0.3.2
+        description: Reviewed release version, for example 0.3.3
         required: true
         type: string
       independent_audit_confirmed:
@@ -74,7 +74,7 @@ jobs:
         run: |
           $inputs = Join-Path $env:RUNNER_TEMP 'release-inputs'
           $output = Join-Path $env:RUNNER_TEMP 'release-output'
-          ./tools/Release/Build-WindowsPackage.ps1 -Version $env:RELEASE_VERSION -RuntimeIdentifier $env:RELEASE_RID -SourceCommit $env:SOURCE_COMMIT -DisplayComponentsDirectory (Join-Path $inputs 'original-aspect-ratio-v1') -HdComponentsDirectory (Join-Path $inputs 'hd-card-artwork-v2') -NoticesDirectory (Join-Path $inputs 'notices') -PackageOutputDirectory $output
+          ./tools/Release/Build-WindowsPackage.ps1 -Version $env:RELEASE_VERSION -RuntimeIdentifier $env:RELEASE_RID -SourceCommit $env:SOURCE_COMMIT -DisplayComponentsDirectory (Join-Path $inputs 'original-aspect-ratio-v1') -HdComponentsDirectory (Join-Path $inputs 'hd-card-artwork-v2') -GameplayComponentsDirectory (Join-Path $inputs 'gameplay-v1') -NoticesDirectory (Join-Path $inputs 'notices') -PackageOutputDirectory $output
           $zip = Get-ChildItem -LiteralPath $output -Filter '*.zip' -File
           if (@($zip).Count -ne 1) { throw 'Expected one architecture download' }
           ./tools/Release/Test-WindowsPackage.ps1 -PackagePath $zip.FullName -ValidationDirectory (Join-Path $env:RUNNER_TEMP 'release-validation') -ExpectedVersion $env:RELEASE_VERSION -ExpectedSourceCommit $env:SOURCE_COMMIT -ExpectedRuntimeIdentifier $env:RELEASE_RID

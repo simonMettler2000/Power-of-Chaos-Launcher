@@ -64,7 +64,7 @@ internal sealed class OriginalAspectRatioPreparer
     }
 
     internal async Task<string> PrepareAsync(GameInstallation installation, GameModOptions options,
-        SplashProfile profile, byte[] executable, CancellationToken cancellationToken)
+        SplashProfile profile, byte[] executable, CancellationToken cancellationToken, GameplayLaunchFiles? gameplay = null)
     {
         var originalPath = Path.GetFullPath(installation.ExecutablePath);
         var installDirectory = Path.GetDirectoryName(originalPath)!;
@@ -103,6 +103,17 @@ internal sealed class OriginalAspectRatioPreparer
             RefuseOverlap(root, images);
             extras.Add(HdCardArtworkComponents.SettingsFileName, Encoding.UTF8.GetBytes(HdCardImages.CreateSettings(images)));
         }
+        // The gameplay component and its settings ride along; they were checked against their pin by the caller.
+        if (gameplay is not null)
+        {
+            foreach (var file in gameplay.Files)
+            {
+                if (_components.Any(component => component.FileName.Equals(file.Key, StringComparison.OrdinalIgnoreCase))
+                    || extras.ContainsKey(file.Key))
+                    throw new InvalidDataException("The gameplay component clashes with a display component file. No game was started.");
+                extras.Add(file.Key, file.Value);
+            }
+        }
         Func<string, string> recipe = _variant.HdCards ? CreateHdConfiguration : CreateConfiguration;
         // Hash the complete recipe with a fixed bucket placeholder to avoid a circular directory/config hash.
         var recipeHash = Hash(Encoding.UTF8.GetBytes(recipe(Path.Combine(root, new string('0', 32), "screenshots"))));
@@ -124,6 +135,8 @@ internal sealed class OriginalAspectRatioPreparer
                 ConfigurationRecipeSha256 = recipeHash,
                 Components = _components
             });
+        // Appended only when in use, so every cache made without the gameplay component keeps its identity.
+        if (gameplay is not null) identity += "\ngameplay\n" + gameplay.Identity;
         var identityHash = Hash(Encoding.UTF8.GetBytes(identity));
         var directory = Path.Combine(root, identityHash[..32]);
         var executableName = GameCatalog.Get(installation.GameId).ExecutableName;
@@ -132,6 +145,7 @@ internal sealed class OriginalAspectRatioPreparer
         // cnc-ddraw 7.1 uses ANSI MAX_PATH buffers for module-local INI lookup. Fail closed before a fallback can write in game CWD.
         if (Path.Combine(directory, "ddraw.ini").Length >= 260 || screenshots.Length + 1 >= 260)
             throw new InvalidDataException("The launcher data path is too long for Restore Original Aspect Ratio. Choose a shorter launcher data directory, or untick this mod.");
+        gameplay?.RequireReachableFrom(directory);
         var configuration = Encoding.UTF8.GetBytes(recipe(screenshots));
         var manifest = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new
         {
@@ -236,6 +250,8 @@ internal sealed class OriginalAspectRatioPreparer
             var name = Path.GetFileName(entry);
             // The HD provider leaves one small diagnostic log beside itself.
             if (_variant.HdCards && name == HdCardArtworkComponents.LogFileName && File.Exists(entry)) continue;
+            // So does the gameplay component, when it is part of this cache.
+            if (name == GameplayComponents.LogFileName && extras.ContainsKey(GameplayComponents.SettingsFileName) && File.Exists(entry)) continue;
             if (!expected.Contains(name)) return false;
         }
         foreach (var extra in extras)
