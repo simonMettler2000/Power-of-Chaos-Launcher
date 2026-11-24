@@ -63,6 +63,7 @@ public static class LaunchPlan
             result.ArgumentList.Add("/unix");
             result.ArgumentList.Add(preparedExecutable);
         }
+        if (settings.SpeedyMode) result.ArgumentList.Add("-speedy");
         return result;
     }
 

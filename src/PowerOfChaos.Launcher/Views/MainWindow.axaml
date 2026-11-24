@@ -215,11 +215,19 @@
               </Grid>
             </Border>
             <Border Classes="panel" Padding="20">
+              <Grid x:Name="SpeedyModeRow" ColumnDefinitions="Auto,210,*" ColumnSpacing="20">
+                <CheckBox x:Name="SpeedyModeCheckBox" IsEnabled="False" VerticalAlignment="Center"
+                          AutomationProperties.Name="{loc:Tr Text='Speedy mode for all three games'}" Click="SpeedyMode_Click" />
+                <TextBlock x:Name="SpeedyModeTitle" Grid.Column="1" Text="{loc:Tr Text='Speedy mode'}" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
+                <TextBlock x:Name="SpeedyModeDescription" Grid.Column="2" Text="{loc:Tr Text='Speed up duels and animations with the game’s built-in fast mode. Applies on the next launch.'}" Classes="quiet" TextWrapping="Wrap" LineHeight="21" VerticalAlignment="Center" />
+              </Grid>
+            </Border>
+            <Border Classes="panel" Padding="20">
               <Grid x:Name="OriginalAspectRatioRow" ColumnDefinitions="Auto,210,*" ColumnSpacing="20">
                 <CheckBox x:Name="OriginalAspectRatioCheckBox" IsEnabled="False" VerticalAlignment="Center"
                           AutomationProperties.Name="{loc:Tr Text='Original aspect ratio for all three games'}" Click="OriginalAspectRatio_Click" />
                 <TextBlock x:Name="OriginalAspectRatioTitle" Grid.Column="1" Text="{loc:Tr Text='Original aspect ratio'}" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
-                <TextBlock x:Name="OriginalAspectRatioDescription" Grid.Column="2" Text="{loc:Tr Text='Start windowed and keep the original 4:3 picture when resizing, maximizing or using fullscreen, with black bars as needed. Retains normal game speed. Applies on the next launch.'}" Classes="quiet" TextWrapping="Wrap" LineHeight="21" VerticalAlignment="Center" />
+                <TextBlock x:Name="OriginalAspectRatioDescription" Grid.Column="2" Text="{loc:Tr Text='Start windowed and keep the original 4:3 picture when resizing, maximizing or using fullscreen, with black bars as needed. Applies on the next launch.'}" Classes="quiet" TextWrapping="Wrap" LineHeight="21" VerticalAlignment="Center" />
               </Grid>
             </Border>
             <Border Classes="panel" Padding="20">

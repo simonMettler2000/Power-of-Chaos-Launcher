@@ -2,7 +2,7 @@
 
 The inspected games use an 800 x 600 image. The display mod starts at that size in a window, preserves 4:3 during Windows edge resizing, and centers the picture with black bars when filling a wider work area or monitor. Alt+Enter switches between windowed and borderless fullscreen. The maximize button fills/restores the work area using a custom operation; Windows' native maximized state bit is not set.
 
-The mod does not change game timing fields or pass game speed/display arguments. The original limiter remains responsible for game updates. Dragging can pause presentation, and the original short-delay catch-up remains possible. There is no frame-rate selector in this mod.
+The original limiter remains responsible for game updates. Enable Speedy mode in Mods to select the game's built-in faster timing. Dragging can pause presentation, and the original short-delay catch-up remains possible.
 
 ## Build the optional component locally
 

@@ -53,13 +53,19 @@ Each enabled combination has its own full-file verification and isolated cache i
 
 Automated checks exercise the four combinations with synthetic fixtures and fake processes, and verify the real pinned outputs entirely in memory. They never execute original or modified games. Actual duel behavior, audio/rendering and Windows/Wine compatibility remain manual checks under the project's no-execution rule.
 
+## Speedy mode
+
+Tick **Speedy mode** in Mods to pass the built-in `-speedy` option when you next start a game. It applies to Yugi the Destiny, Kaiba the Revenge and Joey the Passion. The option selects the game's faster timing mode, which raises its usual 30 FPS cap to 60. The checked Yugi executable is Version 2.
+
+The setting requires no additional files. It works with both Original aspect ratio and HD card artwork because it passes the same launch argument to the executable selected by those mods. Untick it to launch at the game's default speed.
+
 ## Original aspect ratio
 
 This global switch uses the same supported executable hashes above. All three inspected targets request an 800 x 600 picture. It starts windowed at that size, constrains Windows drag resizing to 4:3, and centers the scaled picture with black bars when the window fills the work area or the monitor. The maximum button uses a custom workarea fill/restore operation; it does not set the Windows native maximized state bit. Alt+Enter toggles borderless fullscreen.
 
-All three switches are independent and apply on the next launch. With only Original aspect ratio enabled, the private executable has exactly the original bytes. With either of the other mods enabled, its bytes match that combination's existing verified output. Display DLLs and a fresh global-only configuration live beside that private executable; archives are still read from the original working directory. No DLL, INI or executable is written into the installation.
+Original aspect ratio applies on the next launch. With only Original aspect ratio enabled, the private executable has exactly the original bytes. With either of the startup mods enabled, its bytes match that combination's verified output. Display DLLs and a fresh global-only configuration live beside that private executable. The games still read their archives from the installation directory.
 
-The wrapper's game-logic limiter is disabled. The game's native timing fields and arguments are unchanged; its normal limiter defaults to 30, while the existing game option `-speedy` selects 60. This mod adds neither that argument nor a new speed selector. Presentation refresh and game updates remain separate, so a future speed mod can address game timing independently. Animation can stop during interactive drag resizing, and native catch-up after a short delay is preserved.
+The wrapper leaves game timing to the game, so Speedy mode also works with this display option. Animation can stop during interactive drag resizing, and native catch-up after a short delay is preserved.
 
 Turning this mod off selects the original or binary-only cache path. The launcher refuses an aspect-off executable directory containing either display proxy DLL, so a stale display cache cannot silently keep the component active. Unsupported executable versions, missing components and invalid caches fail before starting a process.
 
@@ -73,7 +79,7 @@ The pictures are a separate download. Get `Power-of-Chaos-HD-Card-Artwork-v3.zip
 
 Pack v3 has the same 773 file names as v1 and v2. Every card picture in it is repaired: the dark square around the icon and the right end of the name bar on all cards, on monsters also the band behind the level stars and the ground of the ATK/DEF line, the right border of the text box where it was smeared, and the copyright line. Artwork, names, card text and values are unchanged, and the card back is the same file. (v2 had repaired the 264 Normal monsters only.) A v1 or v2 folder keeps working, and v3 can be extracted over it.
 
-The game plays in a borderless 4:3 picture at desktop size with black bars as needed. Alt+Enter switches to a resizable 4:3 window and back. Game speed, saves and installed files are unchanged. HD card artwork brings its own build of the display component, so the picture is the same with or without Original aspect ratio; when both are ticked the HD component is used. It combines with Skip Splash Screens and Skip character interactions.
+The game plays in a borderless 4:3 picture at desktop size with black bars as needed. Alt+Enter switches to a resizable 4:3 window and back. HD card artwork brings its own build of the display component and leaves timing to the game. When both display switches are ticked, the HD component is used. It combines with Speedy mode, Skip Splash Screens and Skip character interactions.
 
 Only the card itself is replaced. Whatever the game draws opaquely over a card (cursor, text, counters, damage numbers, dialog panels, opaque effect sprites) stays exactly as the game drew it. A highlighted, dimmed or half-faded card keeps that look on its HD picture, and a translucent effect over a card is drawn over the HD picture the way the game mixed it. Cards without an HD picture, and any single draw the component cannot identify or explain with certainty, keep the game's own picture rather than a guess.
 

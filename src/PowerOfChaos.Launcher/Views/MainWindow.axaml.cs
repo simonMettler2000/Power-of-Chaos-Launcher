@@ -440,6 +440,8 @@ public partial class MainWindow : Window
         SkipSplashScreensCheckBox.IsEnabled = _settingsReady && !_savingMod && !_pendingLaunch && !_busy;
         SkipCharacterInteractionsCheckBox.IsChecked = _settings.SkipCharacterInteractions;
         SkipCharacterInteractionsCheckBox.IsEnabled = SkipSplashScreensCheckBox.IsEnabled;
+        SpeedyModeCheckBox.IsChecked = _settings.SpeedyMode;
+        SpeedyModeCheckBox.IsEnabled = SkipSplashScreensCheckBox.IsEnabled;
         OriginalAspectRatioCheckBox.IsChecked = _settings.RestoreOriginalAspectRatio;
         OriginalAspectRatioCheckBox.IsEnabled = SkipSplashScreensCheckBox.IsEnabled;
         var hdComponent = HdCardArtworkSupport.ComponentPresent();
@@ -583,11 +585,13 @@ public partial class MainWindow : Window
         }
     }
 
-    private enum ModSelection { SkipSplashScreens, SkipCharacterInteractions, OriginalAspectRatio, HdCardArtwork, NewCardRewards, CustomOpponentDecks }
+    private enum ModSelection { SkipSplashScreens, SkipCharacterInteractions, SpeedyMode, OriginalAspectRatio, HdCardArtwork, NewCardRewards, CustomOpponentDecks }
 
     private async void SkipSplashScreens_Click(object? sender, RoutedEventArgs e) => await SaveModSelectionAsync(ModSelection.SkipSplashScreens);
 
     private async void SkipCharacterInteractions_Click(object? sender, RoutedEventArgs e) => await SaveModSelectionAsync(ModSelection.SkipCharacterInteractions);
+
+    private async void SpeedyMode_Click(object? sender, RoutedEventArgs e) => await SaveModSelectionAsync(ModSelection.SpeedyMode);
 
     private async void OriginalAspectRatio_Click(object? sender, RoutedEventArgs e) => await SaveModSelectionAsync(ModSelection.OriginalAspectRatio);
 
@@ -670,6 +674,7 @@ public partial class MainWindow : Window
     {
         ModSelection.SkipSplashScreens => _settings.SkipSplashScreens,
         ModSelection.SkipCharacterInteractions => _settings.SkipCharacterInteractions,
+        ModSelection.SpeedyMode => _settings.SpeedyMode,
         ModSelection.OriginalAspectRatio => _settings.RestoreOriginalAspectRatio,
         ModSelection.HdCardArtwork => _settings.HdCardArtwork,
         ModSelection.NewCardRewards => _settings.NewCardRewards,
@@ -683,6 +688,7 @@ public partial class MainWindow : Window
         {
             case ModSelection.SkipSplashScreens: _settings.SkipSplashScreens = selected; break;
             case ModSelection.SkipCharacterInteractions: _settings.SkipCharacterInteractions = selected; break;
+            case ModSelection.SpeedyMode: _settings.SpeedyMode = selected; break;
             case ModSelection.OriginalAspectRatio: _settings.RestoreOriginalAspectRatio = selected; break;
             case ModSelection.HdCardArtwork: _settings.HdCardArtwork = selected; break;
             case ModSelection.NewCardRewards: _settings.NewCardRewards = selected; break;
@@ -702,6 +708,7 @@ public partial class MainWindow : Window
         {
             ModSelection.SkipSplashScreens => (SkipSplashScreensCheckBox, "Skip Splash Screens"),
             ModSelection.SkipCharacterInteractions => (SkipCharacterInteractionsCheckBox, "Skip character interactions"),
+            ModSelection.SpeedyMode => (SpeedyModeCheckBox, "Speedy mode"),
             ModSelection.OriginalAspectRatio => (OriginalAspectRatioCheckBox, "Original aspect ratio"),
             ModSelection.HdCardArtwork => (HdCardArtworkCheckBox, "HD card artwork"),
             ModSelection.NewCardRewards => (NewCardRewardsCheckBox, "New card rewards"),

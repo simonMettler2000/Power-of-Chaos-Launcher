@@ -159,6 +159,40 @@ internal static class HdCardChecks
             Require(!wine.Environment.ContainsKey("CNC_DDRAW_CONFIG_FILE") && wine.Environment["WINEDLLOVERRIDES"] == "winmm,ddraw,*winmm,*ddraw=n",
                 "The HD launch environment does not select the private provider.");
         });
+        await run("Speedy mode passes one game argument for every title and display combination on Windows and Wine", async () =>
+        {
+            foreach (var title in GameCatalog.All)
+            {
+                var fixture = await Fixture.Create(Path.Combine(fixtures, "sp-" + title.Id), title.Id);
+                foreach (var (hd, aspect) in new[] { (false, false), (false, true), (true, false), (true, true) })
+                {
+                    var options = new GameModOptions(RestoreOriginalAspectRatio: aspect, HdCardArtwork: hd,
+                        HdCardImageDirectory: fixture.Pictures);
+                    var path = await fixture.Preparer.PrepareExecutableAsync(fixture.Game, options);
+                    foreach (var speedy in new[] { false, true })
+                    {
+                        var settings = new LauncherSettings
+                        {
+                            RestoreOriginalAspectRatio = aspect,
+                            HdCardArtwork = hd,
+                            SpeedyMode = speedy,
+                            WineExecutable = "/test/runner with spaces/wine"
+                        };
+                        string[] gameArguments = speedy ? ["-speedy"] : [];
+                        var windows = LaunchPlan.CreatePrepared(fixture.Game, settings, path, isWindows: true);
+                        Require(windows.FileName == path && windows.ArgumentList.SequenceEqual(gameArguments),
+                            $"Windows selected the wrong executable or arguments for {title.Id} (HD={hd}, aspect={aspect}, Speedy={speedy}).");
+                        var wine = LaunchPlan.CreatePrepared(fixture.Game, settings, path, isWindows: false,
+                            new Dictionary<string, string?> { ["WINEDLLOVERRIDES"] = "foo=b" });
+                        string[] wineArguments = ["start", "/wait", "/unix", path, .. gameArguments];
+                        Require(wine.FileName == settings.WineExecutable && wine.ArgumentList.SequenceEqual(wineArguments),
+                            $"Wine selected the wrong runner or game arguments for {title.Id} (HD={hd}, aspect={aspect}, Speedy={speedy}).");
+                        Require(wine.Environment["WINEDLLOVERRIDES"] == (hd || aspect ? "foo=b;winmm,ddraw,*winmm,*ddraw=n" : "foo=b"),
+                            "An argument-only setting changed the display environment.");
+                    }
+                }
+            }
+        });
     }
 
     private sealed record Fixture(string Root, string Data, string ComponentDirectory, string HdComponentDirectory, string Pictures,

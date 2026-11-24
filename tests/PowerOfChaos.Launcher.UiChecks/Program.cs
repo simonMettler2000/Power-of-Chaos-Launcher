@@ -373,6 +373,10 @@ internal static class Program
                 Require(Find<TextBlock>(window, "PageTitle").Text == "Mods", "Mods page title differs.");
                 Require(!Find<TextBlock>(window, "PageSubtitle").IsVisible, "Mods subtitle still occupies the header.");
                 foreach (var name in ModNames) CheckModRow(window, name);
+                CheckModRow(window, "SpeedyMode");
+                var speedy = ModCheckBox(window, "SpeedyMode");
+                Require(speedy.IsChecked == false && AutomationProperties.GetName(speedy) == "Speedy mode for all three games",
+                    "Speedy mode should start off and name its scope.");
                 Require(Find<TextBlock>(window, "OriginalAspectRatioTitle").Text == "Original aspect ratio", "Aspect ratio title differs.");
                 var description = Find<TextBlock>(window, "OriginalAspectRatioDescription").Text ?? "";
                 Require(description.Contains("4:3", StringComparison.Ordinal)
@@ -380,7 +384,6 @@ internal static class Program
                     && description.Contains("resizing", StringComparison.Ordinal)
                     && description.Contains("maximizing", StringComparison.Ordinal)
                     && description.Contains("fullscreen", StringComparison.Ordinal)
-                    && description.Contains("normal game speed", StringComparison.Ordinal)
                     && description.Contains("next launch", StringComparison.Ordinal), "Aspect ratio description omits its behavior or timing.");
                 Require(ModNames.All(name => ModCheckBox(window, name).IsChecked == false), "New mod choices should default to off.");
                 var futureNames = Array.Empty<string>();
@@ -457,6 +460,7 @@ internal static class Program
                 window.Width = window.MinWidth;
                 Pump(TimeSpan.FromMilliseconds(80));
                 foreach (var name in ModNames) CheckModRow(window, name);
+                CheckModRow(window, "SpeedyMode");
                 window.Width = 1100;
                 Pump(TimeSpan.FromMilliseconds(80));
             });
@@ -496,6 +500,7 @@ internal static class Program
                 {
                     ClickInput(window, ModCheckBox(window, ModNames[0]));
                     Require(ModNames.All(name => !ModCheckBox(window, name).IsEnabled), "A mod remains enabled during a pending save.");
+                    Require(!ModCheckBox(window, "SpeedyMode").IsEnabled, "Speedy remained enabled during a pending save.");
                     Require(Find<ItemsControl>(window, "GameCards").Items.OfType<GameCardViewModel>().All(c => !c.CanPlay),
                         "Play remained available before settings were saved.");
                     ClickInput(window, ModCheckBox(window, ModNames[1]));
@@ -518,6 +523,7 @@ internal static class Program
             });
             var legacy = JsonNode.Parse(File.ReadAllText(Path.Combine(data, "launcher-settings.json")))!.AsObject();
             legacy.Remove("RestoreOriginalAspectRatio");
+            legacy.Remove("SpeedyMode");
             var legacySettings = legacy.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
             Check("original aspect ratio composes with both existing global mods", () =>
             {
@@ -526,6 +532,19 @@ internal static class Program
                 Require((Find<TextBlock>(window, "StatusText").Text ?? "") == "Original aspect ratio enabled for all three games on their next launch.",
                     "Aspect ratio status does not explain its global next-launch scope.");
                 CheckPreservedSettings(data);
+            });
+            Check("Speedy mode toggles independently while Original aspect ratio is enabled", () =>
+            {
+                var speedy = ModCheckBox(window, "SpeedyMode");
+                speedy.BringIntoView();
+                Pump(TimeSpan.FromMilliseconds(80));
+                ClickInput(window, speedy);
+                WaitForModSelections(window, data, true, true, true);
+                using var settings = JsonDocument.Parse(File.ReadAllText(Path.Combine(data, "launcher-settings.json")));
+                Require(speedy.IsChecked == true && settings.RootElement.GetProperty("SpeedyMode").GetBoolean(),
+                    "Speedy mode did not save.");
+                Require(Find<TextBlock>(window, "StatusText").Text == "Speedy mode enabled for all three games on their next launch.",
+                    "Speedy status does not explain its global next-launch scope.");
             });
             Capture(window, "mods-all-enabled.png");
             Find<ComboBox>(window, "CardLanguageSelector").SelectedItem = CardLanguages.Get("fr");
@@ -558,6 +577,8 @@ internal static class Program
                 WaitUntil(() => PortraitCount(window) == 3, "Reopened launcher did not reload portraits.");
                 OpenMods(window);
                 WaitForModSelections(window, data, true, true, true);
+                var speedy = ModCheckBox(window, "SpeedyMode");
+                Require(speedy.IsChecked == true, "Reopening the launcher lost the Speedy selection.");
                 CheckPreservedSettings(data);
             });
             Capture(window, "reopened-mods.png");
@@ -567,6 +588,17 @@ internal static class Program
                 Require(selector.SelectedItem is CardLanguage { Id: "fr" }, "Reopening lost the selected card language.");
                 selector.SelectedItem = CardLanguages.Get("en");
                 WaitUntil(() => selector.IsEnabled, "Restoring English did not finish.");
+            });
+            Check("unticking Speedy mode saves the default speed independently", () =>
+            {
+                var speedy = ModCheckBox(window, "SpeedyMode");
+                speedy.BringIntoView();
+                Pump(TimeSpan.FromMilliseconds(80));
+                ClickInput(window, speedy);
+                WaitForModSelections(window, data, true, true, true);
+                using var settings = JsonDocument.Parse(File.ReadAllText(Path.Combine(data, "launcher-settings.json")));
+                Require(speedy.IsChecked == false && !settings.RootElement.GetProperty("SpeedyMode").GetBoolean(),
+                    "Unticking Speedy mode did not save.");
             });
             Check("turning aspect ratio off preserves both other enabled choices", () =>
             {
@@ -651,6 +683,7 @@ internal static class Program
             {
                 WaitUntil(() => ModNames.All(name => ModCheckBox(window, name).IsEnabled), "Legacy settings did not finish loading.");
                 CheckVisibleSelections(window, true, true, false);
+                Require(ModCheckBox(window, "SpeedyMode").IsChecked == false, "A legacy settings file enabled Speedy mode.");
                 CheckSavedSelections(data, true, true, false);
                 Require(CardCount(window) == 3, "Legacy settings lost installed games.");
                 CheckPreservedSettings(data);

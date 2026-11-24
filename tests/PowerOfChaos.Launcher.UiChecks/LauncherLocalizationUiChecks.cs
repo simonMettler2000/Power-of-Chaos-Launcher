@@ -91,8 +91,11 @@ internal static class LauncherLocalizationUiChecks
                     Click(Find<Button>(window, "ModsNav"));
                     Require(Find<TextBlock>(window, "PageTitle").Text == text.Translate("Mods")
                         && Find<TextBlock>(window, "SkipSplashScreensTitle").Text == text.Translate("Skip Splash Screens")
+                        && Find<TextBlock>(window, "SpeedyModeTitle").Text == text.Translate("Speedy mode")
+                        && Find<TextBlock>(window, "SpeedyModeDescription").Text == text.Translate(
+                            "Speed up duels and animations with the game’s built-in fast mode. Applies on the next launch.")
                         && Find<TextBlock>(window, "OriginalAspectRatioDescription").Text == text.Translate(
-                            "Start windowed and keep the original 4:3 picture when resizing, maximizing or using fullscreen, with black bars as needed. Retains normal game speed. Applies on the next launch."),
+                            "Start windowed and keep the original 4:3 picture when resizing, maximizing or using fullscreen, with black bars as needed. Applies on the next launch."),
                         "Mod labels or descriptions stayed stale.");
                     capture(window, "language-" + expected.Id + "-mods-minimum.png");
 

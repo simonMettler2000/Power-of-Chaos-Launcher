@@ -438,19 +438,22 @@ internal static class AspectRatioChecks
             Require(inherited == Environment.GetEnvironmentVariable("WINEDLLOVERRIDES"), "Disabled display changed inherited Wine environment.");
         });
 
-        await run("all three options remain immutable during queued preparation and cancellation", async () =>
+        await run("display, executable and Speedy options remain immutable during queued preparation and cancellation", async () =>
         {
             var fixture = await Fixture.Create(Path.Combine(fixtures, "aq"));
             var preparer = new PausingPreparer(fixture.Game.ExecutablePath);
             var runner = new FakeRunner();
             var service = new GameSessionService(Path.Combine(fixture.Root, "session"), runner, preparer: preparer, temporaryCollections: TestCollectionProfiles.Create());
             var settings = Settings(new(true, true, true));
+            settings.SpeedyMode = true;
             var launch = service.LaunchAsync(fixture.Game, settings);
             await preparer.Entered.Task.WaitAsync(TimeSpan.FromSeconds(3));
             settings.RestoreOriginalAspectRatio = false; settings.SkipSplashScreens = false; settings.SkipCharacterInteractions = false;
+            settings.SpeedyMode = false;
             preparer.Release.TrySetResult();
             Require((await launch).Success && preparer.Captured == new GameModOptions(true, true, true) && runner.Starts == 1,
                 "Play used options edited during preparation.");
+            Require(runner.LastStart?.ArgumentList.Contains("-speedy") == true, "A preparing launch lost its Speedy selection.");
             await service.DisposeAsync();
             var queuedPreparer = new FirstFailsPreparer(fixture.Game.ExecutablePath);
             var queuedRunner = new FakeRunner();
@@ -461,9 +464,11 @@ internal static class AspectRatioChecks
                 var queuedSettings = Settings(new(false, true, true));
                 var second = queuedService.LaunchAsync(fixture.Game, queuedSettings);
                 queuedSettings.RestoreOriginalAspectRatio = false; queuedSettings.SkipCharacterInteractions = false; queuedSettings.SkipSplashScreens = true;
+                queuedSettings.SpeedyMode = true;
                 queuedPreparer.Release.TrySetResult();
                 Require(!(await first).Success && (await second).Success && queuedPreparer.SecondOptions == new GameModOptions(false, true, true)
                     && queuedRunner.Starts == 1, "Queued request read options edited after Play.");
+                Require(queuedRunner.LastStart?.ArgumentList.Contains("-speedy") == false, "A queued launch picked up a later Speedy selection.");
             }
             var cancelling = new PausingPreparer(fixture.Game.ExecutablePath);
             var cancelledRunner = new FakeRunner();
@@ -554,7 +559,13 @@ internal static class AspectRatioChecks
     private sealed class FakeRunner : IGameProcessRunner
     {
         internal int Starts { get; private set; }
-        public IGameProcess Start(ProcessStartInfo startInfo) { Starts++; return new FakeProcess(); }
+        internal ProcessStartInfo? LastStart { get; private set; }
+        public IGameProcess Start(ProcessStartInfo startInfo)
+        {
+            Starts++;
+            LastStart = startInfo;
+            return new FakeProcess();
+        }
     }
     private sealed class FakeProcess : IGameProcess
     {

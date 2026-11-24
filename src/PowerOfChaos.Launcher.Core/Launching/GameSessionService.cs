@@ -100,6 +100,7 @@ public sealed class GameSessionService : IAsyncDisposable
         {
             SkipSplashScreens = options.SkipSplashScreens,
             SkipCharacterInteractions = options.SkipCharacterInteractions,
+            SpeedyMode = settings.SpeedyMode,
             RestoreOriginalAspectRatio = options.RestoreOriginalAspectRatio,
             HdCardArtwork = options.HdCardArtwork,
             HdCardImageDirectory = options.HdCardImageDirectory,

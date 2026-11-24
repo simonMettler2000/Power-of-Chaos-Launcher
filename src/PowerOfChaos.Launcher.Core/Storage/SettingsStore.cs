@@ -129,6 +129,7 @@ public sealed class SettingsStore
             MinimizeOnLaunch = settings.MinimizeOnLaunch,
             SkipSplashScreens = settings.SkipSplashScreens,
             SkipCharacterInteractions = settings.SkipCharacterInteractions,
+            SpeedyMode = settings.SpeedyMode,
             RestoreOriginalAspectRatio = settings.RestoreOriginalAspectRatio,
             HdCardArtwork = settings.HdCardArtwork,
             HdCardImageDirectory = ValidAbsolutePath(settings.HdCardImageDirectory),
