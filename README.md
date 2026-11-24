@@ -52,12 +52,13 @@ Browsing Collection does not change your save. Names come from the language tabl
 
 ## Available mods
 
-These mods are available in the stable Windows download:
+The Windows launcher includes these mods. Speedy mode requires version 0.3.4 or newer.
 
 | Mod | What it does |
 | --- | --- |
 | **Skip Splash Screens** | Skips the publisher logos and opens the normal title menu. |
 | **Skip character interactions** | Skips duel greetings, character dialogue and reaction cut-ins. Keeps card effects, duel music and the result presentation. |
+| **Speedy mode** | Activates the game's built-in faster timing for duels and animations. Applies on the next launch and can be used with Original aspect ratio and HD card artwork. |
 | **Original aspect ratio** | Keeps the game's 4:3 picture when resizing or using borderless fullscreen. Use **Alt+Enter** to switch fullscreen mode. |
 | **Temporary all cards** | Temporarily grants three copies of each card in your added games' supported pools, with an original-save backup for restoration. |
 | **HD card artwork** | Draws the cards from high-resolution pictures. Needs the separate HD picture download; see below. |
