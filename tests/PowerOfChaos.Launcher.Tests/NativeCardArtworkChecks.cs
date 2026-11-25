@@ -216,10 +216,14 @@ internal static class NativeCardArtworkChecks
             await Expect<OperationCanceledException>(() => { GameArchive.OpenBatch(path, cancellation.Token).Dispose(); return Task.CompletedTask; });
             await Expect<OperationCanceledException>(() => { batch.ReadRequired(@"mini\list_card.txt", 128 * 1024, cancellation.Token); return Task.CompletedTask; });
             await Expect<OperationCanceledException>(() => { batch.ReadSelected([@"mini\tile_0.bmp"], cancellation.Token); return Task.CompletedTask; });
-            var many = Archive(Enumerable.Range(0, 40_000).Select(i => new Entry($"directory_{i}", [1])).ToArray());
             using var duringScan = new CancellationTokenSource();
-            duringScan.CancelAfter(1);
-            await Expect<OperationCanceledException>(() => { GameArchive.OpenBatch(many, duringScan.Token).Dispose(); return Task.CompletedTask; });
+            using var controlledArchive = new CancelDuringDirectoryRead(await File.ReadAllBytesAsync(path), duringScan);
+            await Expect<OperationCanceledException>(() =>
+            {
+                using var cancelledBatch = new GameArchive.BatchReader(controlledArchive, duringScan.Token);
+                return Task.CompletedTask;
+            });
+            Require(controlledArchive.ReadCalls == 2, "The batch indexed another directory row after cancellation.");
         });
 
         await run("native mini IO stays read-only and rejects relative or directory paths", async () =>

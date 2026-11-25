@@ -15,29 +15,38 @@ internal static class GameArchive
         cancellationToken.ThrowIfCancellationRequested();
         using var archive = new FileStream(path, FileMode.Open, FileAccess.Read,
             FileShare.Read, 4096, FileOptions.RandomAccess);
+        return ReadResources(archive, names, maximumPayloadBytes, cancellationToken);
+    }
+
+    internal static byte[][]? ReadResources(Stream archive, string[] names, int maximumPayloadBytes,
+        CancellationToken cancellationToken)
+    {
         var entries = ReadDirectory(archive, names, maximumPayloadBytes, cancellationToken);
         return entries is null ? null : entries.Select(entry => ReadPayload(archive, entry, cancellationToken)).ToArray();
     }
 
     /// <summary>Indexes one archive for a bounded list read followed by selected native mini reads.</summary>
     public static BatchReader OpenBatch(string path, CancellationToken cancellationToken)
-        => new(path, cancellationToken);
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return new(new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.RandomAccess),
+            cancellationToken);
+    }
 
     internal sealed class BatchReader : IDisposable
     {
         private const int MaximumNames = 1115;
         private const int MaximumMiniBytes = 16 * 1024;
         private const int MaximumBatchBytes = 16 * 1024 * 1024;
-        private readonly FileStream _archive;
+        private readonly Stream _archive;
         private readonly Dictionary<string, ArchiveEntry?> _entries = new(StringComparer.OrdinalIgnoreCase);
 
-        internal BatchReader(string path, CancellationToken cancellationToken)
+        internal BatchReader(Stream archive, CancellationToken cancellationToken)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            _archive = new FileStream(path, FileMode.Open, FileAccess.Read,
-                FileShare.Read, 4096, FileOptions.RandomAccess);
+            _archive = archive;
             try
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 Span<byte> header = stackalloc byte[12];
                 _archive.ReadExactly(header);
                 if (!header[..8].SequenceEqual("KCEJYUGI"u8))
@@ -137,7 +146,7 @@ internal static class GameArchive
         public void Dispose() => _archive.Dispose();
     }
 
-    private static ArchiveEntry[]? ReadDirectory(FileStream archive, string[] names, int maximumPayloadBytes, CancellationToken cancellationToken)
+    private static ArchiveEntry[]? ReadDirectory(Stream archive, string[] names, int maximumPayloadBytes, CancellationToken cancellationToken)
     {
         Span<byte> header = stackalloc byte[12];
         archive.ReadExactly(header);
@@ -184,7 +193,7 @@ internal static class GameArchive
         return -1;
     }
 
-    private static byte[] ReadPayload(FileStream archive, ArchiveEntry entry, CancellationToken cancellationToken)
+    private static byte[] ReadPayload(Stream archive, ArchiveEntry entry, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var stored = new byte[entry.Stored];

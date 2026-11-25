@@ -169,10 +169,15 @@ internal static class NativeCardNameChecks
             cancellation.Cancel();
             await Expect<OperationCanceledException>(() => reader.LoadAsync(Game(path), [1], "en", cancellation.Token));
             await Expect<OperationCanceledException>(() => reader.LoadAsync(Game(path), [], "en", cancellation.Token));
-            var many = Archive(Enumerable.Range(0, 40_000).Select(index => new Entry($"unrelated_{index}", [1])).ToArray());
+            var multiEntry = Archive(new Entry("first", [1]), new Entry("second", [2]));
             using var duringScan = new CancellationTokenSource();
-            duringScan.CancelAfter(1);
-            await Expect<OperationCanceledException>(() => reader.LoadAsync(Game(many), [1], "en", duringScan.Token));
+            using var controlledArchive = new CancelDuringDirectoryRead(await File.ReadAllBytesAsync(multiEntry), duringScan);
+            await Expect<OperationCanceledException>(() =>
+            {
+                GameArchive.ReadResources(controlledArchive, ["second"], 64, duringScan.Token);
+                return Task.CompletedTask;
+            });
+            Require(controlledArchive.ReadCalls == 2, "The next directory row was read after cancellation.");
             var before = SHA256.HashData(await File.ReadAllBytesAsync(path));
             var attributes = File.GetAttributes(path);
             try
