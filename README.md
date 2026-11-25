@@ -33,6 +33,14 @@ Windows 10/11 editions supported by .NET 10 are the target. Windows 7/8.1 and na
 
 Settings and playtime are saved locally. No account is required. Playtime counts sessions started through this launcher, including time in menus; it does not recover hours played before you used the launcher.
 
+## Profiles
+
+When updating, close the old launcher and any running games, then extract the new ZIP into a new folder. Keep the games and the launcher data folder where they are. Existing game locations, card progress, and recorded playtime are available in **Player** when you open the new version.
+
+Open **Profile** above About to create, rename, switch, or delete launcher profiles. You can keep up to five. **Player** starts with your existing save and launcher playtime. On Windows, play once on Player to create a shared save if you don’t already have one. Each additional profile starts with the starter deck of the title you first launch with it and keeps its own shared collection across the trilogy. The Profile page shows time for the active profile and across all your current profiles. The Games page shows only the active profile's time.
+
+**Reset cards** restores starter quantities for cards introduced by the selected title and replaces the shared active deck with that title’s starter deck. This can change shared card counts in other titles. Launcher playtime is kept. Reset and separate game profiles require a supported game build and the active shared save. Deleting the original Player profile removes its launcher entry and playtime while preserving the games' external shared save. **Temporary all cards** uses the original profile.
+
 ## Your card collection
 
 | Game | Available cards |

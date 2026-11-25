@@ -312,9 +312,8 @@ internal static class TemporaryCollectionUiChecks
     private static MainWindow Open(TemporaryCollectionService profiles, CardCollectionReader reader,
         Action<TimeSpan> pump, Action<Func<bool>, string> wait)
     {
-        var window = new MainWindow(profiles);
         // Keep even ordinary Collection refreshes inside these authored fixtures, independent of registry CommonDir.
-        typeof(MainWindow).GetField("_collections", Private)!.SetValue(window, reader);
+        var window = new MainWindow(profiles, reader);
         window.Show();
         pump(TimeSpan.FromMilliseconds(100));
         wait(() => Find<ComboBox>(window, "CardLanguageSelector").IsEnabled, "Temporary collection fixture window did not initialize.");

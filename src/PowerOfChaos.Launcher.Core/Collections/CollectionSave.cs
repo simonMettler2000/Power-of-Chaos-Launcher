@@ -47,6 +47,50 @@ internal static class CollectionSave
 
         var decoded = Decode(encoded);
         foreach (var slot in requested) decoded[0x14 + slot * 2] = 3;
+        return Finish(decoded);
+    }
+
+    internal static byte[] CreateFresh(ReadOnlySpan<byte> identity, NativeStarterCards starter)
+    {
+        var source = Decode(identity);
+        var decoded = new byte[DecodedLength];
+        source.AsSpan(0, PayloadOffset).CopyTo(decoded);
+        BinaryPrimitives.WriteUInt16LittleEndian(decoded.AsSpan(PayloadOffset + 6), 0xFF);
+        BinaryPrimitives.WriteUInt16LittleEndian(decoded.AsSpan(PayloadOffset + 8), 0x10);
+        "YUGIOH01"u8.CopyTo(decoded.AsSpan(PayloadOffset + 0x117A));
+        BinaryPrimitives.WriteUInt16LittleEndian(decoded.AsSpan(PayloadOffset + 0x1182), 0xFBA5);
+        foreach (var (slot, card) in starter.Deck)
+        {
+            var offset = 0x14 + slot * 2;
+            decoded[offset] = card.Quantity;
+            decoded[offset + 1] = (byte)(card.DeckFlags | 0x40);
+        }
+        return Finish(decoded);
+    }
+
+    internal static byte[] ResetCards(ReadOnlySpan<byte> encoded, NativeStarterCards starter)
+    {
+        var decoded = Decode(encoded);
+        // The active deck is shared across titles. Replacing its selections keeps it playable after revoking cards.
+        for (var slot = 0; slot < CardSlots; slot++) decoded[0x15 + slot * 2] &= 0xCC;
+        foreach (var slot in starter.Introduced)
+        {
+            var offset = 0x14 + slot * 2;
+            var quantity = starter.Deck.GetValueOrDefault(slot).Quantity;
+            decoded[offset] = quantity;
+            decoded[offset + 1] &= 0xBF;
+        }
+        foreach (var (slot, card) in starter.Deck)
+        {
+            var offset = 0x14 + slot * 2;
+            decoded[offset] = Math.Max(decoded[offset], card.Quantity);
+            decoded[offset + 1] |= (byte)(card.DeckFlags | 0x40);
+        }
+        return Finish(decoded);
+    }
+
+    private static byte[] Finish(byte[] decoded)
+    {
         var totalCopies = 0;
         for (var slot = 0; slot < CardSlots; slot++) totalCopies += decoded[0x14 + slot * 2];
         if (totalCopies > ushort.MaxValue)

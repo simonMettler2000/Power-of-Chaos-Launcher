@@ -25,7 +25,6 @@ public partial class MainWindow : Window
     private readonly TemporaryCollectionService _temporaryCollections;
     private TemporaryCollectionState _temporaryState = new(false, true, null, "Checking temporary collection…");
     private readonly GamePortraitLoader _portraits = new();
-    private readonly CardCollectionReader _collections = new();
     private readonly NativeCardArtworkReader _cardArtwork = new();
     private readonly NativeCardNameReader _cardNames = new();
     private readonly ObservableCollection<CollectionGameViewModel> _collectionRows = [];
@@ -55,11 +54,12 @@ public partial class MainWindow : Window
 
     public MainWindow() : this(new TemporaryCollectionService()) { }
 
-    public MainWindow(TemporaryCollectionService temporaryCollections)
+    public MainWindow(TemporaryCollectionService temporaryCollections, CardCollectionReader? collections = null)
     {
         ArgumentNullException.ThrowIfNull(temporaryCollections);
         _temporaryCollections = temporaryCollections;
-        _sessions = new GameSessionService(temporaryCollections: temporaryCollections);
+        _profiles = new PlayerProfiles(temporaryCollections, collections: collections);
+        _sessions = new GameSessionService(temporaryCollections: temporaryCollections, profiles: _profiles);
         InitializeComponent();
         AppVersionCaption.Text = Texts.Format("Version {0}", ReleasePackageProbe.Version);
         AboutVersionCaption.Text = AppVersionCaption.Text;
@@ -80,8 +80,11 @@ public partial class MainWindow : Window
         {
             if (_settingsReady && !_closed && !_savingMod)
             {
+                ReadProfiles();
                 await RefreshTemporaryCollectionAsync();
+                await RefreshSessionsAsync();
                 await RefreshCollectionAsync();
+                await RefreshProfileStatsAsync();
             }
         };
         Closing += (_, e) =>
@@ -127,6 +130,12 @@ public partial class MainWindow : Window
             _settings = loaded;
             Texts.SetLanguage(_settings.CardLanguage);
             CollectionSaveInput.Text = _settings.CollectionSavePath;
+            ReadProfiles();
+            if (_settings.Installations.Count != 0)
+            {
+                try { _profiles.RecoverIfNeeded(_settings.Installations); }
+                catch (Exception error) when (IsProfileError(error)) { Notice(error.Message); }
+            }
             await RefreshTemporaryCollectionAsync();
             if (_closed) return;
             await RefreshOpponentDecksAsync();
@@ -402,10 +411,11 @@ public partial class MainWindow : Window
             await RefreshTemporaryCollectionAsync();
             await RefreshSessionsAsync();
             await RefreshCollectionAsync();
+            await RefreshProfileStatsAsync();
             if (ShowSessionWarning()) return;
             if (_closeWhenIdle && !GameCatalog.All.Any(g => _sessions.IsRunning(g.Id))) Close();
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { Notice("Playtime could not be refreshed. Check that the launcher data folder is writable."); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException) { Notice("Playtime could not be refreshed. Check that the launcher data folder is writable."); }
     });
 
     private bool ShowSessionWarning()
@@ -423,8 +433,9 @@ public partial class MainWindow : Window
 
     private async Task RefreshSessionsAsync()
     {
-        var totals = await _sessions.GetPlaytimeSecondsAsync();
-        if (_closed) return;
+        var profile = _profileSelection.ActiveId;
+        var totals = await _sessions.GetPlaytimeSecondsAsync(profile);
+        if (_closed || profile != _profileSelection.ActiveId) return;
         var anyRunning = GameCatalog.All.Any(g => _sessions.IsRunning(g.Id));
         foreach (var card in _cards)
         {
@@ -476,14 +487,15 @@ public partial class MainWindow : Window
         CardLanguageSelector.IsEnabled = SkipSplashScreensCheckBox.IsEnabled;
         TemporaryAllCardsCheckBox.IsChecked = _temporaryState.Enabled;
         TemporaryAllCardsCheckBox.IsEnabled = SkipSplashScreensCheckBox.IsEnabled && !_sessions.AnyRunning
-            && !_temporaryState.RecoveryRequired && OperatingSystem.IsWindows();
+            && !_temporaryState.RecoveryRequired && _profileSelection.Active.IsBase && OperatingSystem.IsWindows();
         RestoreCollectionButton.IsVisible = _temporaryState.RecoveryRequired;
         RestoreCollectionButton.IsEnabled = SkipSplashScreensCheckBox.IsEnabled && !_sessions.AnyRunning;
         RenderTemporaryCollectionStatus();
+        RefreshProfileControls();
         foreach (var card in _cards) card.SetLaunchPending(LaunchBlocked);
     }
 
-    private bool LaunchBlocked => !_settingsReady || _savingMod || _pendingLaunch || _temporaryState.RecoveryRequired;
+    private bool LaunchBlocked => !_settingsReady || !_profilesReadable || _savingMod || _pendingLaunch || _temporaryState.RecoveryRequired;
 
     private bool CollectionProfileBindsLocations()
     {
@@ -505,7 +517,9 @@ public partial class MainWindow : Window
     private void RenderTemporaryCollectionStatus()
     {
         TemporaryCollectionStatus.Text = Texts.Translate(OperatingSystem.IsWindows()
-            ? _temporaryState.Message : "Temporary all cards is available on Windows only.");
+            ? _profileSelection.Active.IsBase || _temporaryState.RecoveryRequired
+                ? _temporaryState.Message : "Temporary all cards is available on the original profile."
+            : "Temporary all cards is available on Windows only.");
         TemporaryCollectionBackups.FilePath = _temporaryCollections.VaultDirectory;
         TemporaryCollectionBackups.Content = Texts.Format("Backups: {0}", _temporaryCollections.VaultDirectory);
     }
@@ -521,6 +535,7 @@ public partial class MainWindow : Window
 
     private async Task ChangeTemporaryCollectionAsync(bool enabled)
     {
+        if (enabled && !_profileSelection.Active.IsBase) return;
         if (!_settingsReady || _savingMod || _pendingLaunch || _busy || _closed || _sessions.AnyRunning)
         {
             if (!_closed) RefreshModControls();
@@ -820,6 +835,7 @@ public partial class MainWindow : Window
         CollectionStatus.Text = Texts.Translate(_collectionStatusEnglish);
         CollectionSaveSource.Content = _collectionSaveName ?? Texts.Translate("Automatic location");
         RenderLocations();
+        _ = RefreshProfileStatsAsync();
     }
 
     private async void CopyStatus_Click(object? sender, RoutedEventArgs e)
@@ -855,8 +871,8 @@ public partial class MainWindow : Window
         RefreshCollectionButton.IsEnabled = false;
         try
         {
-            var snapshot = await _collections.ReadAsync(_settings.Installations.ToArray(),
-                _temporaryState.Enabled ? _temporaryState.SavePath : _settings.CollectionSavePath, cancellation.Token);
+            var snapshot = await _profiles.ReadCollectionAsync(_profileSelection.ActiveId, _settings.Installations.ToArray(),
+                DisplayedCollectionSave, cancellation.Token);
             if (_closed || cancellation.IsCancellationRequested) return;
             foreach (var row in _collectionRows)
             {
@@ -878,6 +894,7 @@ public partial class MainWindow : Window
                 card.SetCollection(snapshot.Games.Single(p => p.GameId == card.Installation.GameId));
         }
         catch (OperationCanceledException) { }
+        catch (Exception error) when (IsProfileError(error)) { if (!_closed) SetCollectionStatus(error.Message); }
         finally
         {
             if (!_closed && ReferenceEquals(_collectionCancellation, cancellation))
@@ -1053,8 +1070,10 @@ public partial class MainWindow : Window
         _page = page;
         LibraryView.IsVisible = page == "library"; ModsView.IsVisible = page == "mods";
         CollectionView.IsVisible = page == "collection"; LocationsView.IsVisible = page == "locations"; AboutView.IsVisible = page == "about";
+        ProfileView.IsVisible = page == "profile";
         LibraryNav.Classes.Set("active", page == "library"); ModsNav.Classes.Set("active", page == "mods");
         CollectionNav.Classes.Set("active", page == "collection"); LocationsNav.Classes.Set("active", page == "locations");
+        ProfileNav.Classes.Set("active", page == "profile");
         UpdatePageHeading();
     }
 
@@ -1066,6 +1085,7 @@ public partial class MainWindow : Window
             "collection" => ("Collection", "Your cards across all three games."),
             "locations" => ("Game locations", "Manage the folders searched for games."),
             "about" => ("About", "Power of Chaos Launcher"),
+            "profile" => ("Profile", "Manage your profiles and see how much you’ve played."),
             _ => ("Games", "Your installed Power of Chaos games.")
         };
         PageTitle.Text = Texts.Translate(title);

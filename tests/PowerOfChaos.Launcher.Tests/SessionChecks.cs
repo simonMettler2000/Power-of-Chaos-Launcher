@@ -108,7 +108,7 @@ internal static class SessionChecks
             Check((await reloaded.GetPlaytimeSecondsAsync())["yugi"] == 13, "Disposal lost elapsed playtime.");
         });
 
-        await run("malformed playtime is preserved and recovers without a process", async () =>
+        await run("malformed playtime survives display and is preserved before a new session", async () =>
         {
             var folder = Path.Combine(fixtures, "corrupt-playtime");
             Directory.CreateDirectory(folder);
@@ -117,8 +117,119 @@ internal static class SessionChecks
             var runner = new FakeRunner();
             await using var service = new GameSessionService(folder, runner, temporaryCollections: TestCollectionProfiles.Create());
             Check((await service.GetPlaytimeSecondsAsync()).Count == 0, "Malformed state did not reset totals.");
-            Check(Directory.EnumerateFiles(folder, "playtime.json.corrupt-*").Any(), "Malformed playtime was not preserved.");
+            Check(File.ReadAllText(path) == "not JSON", "Reading malformed playtime changed the original file.");
             Check(runner.Starts == 0, "Reading corrupt playtime started a process.");
+            Check((await service.LaunchAsync(game, new LauncherSettings())).Success, "A recoverable malformed file blocked launch.");
+            Check(Directory.EnumerateFiles(folder, "playtime.json.corrupt-*").Any(file => File.ReadAllText(file) == "not JSON"),
+                "Starting a fresh counter did not preserve the malformed file.");
+            runner.Process.Complete();
+        });
+
+        if (OperatingSystem.IsWindows()) await run("temporarily inaccessible playtime cannot be replaced", async () =>
+        {
+            var folder = Path.Combine(fixtures, "busy-playtime");
+            Directory.CreateDirectory(folder);
+            var path = Path.Combine(folder, "playtime.json");
+            const string existing = """{"Totals":{"yugi":400,"kaiba":100,"joey":200}}""";
+            await File.WriteAllTextAsync(path, existing);
+            var runner = new FakeRunner();
+            await using var service = new GameSessionService(folder, runner, temporaryCollections: TestCollectionProfiles.Create());
+            using (var held = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None))
+            {
+                Check(!(await service.LaunchAsync(game, new LauncherSettings())).Success && runner.Starts == 0,
+                    "The launcher started a game with a blocked playtime file.");
+            }
+            Check(File.ReadAllText(path) == existing, "An inaccessible counter was replaced.");
+            Check((await service.GetPlaytimeSecondsAsync()).Values.Sum() == 700, "Recorded time was lost.");
+        });
+
+        if (OperatingSystem.IsWindows()) await run("named profiles isolate cards and playtime and recover a mounted save", async () =>
+        {
+            var root = Path.Combine(fixtures, "named-player-profiles");
+            var installed = Installation(root, "game", "yugi");
+            File.Delete(installed.DataPath);
+            CollectionFixtures.WriteArchive(installed.DataPath);
+            var live = Path.Combine(root, "system.dat");
+            var yugiSlot = CollectionFixtures.Slot(1);
+            var inheritedSlot = CollectionFixtures.Slot(200);
+            var baseSave = CollectionFixtures.Save([(yugiSlot, (byte)3), (inheritedSlot, (byte)2)]);
+            await File.WriteAllBytesAsync(live, baseSave);
+            var reader = new CardCollectionReader(_ => [live]);
+            var shared = new TemporaryCollectionService(Path.Combine(root, "lease"), reader, () => false);
+            var playerData = Path.Combine(root, "data");
+            Directory.CreateDirectory(playerData);
+            await File.WriteAllTextAsync(Path.Combine(playerData, "playtime.json"), """{"Totals":{"yugi":120}}""");
+            var starter = new NativeStarterCards([yugiSlot], new Dictionary<int, (byte, byte)> { [yugiSlot] = (1, 1) });
+            var profiles = new PlayerProfiles(shared, playerData, reader, (_, _) => starter);
+            Check(profiles.Read().Active.Name == "Player", "Existing progress did not become Player.");
+            profiles.Create("Runner");
+            var runnerId = profiles.Read().ActiveId;
+            profiles.Rename(runnerId, "Speedrunner");
+            Check(profiles.Read().Active.Name == "Speedrunner", "Rename was not saved.");
+            Expect<ArgumentException>(() => profiles.Create(" speedrunner "));
+            var process = new FakeRunner();
+            var clock = new ManualClock();
+            await using (var service = new GameSessionService(playerData, process, clock, TimeSpan.FromHours(1),
+                temporaryCollections: shared, profiles: profiles))
+            {
+                var finished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                service.SessionsChanged += (_, _) => { if (!service.AnyRunning) finished.TrySetResult(); };
+                Check((await service.GetPlaytimeSecondsAsync(PlayerProfiles.BaseId))["yugi"] == 120
+                    && (await service.GetPlaytimeSecondsAsync()).Count == 0, "The new profile inherited Player's playtime.");
+                Check((await service.LaunchAsync(installed, new LauncherSettings())).Success, "Profile launch failed.");
+                Check(CollectionSave.ReadQuantities(File.ReadAllBytes(live))[yugiSlot] == 1
+                    && CollectionSave.ReadQuantities(File.ReadAllBytes(live))[inheritedSlot] == 0, "Mounted seed copied earned cards.");
+                Expect<InvalidOperationException>(() => profiles.Select(PlayerProfiles.BaseId));
+                var earned = CollectionFixtures.Save([(yugiSlot, (byte)4), (inheritedSlot, (byte)1)]);
+                await File.WriteAllBytesAsync(live, earned);
+                clock.Advance(TimeSpan.FromSeconds(240));
+                process.Process.Complete();
+                await finished.Task.WaitAsync(TimeSpan.FromSeconds(3));
+                Check(File.ReadAllBytes(live).SequenceEqual(baseSave), "Player's original file was not restored byte-for-byte.");
+                Check((await service.GetPlaytimeSecondsAsync())["yugi"] == 240
+                    && (await service.GetPlaytimeSecondsAsync(PlayerProfiles.BaseId))["yugi"] == 120, "Playtime crossed profiles.");
+            }
+            await profiles.ResetCardsAsync(runnerId, installed, [installed]);
+            using (shared.OpenGate())
+            {
+                profiles.Mount(runnerId, installed, [installed], default);
+                var reset = CollectionSave.ReadQuantities(File.ReadAllBytes(live));
+                Check(reset[yugiSlot] == 1 && reset[inheritedSlot] == 1, "The reset did not preserve the other game's card.");
+            }
+            profiles.RecoverIfNeeded([installed]);
+            Check(File.ReadAllBytes(live).SequenceEqual(baseSave), "Crash recovery did not restore Player's file.");
+            using (shared.OpenGate()) profiles.Mount(runnerId, installed, [installed], default);
+            var retainedSave = File.ReadAllBytes(Path.Combine(playerData, "profiles", runnerId, "system.dat"));
+            File.Delete(live);
+            profiles.RecoverIfNeeded([installed]);
+            Check(File.ReadAllBytes(live).SequenceEqual(baseSave)
+                && retainedSave.SequenceEqual(File.ReadAllBytes(Path.Combine(playerData, "profiles", runnerId, "system.dat"))),
+                "Recovering a deleted mounted file lost the original or last private save.");
+            var unrelatedSave = Path.Combine(root, "unrelated-system.dat");
+            File.WriteAllBytes(unrelatedSave, baseSave);
+            try
+            {
+                await profiles.ResetCardsAsync(PlayerProfiles.BaseId, installed, [installed], unrelatedSave);
+                throw new Exception("An unrelated manual save allowed a reset of a different file.");
+            }
+            catch (InvalidOperationException) { }
+            Check(File.ReadAllBytes(live).SequenceEqual(baseSave), "A rejected reset altered the automatic save.");
+            profiles.Create("Third");
+            profiles.Create("Fourth");
+            profiles.Create("Fifth");
+            Expect<InvalidOperationException>(() => profiles.Create("Sixth"));
+            profiles.Select(runnerId);
+            profiles.Delete(runnerId);
+            Check(profiles.Read().ActiveId == PlayerProfiles.BaseId
+                && !File.Exists(profiles.PlaytimePath(runnerId)) && File.ReadAllBytes(live).SequenceEqual(baseSave),
+                "Deleting an alternate profile affected original progress or retained its playtime.");
+            profiles.Delete(PlayerProfiles.BaseId);
+            var remaining = profiles.Read();
+            Check(!remaining.Profiles.Any(profile => profile.IsBase)
+                && remaining.Active.Name == "Third" && !File.Exists(profiles.PlaytimePath(PlayerProfiles.BaseId))
+                && File.ReadAllBytes(live).SequenceEqual(baseSave), "Deleting the original launcher profile changed the external game save.");
+            foreach (var profile in remaining.Profiles.Skip(1)) profiles.Delete(profile.Id);
+            Expect<InvalidOperationException>(() => profiles.Delete(remaining.ActiveId));
         });
 
         await run("all launch modes hold the shared collection lease until their fake session ends", async () =>

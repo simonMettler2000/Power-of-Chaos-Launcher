@@ -42,6 +42,7 @@ public sealed class TemporaryCollectionService
 
     /// <summary>Independent of the optional launcher data-directory override, so all launcher instances share one gate.</summary>
     public string VaultDirectory { get; }
+    internal string PlayerProfileJournalDirectory => VaultDirectory + "-player-profiles";
 
     public Task<TemporaryCollectionState> ReadStateAsync(CancellationToken cancellationToken = default)
     {
@@ -77,6 +78,8 @@ public sealed class TemporaryCollectionService
         cancellationToken.ThrowIfCancellationRequested();
         using var gate = OpenGate();
         EnsureNoGame();
+        if (File.Exists(Path.Combine(PlayerProfileJournalDirectory, "session.json")))
+            throw new InvalidOperationException("Finish profile recovery before changing profiles.");
         var loaded = ReadJournal();
         var journal = loaded.Journal;
         if (!enabled)
@@ -239,7 +242,7 @@ public sealed class TemporaryCollectionService
             throw new InvalidOperationException("The shared save or added games changed. Turn the temporary all-cards mod off before changing game locations.");
     }
 
-    private FileStream OpenGate()
+    internal FileStream OpenGate()
     {
         EnsureDirectory(VaultDirectory);
         var path = Path.Combine(VaultDirectory, "session.lock");
@@ -361,7 +364,7 @@ public sealed class TemporaryCollectionService
 
     private string GenerationDirectory(Journal journal) => Path.Combine(VaultDirectory, journal.Generation);
 
-    private static string ValidateTargetPath(string path)
+    internal static string ValidateTargetPath(string path)
     {
         if (string.IsNullOrWhiteSpace(path) || !Path.IsPathFullyQualified(path)
             || !string.Equals(Path.GetFileName(path), "system.dat", StringComparison.OrdinalIgnoreCase))
@@ -371,7 +374,7 @@ public sealed class TemporaryCollectionService
         return full;
     }
 
-    private static FileStream OpenTarget(string path)
+    internal static FileStream OpenTarget(string path)
     {
         ValidateTargetPath(path);
         // File.Replace needs delete sharing; all ordinary read/write opens are denied for this short transaction.
@@ -394,7 +397,7 @@ public sealed class TemporaryCollectionService
         return ReadSave(input);
     }
 
-    private static byte[] ReadSave(FileStream input, bool validate = true)
+    internal static byte[] ReadSave(FileStream input, bool validate = true)
     {
         if (input.Length != CollectionSave.EncodedLength) throw new InvalidDataException("The collection save has an unsupported length.");
         var bytes = new byte[CollectionSave.EncodedLength];
@@ -406,7 +409,7 @@ public sealed class TemporaryCollectionService
 
     private void ReplaceSave(string path, byte[] bytes) => AtomicWrite(path, bytes);
 
-    private void AtomicWrite(string path, byte[] bytes)
+    internal void AtomicWrite(string path, byte[] bytes)
     {
         RequireOrdinary(path, mayNotExist: true);
         var temporary = Path.Combine(Path.GetDirectoryName(path)!, $".poc-{Guid.NewGuid():N}.tmp");
@@ -472,7 +475,7 @@ public sealed class TemporaryCollectionService
         RequireOrdinary(path);
     }
 
-    private static void RequireOrdinary(string path, bool mayNotExist = false)
+    internal static void RequireOrdinary(string path, bool mayNotExist = false)
     {
         for (var current = Path.GetFullPath(path); current is not null; current = Path.GetDirectoryName(current))
         {
@@ -486,7 +489,7 @@ public sealed class TemporaryCollectionService
         }
     }
 
-    private void EnsureNoGame()
+    internal void EnsureNoGame()
     {
         if (_hasRunningGames()) throw new InvalidOperationException("Close all three games before changing or launching a temporary collection profile.");
     }

@@ -20,12 +20,41 @@ public sealed class CardCollectionReader
     {
         ArgumentNullException.ThrowIfNull(installations);
         cancellationToken.ThrowIfCancellationRequested();
-        var games = installations.Where(i => GameCatalog.All.Any(g => g.Id == i.GameId))
-            .DistinctBy(i => i.GameId).Take(3).ToArray();
-        return Task.Run(() => Read(games, selectedSave, cancellationToken), cancellationToken);
+        var games = SupportedGames(installations);
+        return Task.Run(() => Read(games, selectedSave, false, cancellationToken), cancellationToken);
     }
 
-    private CollectionSnapshot Read(GameInstallation[] games, string? selectedSave, CancellationToken token)
+    internal Task<CollectionSnapshot> ReadUnplayedAsync(IReadOnlyList<GameInstallation> games, CancellationToken token)
+        => Task.Run(() => Read(SupportedGames(games), null, true, token), token);
+
+    private static GameInstallation[] SupportedGames(IReadOnlyList<GameInstallation> installations)
+        => installations.Where(i => GameCatalog.All.Any(g => g.Id == i.GameId)).DistinctBy(i => i.GameId).Take(3).ToArray();
+
+    internal string ResolveActiveSave(IReadOnlyList<GameInstallation> games)
+    {
+        var candidates = SaveCandidates(games).Where(File.Exists).ToArray();
+        if (candidates.Length != 1)
+            throw new InvalidOperationException("The games' active shared save must be found unambiguously. Play once on the original profile first.");
+        return TemporaryCollectionService.ValidateTargetPath(candidates[0]);
+    }
+
+    internal bool IsRecoveryTarget(IReadOnlyList<GameInstallation> games, string target)
+    {
+        var candidates = SaveCandidates(games).ToArray();
+        var existing = candidates.Where(File.Exists).ToArray();
+        if (existing.Length != 0)
+            return existing.Length == 1 && MatchesRecoveryTarget(existing[0], target);
+        return candidates.Any(path => MatchesRecoveryTarget(path, target));
+    }
+
+    private static bool MatchesRecoveryTarget(string candidate, string target) => SavePaths.Equals(candidate, target)
+        || OperatingSystem.IsWindows() && SavePaths.Equals(VirtualizedPath(candidate), target);
+
+    private static StringComparer SavePaths => OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+    private IEnumerable<string> SaveCandidates(IReadOnlyList<GameInstallation> games)
+        => _findSaves(games).Take(128).Select(Path.GetFullPath).Distinct(SavePaths);
+
+    private CollectionSnapshot Read(GameInstallation[] games, string? selectedSave, bool empty, CancellationToken token)
     {
         var rows = GameCatalog.All.Select(g => new GameCollectionProgress(g.Id,
             CollectionSnapshot.TotalFor(g.Id), null, games.Any(i => i.GameId == g.Id) ? "Collection unavailable" : "Game not added")).ToArray();
@@ -35,27 +64,28 @@ public sealed class CardCollectionReader
         try
         {
             token.ThrowIfCancellationRequested();
-            if (string.IsNullOrWhiteSpace(save))
+            var quantities = new byte[CollectionSave.CardSlots];
+            if (!empty)
             {
-                var candidates = _findSaves(games).Take(128).Where(File.Exists)
-                    .Select(Path.GetFullPath).Distinct(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal).ToArray();
-                if (candidates.Length != 1) return Unavailable(candidates.Length == 0
-                    ? "No collection save found. Choose your system.dat to show owned cards."
-                    : "More than one collection save was found. Choose the system.dat you use.");
-                save = candidates[0];
-            }
-            RequireOrdinaryFile(save);
-            var encoded = new byte[CollectionSave.EncodedLength];
-            // Do not prevent the game from saving or atomically replacing its file.
-            // Checksums reject a torn snapshot; the next refresh can retry it.
-            using (var input = new FileStream(save, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
-            {
+                if (string.IsNullOrWhiteSpace(save))
+                {
+                    var candidates = _findSaves(games).Take(128).Where(File.Exists)
+                        .Select(Path.GetFullPath).Distinct(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal).ToArray();
+                    if (candidates.Length != 1) return Unavailable(candidates.Length == 0
+                        ? "No collection save found. Choose your system.dat to show owned cards."
+                        : "More than one collection save was found. Choose the system.dat you use.");
+                    save = candidates[0];
+                }
+                RequireOrdinaryFile(save);
+                var encoded = new byte[CollectionSave.EncodedLength];
+                // Let an active game finish or replace its file. The checksum rejects a torn read.
+                using var input = new FileStream(save, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
                 if (input.Length != CollectionSave.EncodedLength)
                     return Unavailable("This collection save format is not supported.", save);
                 input.ReadExactly(encoded);
                 if (input.Length != CollectionSave.EncodedLength) throw new InvalidDataException("Save changed during reading.");
+                quantities = CollectionSave.ReadQuantities(encoded);
             }
-            var quantities = CollectionSave.ReadQuantities(encoded);
             var unique = new HashSet<ushort>();
             byte[]? sharedIds = null;
             var readable = 0;
@@ -160,15 +190,14 @@ public sealed class CardCollectionReader
     [SupportedOSPlatform("windows")]
     private static string VirtualizedOrOriginal(string path)
     {
-        var root = Path.GetPathRoot(path);
-        if (!string.IsNullOrEmpty(root) && path.StartsWith(root, StringComparison.OrdinalIgnoreCase))
-        {
-            var virtualized = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "VirtualStore", path[root.Length..]);
-            if (File.Exists(virtualized)) return virtualized;
-        }
-        return path;
+        var virtualized = VirtualizedPath(path);
+        return File.Exists(virtualized) ? virtualized : path;
     }
+
+    [SupportedOSPlatform("windows")]
+    private static string? VirtualizedPath(string path) => Path.GetPathRoot(path) is { Length: > 0 } root
+        ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "VirtualStore", path[root.Length..])
+        : null;
 
     [SupportedOSPlatform("windows")]
     private static IReadOnlyList<string> ReadCommonDirectories() =>

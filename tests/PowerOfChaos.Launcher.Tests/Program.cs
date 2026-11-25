@@ -1,5 +1,6 @@
 using System.Text;
 using PowerOfChaos.Launcher.Core;
+using PowerOfChaos.Launcher.Core.Collections;
 using PowerOfChaos.Launcher.Core.Discovery;
 using PowerOfChaos.Launcher.Core.Storage;
 
@@ -284,8 +285,14 @@ internal static class Program
                     await CollectionChecks.VerifyInstalled(fixtures.Root, result.Games);
                     await NativeCardArtworkChecks.VerifyInstalled(result.Games);
                     await NativeCardNameChecks.VerifyInstalled(result.Games);
-                    foreach (var game in result.Games) Require(File.Exists(game.ExecutablePath), "Installed result must point at existing file.");
-                    Console.WriteLine("Installed integration only read headers; no game process was started.");
+                    foreach (var game in result.Games)
+                    {
+                        Require(File.Exists(game.ExecutablePath), "Installed result must point at existing file.");
+                        var starter = NativeStarterCards.Read(game, default);
+                        Equal(game.GameId == "joey" ? 43 : 41, starter.Deck.Values.Sum(card => card.Quantity),
+                            game.GameId + " native starter deck size");
+                    }
+                    Console.WriteLine("Installed integration verified the native starter decks read-only. No game process was started.");
                 });
             }
 

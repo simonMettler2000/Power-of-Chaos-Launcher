@@ -693,6 +693,59 @@ internal static class Program
             });
             Find<Button>(window, "LibraryNav").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
 
+            Check("Profile retains the manually chosen collection and launcher playtime", () =>
+            {
+                File.WriteAllText(Path.Combine(data, "playtime.json"), """{"Totals":{"yugi":120}}""");
+                Find<Button>(window, "ProfileNav").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                WaitUntil(() => Find<TextBlock>(window, "ProfileTotalPlaytime").Text == "0h 02m", "Player's old playtime was not shown.");
+                Require(Find<TextBlock>(window, "ActiveProfileName").Text == "Player", "Player was not shown in the header.");
+                Require(Find<TextBlock>(window, "ProfileUniqueCards").Text == "7/771", "Player's chosen collection was not used.");
+            });
+
+            if (OperatingSystem.IsWindows()) Check("Profile manages selection and shows aggregate playtime only on that page", () =>
+            {
+                Find<TextBox>(window, "ProfileNameInput").Text = "Runner";
+                Find<Button>(window, "CreateProfileButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                WaitUntil(() => Find<TextBlock>(window, "ActiveProfileName").Text == "Runner"
+                    && Find<Button>(window, "RenameProfileButton").IsEnabled, "Creating Runner did not activate it.");
+                var selector = Find<ComboBox>(window, "ProfileSelector");
+                var profiles = selector.Items.OfType<PlayerProfile>().ToArray();
+                var runner = profiles.Single(p => p.Name == "Runner");
+                var player = profiles.Single(p => p.IsBase);
+                var runnerData = Path.Combine(data, "profiles", runner.Id);
+                Directory.CreateDirectory(runnerData);
+                File.WriteAllText(Path.Combine(runnerData, "playtime.json"), """{"Totals":{"yugi":240,"joey":60}}""");
+                selector.SelectedItem = player;
+                WaitUntil(() => Find<TextBlock>(window, "ActiveProfileName").Text == "Player"
+                    && selector.IsEnabled, "Switching back to Player did not finish.");
+                selector.SelectedItem = runner;
+                WaitUntil(() => Find<TextBlock>(window, "ProfileTotalPlaytime").Text == "0h 05m"
+                    && Find<TextBlock>(window, "AllProfilesTotalPlaytime").Text == "0h 07m", "Profile or aggregate totals were wrong.");
+                var gameRows = Find<StackPanel>(window, "ProfileGameRows").Children;
+                var yugiStatistics = gameRows[0].GetVisualDescendants().OfType<TextBlock>().Select(block => block.Text).ToArray();
+                Require(yugiStatistics.Contains("0h 04m") && yugiStatistics.Contains("0h 06m"),
+                    "Yugi's active and all-profile times were not shown together.");
+                var kaibaTimes = gameRows[1].GetVisualDescendants().OfType<TextBlock>().Count(block => block.Text == "0h 00m");
+                var joeyTimes = gameRows[2].GetVisualDescendants().OfType<TextBlock>().Count(block => block.Text == "0h 01m");
+                Require(kaibaTimes == 2 && joeyTimes == 2, "The remaining titles did not show both playtime totals.");
+                Find<Button>(window, "DeleteProfileButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                WaitUntil(() => window.OwnedWindows.OfType<ConfirmDialog>().Any(), "Deleting a profile did not require confirmation.");
+                var confirmation = window.OwnedWindows.OfType<ConfirmDialog>().Single();
+                Require(confirmation.GetVisualDescendants().OfType<TextBlock>()
+                    .Any(block => block.Text?.Contains("cannot be reversed", StringComparison.Ordinal) == true),
+                    "The confirmation did not explain that deletion is irreversible.");
+                confirmation.GetVisualDescendants().OfType<Button>().Single(button => Equals(button.Content, "Cancel"))
+                    .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                WaitUntil(() => !window.OwnedWindows.Contains(confirmation), "Cancelling the profile deletion did not close the dialog.");
+                Require(selector.Items.OfType<PlayerProfile>().Any(p => p.Id == runner.Id), "Cancelling deleted Runner.");
+                Capture(window, "profiles.png");
+                Find<Button>(window, "LibraryNav").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Require(!Find<TextBlock>(window, "AllProfilesTotalPlaytime").IsEffectivelyVisible, "The Games page showed the aggregate.");
+                Require(Find<ItemsControl>(window, "GameCards").Items.OfType<GameCardViewModel>()
+                    .Single(card => card.Installation.GameId == "yugi").Playtime == "0h 04m", "Games showed playtime from the wrong profile.");
+                Require(Find<TextBlock>(window, "ActiveProfileName").Text == "Runner", "Games lost the active profile badge.");
+            });
+
             if (args.Contains("--installed-artwork", StringComparer.Ordinal))
             {
                 Check("installed portraits are loaded without starting a game", () =>
@@ -915,11 +968,10 @@ internal static class Program
 
     private static MainWindow OpenWindow()
     {
-        var window = new MainWindow(new TemporaryCollectionService(Path.Combine(
-            Environment.GetEnvironmentVariable("POC_LAUNCHER_DATA_DIR")!, "temporary-profiles"), hasRunningGames: () => false));
         // Ordinary UI checks use authored saves only, regardless of the user's real registry CommonDir.
-        typeof(MainWindow).GetField("_collections", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .SetValue(window, new PowerOfChaos.Launcher.Core.Collections.CardCollectionReader(_ => []));
+        var window = new MainWindow(new TemporaryCollectionService(Path.Combine(
+            Environment.GetEnvironmentVariable("POC_LAUNCHER_DATA_DIR")!, "temporary-profiles"), hasRunningGames: () => false),
+            new CardCollectionReader(_ => []));
         window.Show();
         Pump(TimeSpan.FromMilliseconds(150));
         return window;
