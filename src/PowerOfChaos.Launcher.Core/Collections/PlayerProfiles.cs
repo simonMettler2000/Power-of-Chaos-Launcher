@@ -6,6 +6,7 @@ namespace PowerOfChaos.Launcher.Core.Collections;
 public sealed record PlayerProfile(string Id, string Name)
 {
     public bool IsBase => Id == PlayerProfiles.BaseId;
+    public bool IsModded => Id == PlayerProfiles.ModdedId;
 }
 
 public sealed record PlayerProfileSelection(string ActiveId, IReadOnlyList<PlayerProfile> Profiles)
@@ -18,8 +19,11 @@ public sealed class PlayerProfiles
 {
     public const int MaximumProfiles = 5;
     public const string BaseId = "player";
+    public const string ModdedId = "modded";
     public const int MaximumNameLength = 32;
     private const int MaximumMetadataBytes = 16384;
+    private const string ModdedSaveReviewMessage =
+        "The regular collection was restored. The last Modded Joey save needs review before it can be used again.";
     private readonly string _dataDirectory;
     private readonly string _profileDirectory;
     private readonly string _journalDirectory;
@@ -28,6 +32,8 @@ public sealed class PlayerProfiles
     private readonly Func<GameInstallation, CancellationToken, NativeStarterCards> _readStarter;
     private string CatalogPath => Path.Combine(_profileDirectory, "profiles.json");
     private string JournalPath => Path.Combine(_journalDirectory, "session.json");
+    private string ModdedFolderPath => Path.Combine(Folder(ModdedId), "installation.json");
+    private string ModdedReviewPath => Path.Combine(Folder(ModdedId), "save-review.json");
 
     public PlayerProfiles(TemporaryCollectionService shared, string? dataDirectory = null, CardCollectionReader? collections = null)
         : this(shared, dataDirectory, collections, NativeStarterCards.Read) { }
@@ -45,10 +51,18 @@ public sealed class PlayerProfiles
 
     public PlayerProfileSelection Read()
     {
+        var stock = ReadStock();
+        var modded = ReadModded();
+        return modded is null ? stock : new PlayerProfileSelection(modded.Active ? ModdedId : stock.ActiveId,
+            [.. stock.Profiles, new(ModdedId, modded.Name)]);
+    }
+
+    private PlayerProfileSelection ReadStock()
+    {
         var state = ReadMetadataIfPresent<PlayerProfileSelection>(CatalogPath);
         if (state is null) return new(BaseId, [new(BaseId, "Player")]);
         var entries = state.Profiles;
-        if (entries is null || entries.Count is < 1 or > MaximumProfiles || entries.Any(p => p is null || !ValidId(p.Id)
+        if (entries is null || entries.Count is < 1 or > MaximumProfiles || entries.Any(p => p is null || !ValidId(p.Id) || p.IsModded
                 || p.Name is not { Length: > 0 and <= MaximumNameLength } || p.Name != p.Name.Trim() || p.Name.Any(char.IsControl))
             || entries.Select(p => p.Id).Distinct(StringComparer.Ordinal).Count() != entries.Count
             || entries.Select(p => p.Name).Distinct(StringComparer.OrdinalIgnoreCase).Count() != entries.Count
@@ -61,10 +75,11 @@ public sealed class PlayerProfiles
     {
         using var gate = OpenForChange();
         var state = Read();
-        if (state.Profiles.Count == MaximumProfiles) throw new InvalidOperationException("You can have up to five profiles.");
+        if (state.Profiles.Count >= MaximumProfiles) throw new InvalidOperationException("You can have up to five profiles.");
         RequireTemporaryOff();
         var profile = new PlayerProfile(Guid.NewGuid().ToString("N"), ValidateName(name, state));
-        WriteMetadata(CatalogPath, new PlayerProfileSelection(profile.Id, [.. state.Profiles, profile]));
+        WriteMetadata(CatalogPath, new PlayerProfileSelection(profile.Id, [.. ReadStock().Profiles, profile]));
+        DeactivateModded();
     }
 
     public void Select(string id)
@@ -74,7 +89,16 @@ public sealed class PlayerProfiles
         if (state.ActiveId == id) return;
         if (!state.Profiles.Any(p => p.Id == id)) throw new InvalidOperationException("This profile no longer exists.");
         RequireTemporaryOff();
-        WriteMetadata(CatalogPath, state with { ActiveId = id });
+        if (id == ModdedId)
+        {
+            var modded = ReadModded() ?? throw new InvalidOperationException("This profile no longer exists.");
+            WriteMetadata(ModdedFolderPath, modded with { Active = true });
+        }
+        else
+        {
+            WriteMetadata(CatalogPath, ReadStock() with { ActiveId = id });
+            DeactivateModded();
+        }
     }
 
     public void Rename(string id, string name)
@@ -83,9 +107,16 @@ public sealed class PlayerProfiles
         var state = Read();
         if (!state.Profiles.Any(p => p.Id == id)) throw new InvalidOperationException("This profile no longer exists.");
         var updated = ValidateName(name, state, id);
-        WriteMetadata(CatalogPath, state with
+        if (id == ModdedId)
         {
-            Profiles = state.Profiles.Select(p => p.Id == id ? p with { Name = updated } : p).ToArray()
+            var modded = ReadModded() ?? throw new InvalidOperationException("This profile no longer exists.");
+            WriteMetadata(ModdedFolderPath, modded with { Name = updated });
+            return;
+        }
+        var stock = ReadStock();
+        WriteMetadata(CatalogPath, stock with
+        {
+            Profiles = stock.Profiles.Select(p => p.Id == id ? p with { Name = updated } : p).ToArray()
         });
     }
 
@@ -94,13 +125,22 @@ public sealed class PlayerProfiles
         using var gate = OpenForChange();
         var state = Read();
         if (!state.Profiles.Any(p => p.Id == id)) throw new InvalidOperationException("This profile no longer exists.");
-        if (state.Profiles.Count == 1) throw new InvalidOperationException("Keep at least one profile.");
         RequireTemporaryOff();
-        var remaining = state.Profiles.Where(p => p.Id != id).ToArray();
-        var fallback = remaining.FirstOrDefault(p => p.IsBase) ?? remaining[0];
-        var paths = id == BaseId ? new[] { PlaytimePath(id) } : new[] { SavePath(id), PlaytimePath(id) };
+        var stock = ReadStock();
+        var remaining = stock.Profiles.Where(p => p.Id != id).ToArray();
+        if (remaining.Length == 0) throw new InvalidOperationException("Keep at least one regular profile.");
+        var paths = id switch
+        {
+            BaseId => new[] { PlaytimePath(id) },
+            ModdedId => new[] { SavePath(id), PlaytimePath(id), ModdedReviewPath, ModdedFolderPath },
+            _ => new[] { SavePath(id), PlaytimePath(id) }
+        };
         foreach (var path in paths) TemporaryCollectionService.RequireOrdinary(path, mayNotExist: true);
-        WriteMetadata(CatalogPath, new PlayerProfileSelection(state.ActiveId == id ? fallback.Id : state.ActiveId, remaining));
+        if (id != ModdedId)
+        {
+            var fallback = remaining.FirstOrDefault(p => p.IsBase) ?? remaining[0];
+            WriteMetadata(CatalogPath, new PlayerProfileSelection(stock.ActiveId == id ? fallback.Id : stock.ActiveId, remaining));
+        }
         foreach (var path in paths)
         {
             if (File.Exists(path)) File.Delete(path);
@@ -110,6 +150,13 @@ public sealed class PlayerProfiles
     public Task<CollectionSnapshot> ReadCollectionAsync(string profileId, IReadOnlyList<GameInstallation> games,
         string? manualSave, CancellationToken token = default)
     {
+        if (profileId == ModdedId)
+        {
+            const string message = "Custom card counts are unavailable in the launcher.";
+            var rows = GameCatalog.All.Select(game => new GameCollectionProgress(game.Id,
+                CollectionSnapshot.TotalFor(game.Id), null, message)).ToArray();
+            return Task.FromResult(new CollectionSnapshot(rows, null, message));
+        }
         var mounted = ReadJournal();
         if (profileId == BaseId)
             return _collections.ReadAsync(games, mounted is not null && (manualSave is null || PathsEqual(manualSave, mounted.Target))
@@ -124,6 +171,7 @@ public sealed class PlayerProfiles
     {
         using var gate = OpenForChange();
         if (!Read().Profiles.Any(p => p.Id == profileId)) throw new InvalidOperationException("This profile no longer exists.");
+        if (profileId == ModdedId) throw new InvalidOperationException("Card reset is available for regular profiles only.");
         RequireTemporaryOff();
         var target = _collections.ResolveActiveSave(games);
         if (profileId == BaseId && !string.IsNullOrWhiteSpace(manualSave) && !PathsEqual(Path.GetFullPath(manualSave), target))
@@ -147,6 +195,54 @@ public sealed class PlayerProfiles
     internal string PlaytimePath(string id) => id == BaseId
         ? Path.Combine(_dataDirectory, "playtime.json") : Path.Combine(Folder(id), "playtime.json");
 
+    public void CheckModdedFolder(string folder)
+    {
+        var bound = ReadModded();
+        if (bound is not null && !PathsEqual(bound.Folder, folder))
+            throw new InvalidOperationException("The Modded profile belongs to another Joey folder. Select that folder to keep using its save.");
+    }
+
+    /// <summary>Call under the shared game lease after the edited folder has passed validation.</summary>
+    internal string SelectModded(string folder, IReadOnlyList<GameInstallation> games)
+    {
+        RequireTemporaryOff();
+        if (ReadMetadataIfPresent<ModdedSaveIssue>(ModdedReviewPath) is not null)
+            throw new InvalidOperationException(ModdedSaveReviewMessage);
+        _ = _collections.ResolveModdedSave(games);
+        var bound = ReadModded();
+        if (bound is not null)
+        {
+            CheckModdedFolder(folder);
+            if (!bound.Active) WriteMetadata(ModdedFolderPath, bound with { Active = true });
+        }
+        else
+        {
+            var stock = ReadStock();
+            if (stock.Profiles.Count >= MaximumProfiles) throw new InvalidOperationException("You can have up to five profiles.");
+            if (File.Exists(SavePath(ModdedId)) || File.Exists(PlaytimePath(ModdedId)))
+                throw new InvalidDataException("The previous Modded save still exists without a verified Joey folder.");
+            var name = Enumerable.Range(1, MaximumProfiles)
+                .Select(number => number == 1 ? "Modded" : $"Modded {number}")
+                .First(candidate => stock.Profiles.All(profile => !profile.Name.Equals(candidate, StringComparison.OrdinalIgnoreCase)));
+            WriteMetadata(ModdedFolderPath, new ModdedInstallation(folder, name, Active: true));
+        }
+        return ModdedId;
+    }
+
+    private ModdedInstallation? ReadModded()
+    {
+        var profile = ReadMetadataIfPresent<ModdedInstallation>(ModdedFolderPath);
+        if (profile is not null && (profile.Folder is null || !Path.IsPathFullyQualified(profile.Folder)
+            || profile.Name is not { Length: > 0 and <= MaximumNameLength } || profile.Name.Any(char.IsControl)))
+            throw new InvalidDataException("The Modded profile’s Joey folder could not be verified.");
+        return profile;
+    }
+
+    private void DeactivateModded()
+    {
+        if (ReadModded() is { Active: true } profile) WriteMetadata(ModdedFolderPath, profile with { Active = false });
+    }
+
     /// <summary>Call after acquiring the shared game lease, before invoking the runner.</summary>
     internal void Mount(string profileId, GameInstallation game, IReadOnlyList<GameInstallation> games, CancellationToken token)
     {
@@ -155,7 +251,7 @@ public sealed class PlayerProfiles
         if (profileId == BaseId) return;
         if (!OperatingSystem.IsWindows()) throw new InvalidOperationException("Separate game profiles are currently supported on Windows.");
         RequireTemporaryOff();
-        var target = _collections.ResolveActiveSave(games);
+        var target = profileId == ModdedId ? _collections.ResolveModdedSave(games) : _collections.ResolveActiveSave(games);
         var save = SavePath(profileId);
         if (PathsEqual(target, save)) throw new InvalidDataException("The profile file and shared save must be separate.");
         using var live = TemporaryCollectionService.OpenTarget(target);
@@ -184,14 +280,14 @@ public sealed class PlayerProfiles
     {
         if (ReadJournal() is null) return;
         using var gate = _shared.OpenGate();
-        Recover(games);
+        if (Recover(games) is { } warning) throw new InvalidDataException(warning);
     }
 
     /// <summary>Call with the shared lease held, after an observed exit or on a failed preparation.</summary>
-    internal void Recover(IReadOnlyList<GameInstallation> games)
+    internal string? Recover(IReadOnlyList<GameInstallation> games)
     {
         var journal = ReadJournal();
-        if (journal is null) return;
+        if (journal is null) return null;
         _shared.EnsureNoGame();
         if (!_collections.IsRecoveryTarget(games, journal.Target))
             throw new InvalidOperationException("The active shared save changed while a profile was in use.");
@@ -208,14 +304,17 @@ public sealed class PlayerProfiles
         }
         if (journal.Phase == "mounting" && current is not null && Hash(current) != journal.InitialHash && Hash(current) != journal.OriginalHash)
             throw new InvalidDataException("The active profile save changed during recovery.");
+        var modded = PathsEqual(journal.ProfileSave, SavePath(ModdedId));
         if (journal.Phase == "playing")
         {
-            if (current is not null) PreserveProfile(journal, original, current);
+            var preserved = current is not null && PreserveProfile(journal, original, current);
+            if (modded && !preserved) WriteMetadata(ModdedReviewPath, new ModdedSaveIssue(journal.Generation));
             WriteMetadata(JournalPath, journal with { Phase = "restoring" });
         }
         _shared.EnsureNoGame();
         if (current is null || !current.AsSpan().SequenceEqual(original)) _shared.AtomicWrite(journal.Target, original);
         File.Delete(JournalPath);
+        return modded && ReadMetadataIfPresent<ModdedSaveIssue>(ModdedReviewPath) is not null ? ModdedSaveReviewMessage : null;
     }
 
     private static FileStream? OpenRecoveryTarget(string path)
@@ -224,7 +323,7 @@ public sealed class PlayerProfiles
         catch (FileNotFoundException) { return null; }
     }
 
-    private void PreserveProfile(MountJournal journal, byte[] original, byte[] current)
+    private bool PreserveProfile(MountJournal journal, byte[] original, byte[] current)
     {
         var captured = journal.ProfileSave;
         try
@@ -239,6 +338,7 @@ public sealed class PlayerProfiles
         }
         EnsureParent(captured);
         _shared.AtomicWrite(captured, current);
+        return captured == journal.ProfileSave;
     }
 
     private MountJournal? ReadJournal()
@@ -310,7 +410,7 @@ public sealed class PlayerProfiles
         ? Path.Combine(_profileDirectory, id) : throw new ArgumentException("Invalid profile identifier.");
     private string SavePath(string id) => Path.Combine(Folder(id), "system.dat");
     private string BackupPath(MountJournal journal) => Path.Combine(_journalDirectory, journal.Generation, "system.dat");
-    private static bool ValidId(string id) => id == BaseId || Guid.TryParseExact(id, "N", out _);
+    private static bool ValidId(string id) => id is BaseId or ModdedId || Guid.TryParseExact(id, "N", out _);
     private static bool IsHash(string? value) => value is { Length: 64 } && value.All(char.IsAsciiHexDigit);
     private static string Hash(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes));
     private static bool PathsEqual(string? first, string? second) => string.Equals(first, second,
@@ -326,4 +426,6 @@ public sealed class PlayerProfiles
     }
 
     private sealed record MountJournal(string Generation, string Phase, string Target, string ProfileSave, string OriginalHash, string InitialHash);
+    private sealed record ModdedSaveIssue(string Generation);
+    private sealed record ModdedInstallation(string Folder, string Name, bool Active);
 }

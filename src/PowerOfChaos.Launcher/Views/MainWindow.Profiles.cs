@@ -40,9 +40,12 @@ public partial class MainWindow
             }
             finally { _renderingProfiles = false; }
             ActiveProfileName.Text = state.Active.Name;
+            ActiveModdedBadge.IsVisible = state.Active.IsModded;
             ToolTip.SetTip(ActiveProfileName, state.Active.Name);
             CollectionSaveControls.IsVisible = state.Active.IsBase;
             ChooseCollectionSaveButton.IsVisible = state.Active.IsBase;
+            CollectionGames.IsVisible = !state.Active.IsModded;
+            StockCollectionTotals.IsVisible = !state.Active.IsModded;
         }
         catch (Exception error) when (IsProfileError(error))
         {
@@ -50,6 +53,8 @@ public partial class MainWindow
             Notice(error.Message);
         }
         RefreshProfileControls();
+        RefreshCardToolsControls();
+        foreach (var card in _cards) card.SetLaunchPending(StockLaunchBlocked);
     }
 
     private void RefreshProfileControls()
@@ -62,7 +67,8 @@ public partial class MainWindow
         CreateProfileButton.IsEnabled = canSwitch && _profileSelection.Profiles.Count < PlayerProfiles.MaximumProfiles;
         ToolTip.SetTip(CreateProfileButton, _profileSelection.Profiles.Count >= PlayerProfiles.MaximumProfiles
             ? Texts.Translate("You can have up to five profiles.") : null);
-        DeleteProfileButton.IsEnabled = canSwitch && _profileSelection.Profiles.Count > 1;
+        DeleteProfileButton.IsEnabled = canSwitch && (_profileSelection.Active.IsModded
+            || _profileSelection.Profiles.Count(profile => !profile.IsModded) > 1);
         foreach (var reset in _profileResetButtons) reset.IsEnabled = canSwitch;
     }
 
@@ -169,7 +175,8 @@ public partial class MainWindow
             if (_closed || _page != "profile" || version != _profileRefresh || !ReferenceEquals(selection, _profileSelection)) return;
             ProfileTotalPlaytime.Text = FormatProfileTime(active.Values.Sum());
             AllProfilesTotalPlaytime.Text = FormatProfileTime(totals.Values.Sum());
-            ProfileUniqueCards.Text = FormatProfileCount(collection.UniqueCards, CollectionSnapshot.MaximumUniqueCards);
+            ProfileUniqueCards.Text = selection.Active.IsModded ? Texts.Translate("Custom pool")
+                : FormatProfileCount(collection.UniqueCards, CollectionSnapshot.MaximumUniqueCards);
             ProfileGameRows.Children.Clear();
             _profileResetButtons.Clear();
             foreach (var game in GameCatalog.All)
@@ -179,7 +186,7 @@ public partial class MainWindow
                 var heading = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 12 };
                 heading.Children.Add(new TextBlock { Text = game.Title, FontSize = 15, FontWeight = FontWeight.SemiBold,
                     TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center });
-                if (installed is not null)
+                if (installed is not null && !selection.Active.IsModded)
                 {
                     var reset = new Button { Content = Texts.Translate("Reset cards"), Classes = { "secondary" } };
                     reset.Click += async (_, _) => await ResetProfileCardsAsync(installed);
@@ -188,7 +195,7 @@ public partial class MainWindow
                     heading.Children.Add(reset);
                 }
                 var metrics = new Grid { ColumnDefinitions = new ColumnDefinitions("*,*,*"), ColumnSpacing = 12 };
-                AddProfileMetric(metrics, 0, "Cards unlocked", FormatProfileCount(row.OwnedCards, row.TotalCards));
+                AddProfileMetric(metrics, 0, "Cards unlocked", selection.Active.IsModded ? "—" : FormatProfileCount(row.OwnedCards, row.TotalCards));
                 AddProfileMetric(metrics, 1, "Profile playtime", FormatProfileTime(active.GetValueOrDefault(game.Id)));
                 AddProfileMetric(metrics, 2, "All profiles’ playtime", FormatProfileTime(totals.GetValueOrDefault(game.Id)));
                 ProfileGameRows.Children.Add(new Border { Classes = { "panel" }, Padding = new Thickness(18),
@@ -216,5 +223,6 @@ public partial class MainWindow
     private static string FormatProfileTime(long seconds) => Texts.Format("{0}h {1:00}m", seconds / 3600, seconds / 60 % 60);
     private static string FormatProfileCount(int? cards, int total) => $"{cards?.ToString() ?? "—"}/{total}";
     private static bool IsProfileError(Exception error) =>
-        error is IOException or UnauthorizedAccessException or InvalidDataException or InvalidOperationException or ArgumentException;
+        error is IOException or UnauthorizedAccessException or InvalidDataException or InvalidOperationException or ArgumentException
+            or BadImageFormatException;
 }

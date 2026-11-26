@@ -34,6 +34,8 @@ public sealed class LauncherSettings
     public bool CustomOpponentDecks { get; set; }
     public string WineExecutable { get; set; } = "wine";
     public string? CollectionSavePath { get; set; }
+    public string? CardEditorPath { get; set; }
+    public string? ModdedJoeyDirectory { get; set; }
     public string CardLanguage { get; set; } = "en";
 }
 

@@ -131,11 +131,8 @@ public partial class MainWindow : Window
             Texts.SetLanguage(_settings.CardLanguage);
             CollectionSaveInput.Text = _settings.CollectionSavePath;
             ReadProfiles();
-            if (_settings.Installations.Count != 0)
-            {
-                try { _profiles.RecoverIfNeeded(_settings.Installations); }
-                catch (Exception error) when (IsProfileError(error)) { Notice(error.Message); }
-            }
+            try { _profiles.RecoverIfNeeded(_settings.Installations); }
+            catch (Exception error) when (IsProfileError(error)) { Notice(error.Message); }
             await RefreshTemporaryCollectionAsync();
             if (_closed) return;
             await RefreshOpponentDecksAsync();
@@ -178,7 +175,7 @@ public partial class MainWindow : Window
             if (installed is not null)
             {
                 var card = new GameCardViewModel(installed);
-                card.SetLaunchPending(LaunchBlocked);
+                card.SetLaunchPending(StockLaunchBlocked);
                 _cards.Add(card);
             }
         }
@@ -372,20 +369,34 @@ public partial class MainWindow : Window
 
     private async void PlayGame_Click(object? sender, RoutedEventArgs e)
     {
-        if (!_settingsReady || _savingMod || _busy || _pendingLaunch || _closed || sender is not Button { Tag: GameInstallation installation }) return;
+        if (sender is not Button { Tag: GameInstallation installation } || StockLaunchBlocked) return;
+        await LaunchGameAsync(installation);
+    }
+
+    private async void PlayModdedJoey_Click(object? sender, RoutedEventArgs e)
+    {
+        if (PlayModdedJoeyButton.IsEnabled) await LaunchGameAsync(null);
+    }
+
+    private async Task LaunchGameAsync(GameInstallation? installation)
+    {
+        if (LaunchBlocked || _busy || _closed || _sessions.AnyRunning) return;
+        var title = installation is null ? Texts.Translate("Modded Joey") : GameCatalog.Get(installation.GameId).Title;
         _pendingLaunch = true;
         RefreshModControls();
-        NoticeFormat("Starting {0}…", GameCatalog.Get(installation.GameId).Title);
+        NoticeFormat("Starting {0}…", title);
         try
         {
             await RefreshTemporaryCollectionAsync();
             if (_closed) return;
             if (_temporaryState.RecoveryRequired) { Notice(_temporaryState.Message); return; }
-            var result = await _sessions.LaunchAsync(installation, _settings, hdWindow: GetHdWindowPlacement());
+            var result = installation is null ? await _sessions.LaunchModdedJoeyAsync(_settings)
+                : await _sessions.LaunchAsync(installation, _settings, hdWindow: GetHdWindowPlacement());
+            ReadProfiles();
             if (!result.Success) { Notice(result.Error ?? "The game could not be started."); return; }
             await RefreshSessionsAsync();
             var hasWarning = ShowSessionWarning();
-            if (!hasWarning) NoticeFormat("{0} is running. Playtime tracking is active.", GameCatalog.Get(installation.GameId).Title);
+            if (!hasWarning) NoticeFormat("{0} is running. Playtime tracking is active.", title);
             if (_settings.MinimizeOnLaunch && !hasWarning) WindowState = WindowState.Minimized;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or System.ComponentModel.Win32Exception)
@@ -417,6 +428,7 @@ public partial class MainWindow : Window
         if (_closed) return;
         try
         {
+            ReadProfiles();
             await RefreshTemporaryCollectionAsync();
             await RefreshSessionsAsync();
             await RefreshCollectionAsync();
@@ -446,11 +458,12 @@ public partial class MainWindow : Window
         var totals = await _sessions.GetPlaytimeSecondsAsync(profile);
         if (_closed || profile != _profileSelection.ActiveId) return;
         var anyRunning = GameCatalog.All.Any(g => _sessions.IsRunning(g.Id));
+        ModdedJoeyPlaytime.Text = FormatProfileTime(totals.GetValueOrDefault("joey"));
         foreach (var card in _cards)
         {
             var running = _sessions.IsRunning(card.Installation.GameId);
             card.Refresh(totals.GetValueOrDefault(card.Installation.GameId), running, anyRunning && !running);
-            card.SetLaunchPending(LaunchBlocked);
+            card.SetLaunchPending(StockLaunchBlocked);
         }
     }
 
@@ -503,10 +516,12 @@ public partial class MainWindow : Window
         RestoreCollectionButton.IsEnabled = SkipSplashScreensCheckBox.IsEnabled && !_sessions.AnyRunning;
         RenderTemporaryCollectionStatus();
         RefreshProfileControls();
-        foreach (var card in _cards) card.SetLaunchPending(LaunchBlocked);
+        RefreshCardToolsControls();
+        foreach (var card in _cards) card.SetLaunchPending(StockLaunchBlocked);
     }
 
     private bool LaunchBlocked => !_settingsReady || !_profilesReadable || _savingMod || _pendingLaunch || _temporaryState.RecoveryRequired;
+    private bool StockLaunchBlocked => LaunchBlocked || _profileSelection.Active.IsModded;
 
     private bool CollectionProfileBindsLocations()
     {

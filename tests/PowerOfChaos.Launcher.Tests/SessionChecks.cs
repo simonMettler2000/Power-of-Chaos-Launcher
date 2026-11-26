@@ -1,4 +1,6 @@
+using System.Buffers.Binary;
 using System.Diagnostics;
+using System.Security.Cryptography;
 using System.Text.Json;
 using PowerOfChaos.Launcher.Core;
 using PowerOfChaos.Launcher.Core.Launching;
@@ -232,6 +234,177 @@ internal static class SessionChecks
             Expect<InvalidOperationException>(() => profiles.Delete(remaining.ActiveId));
         });
 
+        await run("External card tools use the chosen editors and require expanded Joey tables to preserve stock slots", async () =>
+        {
+            var root = Path.Combine(fixtures, "external-card-tools");
+            var image = SplashChecks.SyntheticImage();
+            var stock = await SplashChecks.Installation(Path.Combine(root, "stock"), "joey", image);
+            var edited = await SplashChecks.Installation(Path.Combine(root, "edited"), "joey", image);
+            var folder = Path.GetDirectoryName(edited.ExecutablePath)!;
+            var editor = Path.Combine(root, "Card editor.exe");
+            await File.WriteAllBytesAsync(editor, image);
+            var editorPlan = ExternalCardTools.EditorPlan(editor);
+            Check(editorPlan.FileName == editor && editorPlan.WorkingDirectory == root
+                && editorPlan.ArgumentList.Count == 0 && !editorPlan.UseShellExecute, "The editor launch changed the chosen app or folder.");
+            Expect<InvalidDataException>(() => ExternalCardTools.EditorPlan(edited.ExecutablePath));
+            Expect<InvalidOperationException>(() => ExternalCardTools.InspectJoey(Path.GetDirectoryName(stock.ExecutablePath)!, [stock], default));
+            var library = image.ToArray();
+            BinaryPrimitives.WriteUInt16LittleEndian(library.AsSpan(0x96), 0x2002);
+            await File.WriteAllBytesAsync(Path.Combine(folder, "msacm32.dll"), library);
+            File.Delete(edited.DataPath);
+            var tables = CollectionFixtures.CardTables();
+            CollectionFixtures.WriteArchive(edited.DataPath, tables);
+            var originalIds = tables.Single(entry => entry.Name == @"bin#\card_id.bin").Data;
+            var expanded = originalIds.Concat(new byte[] { 255, 15 }).ToArray();
+            var loose = Path.Combine(folder, "data", "bin#");
+            Directory.CreateDirectory(loose);
+            var idsPath = Path.Combine(loose, "card_id.bin");
+            await File.WriteAllBytesAsync(idsPath, expanded);
+            await File.WriteAllBytesAsync(Path.Combine(loose, "card_pack.bin"), new byte[expanded.Length]);
+            await File.WriteAllBytesAsync(Path.Combine(loose, "card_prop.bin"), new byte[expanded.Length * 2]);
+            var digest = Convert.ToHexString(SHA256.HashData(image));
+            var supported = new SplashProfile("joey", image.Length, digest, digest, []);
+            Check(ExternalCardTools.InspectJoey(folder, [stock], default, supported).ExecutablePath == edited.ExecutablePath,
+                "The editor-compatible game folder was not accepted.");
+            expanded[0] ^= 1;
+            await File.WriteAllBytesAsync(idsPath, expanded);
+            Expect<InvalidDataException>(() => ExternalCardTools.InspectJoey(folder, [stock], default, supported));
+        });
+
+        await run("Modded Joey refuses ambiguous registered save locations before considering files", async () =>
+        {
+            var root = Path.Combine(fixtures, "registered");
+            var registered = Path.Combine(root, "live");
+            var stale = Path.Combine(root, "stale");
+            var shadow = Path.Combine(root, "shadow");
+            foreach (var path in new[] { registered, stale, shadow }) Directory.CreateDirectory(path);
+            var liveSave = Path.Combine(registered, "system.dat");
+            var shadowSave = Path.Combine(shadow, "system.dat");
+            await File.WriteAllBytesAsync(Path.Combine(stale, "system.dat"), [1]);
+            var virtualize = (string _) => shadowSave;
+            Expect<InvalidOperationException>(() => CardCollectionReader.ResolveRegisteredModdedSave([registered, stale], virtualize, File.Exists));
+            Expect<InvalidOperationException>(() => CardCollectionReader.ResolveRegisteredModdedSave([registered], virtualize, File.Exists));
+            await File.WriteAllBytesAsync(shadowSave, [1]);
+            Check(CardCollectionReader.ResolveRegisteredModdedSave([registered, registered + Path.DirectorySeparatorChar],
+                virtualize, File.Exists) == shadowSave, "A single virtual save should be selected.");
+            await File.WriteAllBytesAsync(liveSave, [1]);
+            Expect<InvalidOperationException>(() => CardCollectionReader.ResolveRegisteredModdedSave([registered], virtualize, File.Exists));
+            Check(CardCollectionReader.ResolveRegisteredModdedSave([registered], _ => null, File.Exists) == liveSave,
+                "A single physical save should be selected.");
+        });
+
+        if (OperatingSystem.IsWindows()) await run("Modded Joey uses the edited folder and keeps stock saves, settings and profile time separate", async () =>
+        {
+            var root = Path.Combine(fixtures, "modded-session");
+            var stock = Installation(root, "stock", "joey");
+            var edited = Installation(root, "edited", "joey");
+            var folder = Path.GetDirectoryName(edited.ExecutablePath)!;
+            var live = Path.Combine(root, "system.dat");
+            var data = Path.Combine(root, "profiles-data");
+            Directory.CreateDirectory(data);
+            var baseSlot = CollectionFixtures.Slot(1);
+            var rewardSlot = CollectionFixtures.Slot(200);
+            var original = CollectionFixtures.Save([(baseSlot, (byte)2)]);
+            await File.WriteAllBytesAsync(live, original);
+            await File.WriteAllTextAsync(Path.Combine(data, "playtime.json"), """{"Totals":{"joey":120}}""");
+            var reader = new CardCollectionReader(_ => [live]);
+            var lease = new TemporaryCollectionService(Path.Combine(root, "lease"), reader, () => false);
+            var starter = new NativeStarterCards([baseSlot], new Dictionary<int, (byte, byte)> { [baseSlot] = (1, 1) });
+            var profiles = new PlayerProfiles(lease, data, reader, (_, _) => starter);
+            profiles.Rename(PlayerProfiles.BaseId, "Player");
+            var catalog = await File.ReadAllBytesAsync(Path.Combine(data, "profiles", "profiles.json"));
+            var runner = new FakeRunner();
+            var clock = new ManualClock();
+            var settings = new LauncherSettings { Installations = [stock], ModdedJoeyDirectory = folder,
+                PlayWindowed = true, HdCardArtwork = true, SpeedyMode = true, NewCardRewards = true };
+            await using (var sessions = new GameSessionService(data, runner, clock, TimeSpan.FromHours(1),
+                temporaryCollections: lease, profiles: profiles)
+            {
+                InspectEditedJoeyAsync = (_, _, _) => Task.FromResult(edited)
+            })
+            {
+                var finished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                sessions.SessionsChanged += (_, _) => { if (!sessions.AnyRunning) finished.TrySetResult(); };
+                Check(!(await sessions.LaunchAsync(edited, settings)).Success, "The normal route accepted the edited folder.");
+                Check((await sessions.LaunchModdedJoeyAsync(settings)).Success, "Modded Joey could not start with a verified edited folder.");
+                Check(runner.Plan?.FileName == edited.ExecutablePath && runner.Plan.WorkingDirectory == folder
+                    && runner.Plan.ArgumentList.Count == 0, "The edited folder was replaced or received stock launcher mods.");
+                Check(profiles.Read().Active is { IsModded: true, Name: "Modded" }, "The dedicated Modded profile was not selected.");
+                Check(CollectionSave.ReadQuantities(await File.ReadAllBytesAsync(live))[baseSlot] == 1,
+                    "Modded Joey received the regular collection rather than the starter cards.");
+                var updated = CollectionSave.CreateUnlocked(await File.ReadAllBytesAsync(live), [rewardSlot]);
+                await File.WriteAllBytesAsync(live, updated);
+                clock.Advance(TimeSpan.FromSeconds(240));
+                runner.Process.Complete();
+                await finished.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                Check(original.SequenceEqual(await File.ReadAllBytesAsync(live)), "The regular game save did not restore exactly.");
+                Check(updated.SequenceEqual(await File.ReadAllBytesAsync(Path.Combine(data, "profiles", PlayerProfiles.ModdedId, "system.dat"))),
+                    "The Modded save did not retain the edited session's cards.");
+                Check((await sessions.GetPlaytimeSecondsAsync())["joey"] == 240
+                    && (await sessions.GetPlaytimeSecondsAsync(PlayerProfiles.BaseId))["joey"] == 120, "Modded playtime crossed profiles.");
+                Check(catalog.SequenceEqual(await File.ReadAllBytesAsync(Path.Combine(data, "profiles", "profiles.json"))),
+                    "Creating Modded changed the stock profile catalog.");
+                Check(!(await sessions.LaunchAsync(stock, settings)).Success && runner.Starts == 1,
+                    "A stock game was allowed to use the Modded profile.");
+            }
+            profiles.Rename(PlayerProfiles.ModdedId, "Custom cards");
+            profiles.Select(PlayerProfiles.BaseId);
+            Check(!profiles.Read().Active.IsModded, "Switching back to Player failed.");
+            profiles.Select(PlayerProfiles.ModdedId);
+            Check(profiles.Read().Active is { IsModded: true, Name: "Custom cards" }, "Renaming lost the Modded identity.");
+            Expect<InvalidOperationException>(() => profiles.CheckModdedFolder(Path.GetDirectoryName(stock.ExecutablePath)!));
+            Check((await profiles.ReadCollectionAsync(PlayerProfiles.ModdedId, [stock], null)).UniqueCards is null,
+                "Custom cards were counted against the stock collection.");
+        });
+
+        if (OperatingSystem.IsWindows()) await run("Unreadable or missing Modded Joey output restores stock, preserves evidence, and blocks automatic remount", async () =>
+        {
+            foreach (var missing in new[] { false, true })
+            {
+                var root = Path.Combine(fixtures, missing ? "modded-missing" : "modded-unreadable");
+                var game = Installation(root, "edited", "joey");
+                var folder = Path.GetDirectoryName(game.ExecutablePath)!;
+                var live = Path.Combine(root, "system.dat");
+                var data = Path.Combine(root, "profiles-data");
+                var slot = CollectionFixtures.Slot(1);
+                var original = CollectionFixtures.Save([(slot, (byte)2)]);
+                await File.WriteAllBytesAsync(live, original);
+                var reader = new CardCollectionReader(_ => [live]);
+                var lease = new TemporaryCollectionService(Path.Combine(root, "lease"), reader, () => false);
+                var starter = new NativeStarterCards([slot], new Dictionary<int, (byte, byte)> { [slot] = (1, 1) });
+                var profiles = new PlayerProfiles(lease, data, reader, (_, _) => starter);
+                var privateDirectory = Path.Combine(data, "profiles", PlayerProfiles.ModdedId);
+                var privateSave = Path.Combine(privateDirectory, "system.dat");
+                using (lease.OpenGate())
+                {
+                    profiles.Mount(profiles.SelectModded(folder, [game]), game, [game], default);
+                    Check(profiles.Recover([game]) is null, "An ordinary Modded save triggered a warning.");
+                    var previous = await File.ReadAllBytesAsync(privateSave);
+                    profiles.Mount(PlayerProfiles.ModdedId, game, [game], default);
+                    byte[] unsupported = [0x19, 0x20, 0x26];
+                    if (missing) File.Delete(live);
+                    else await File.WriteAllBytesAsync(live, unsupported);
+
+                    Check(profiles.Recover([game])?.Contains("needs review", StringComparison.Ordinal) == true,
+                        "An unusable Modded save silently fell back to an old save.");
+                    Check(original.SequenceEqual(await File.ReadAllBytesAsync(live)), "The regular save was not restored.");
+                    Check(previous.SequenceEqual(await File.ReadAllBytesAsync(privateSave)), "The last usable Modded save was replaced.");
+                    if (!missing)
+                    {
+                        var archive = Directory.EnumerateFiles(privateDirectory, "unreadable-*.dat").Single();
+                        Check(unsupported.SequenceEqual(await File.ReadAllBytesAsync(archive)), "Unexpected output was not preserved.");
+                    }
+                    var reopened = new PlayerProfiles(lease, data, reader, (_, _) => starter);
+                    Expect<InvalidOperationException>(() => reopened.SelectModded(folder, [game]));
+                    reopened.Mount(PlayerProfiles.BaseId, game, [game], default);
+                }
+                profiles.Delete(PlayerProfiles.ModdedId);
+                using (lease.OpenGate())
+                    Check(profiles.SelectModded(folder, [game]) == PlayerProfiles.ModdedId,
+                        "Deliberate removal of the Modded profile did not clear its warning.");
+            }
+        });
+
         await run("all launch modes hold the shared collection lease until their fake session ends", async () =>
         {
             var folder = Path.Combine(fixtures, "shared-profile-session");
@@ -309,10 +482,12 @@ internal static class SessionChecks
     private sealed class FakeRunner : IGameProcessRunner
     {
         public int Starts { get; private set; }
+        public ProcessStartInfo? Plan { get; private set; }
         public FakeProcess Process { get; } = new();
         public IGameProcess Start(ProcessStartInfo startInfo)
         {
             Starts++;
+            Plan = startInfo;
             return Process;
         }
     }

@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using PowerOfChaos.Launcher.Core.Launching;
 
 namespace PowerOfChaos.Launcher.Core.Discovery;
 
@@ -140,8 +141,9 @@ public sealed class GameDiscovery
                             Warn($"{game.Title}: the files in {current.Path} are not a supported Power of Chaos installation.");
                             continue;
                         }
-                        if (seenExecutables.Add(executable))
-                            games.Add(new GameInstallation(game.Id, executable, data, voice, selectedRoot));
+                        var installation = new GameInstallation(game.Id, executable, data, voice, selectedRoot);
+                        if (ExternalCardTools.HasEditedJoeyLayout(installation)) continue;
+                        if (seenExecutables.Add(executable)) games.Add(installation);
                     }
                     catch (Exception ex) when (IsFileSystemException(ex))
                     {

@@ -34,6 +34,19 @@ internal static class Program
                 Equal("wine", settings.WineExecutable, "default Wine command");
             });
 
+            await Run("stock discovery skips an edited Joey copy and finds the original folder", async () =>
+            {
+                var root = fixtures.Folder("edited-joey-discovery");
+                var edited = fixtures.GameAt(Path.Combine(root, "a-edited"), "joey");
+                var original = fixtures.GameAt(Path.Combine(root, "b-original"), "joey");
+                var cardTable = Path.Combine(edited.DiscoveryRoot, "data", "bin#");
+                Directory.CreateDirectory(cardTable);
+                await File.WriteAllBytesAsync(Path.Combine(edited.DiscoveryRoot, "msacm32.dll"), [1]);
+                await File.WriteAllBytesAsync(Path.Combine(cardTable, "card_id.bin"), [1]);
+                var found = await new GameDiscovery().ScanAsync(root);
+                Equal(original.ExecutablePath, found.Games.Single().ExecutablePath, "ordinary Joey discovery");
+            });
+
             await Run("settings survive store recreation with paths and preferences", async () =>
             {
                 var directory = fixtures.Folder("persist-settings");

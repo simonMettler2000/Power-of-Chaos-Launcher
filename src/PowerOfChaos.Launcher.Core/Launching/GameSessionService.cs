@@ -71,6 +71,8 @@ public sealed class GameSessionService : IAsyncDisposable
     }
 
     public event EventHandler? SessionsChanged;
+    internal Func<string, IReadOnlyList<GameInstallation>, CancellationToken, Task<GameInstallation>> InspectEditedJoeyAsync { get; init; }
+        = ExternalCardTools.InspectJoeyAsync;
     public string? LastWarning { get; private set; }
     public bool IsRunning(string gameId) => _active?.GameId == gameId;
     public bool AnyRunning => _active is not null;
@@ -90,10 +92,20 @@ public sealed class GameSessionService : IAsyncDisposable
         finally { _gate.Release(); }
     }
 
-    public async Task<LaunchResult> LaunchAsync(GameInstallation installation, LauncherSettings settings,
+    public Task<LaunchResult> LaunchAsync(GameInstallation installation, LauncherSettings settings,
         CancellationToken cancellationToken = default, HdWindowPlacement? hdWindow = null)
+        => LaunchCoreAsync(installation, settings, cancellationToken, hdWindow);
+
+    public Task<LaunchResult> LaunchModdedJoeyAsync(LauncherSettings settings,
+        CancellationToken cancellationToken = default) => LaunchCoreAsync(null, settings, cancellationToken, null);
+
+    private async Task<LaunchResult> LaunchCoreAsync(GameInstallation? installation, LauncherSettings settings,
+        CancellationToken cancellationToken, HdWindowPlacement? hdWindow)
     {
         // Capture before the first await, including when another launch owns the gate.
+        var modded = installation is null;
+        var editedDirectory = settings.ModdedJoeyDirectory;
+        var configuredGames = settings.Installations.ToArray();
         var options = new GameModOptions(settings.SkipSplashScreens, settings.SkipCharacterInteractions,
             settings.RestoreOriginalAspectRatio, settings.HdCardArtwork,
             settings.HdCardArtwork ? settings.HdCardImageDirectory : null, settings.NewCardRewards, settings.CustomOpponentDecks,
@@ -101,8 +113,7 @@ public sealed class GameSessionService : IAsyncDisposable
         {
             HdWindow = hdWindow
         };
-        var installations = new[] { installation }.Concat(settings.Installations)
-            .DistinctBy(game => game.GameId).ToArray();
+        var installations = configuredGames;
         var launchSettings = new LauncherSettings
         {
             SkipSplashScreens = options.SkipSplashScreens,
@@ -133,13 +144,39 @@ public sealed class GameSessionService : IAsyncDisposable
             enteredGate = true;
             ObjectDisposedException.ThrowIf(_disposed, this);
             if (_active is not null) return new(false, "Close the running game before launching another.");
-            _ = LaunchPlan.Create(installation, launchSettings); // Validate installed files before cache work.
+            if (installation is null)
+            {
+                if (_profiles is null || !OperatingSystem.IsWindows() || editedDirectory is null)
+                    return new(false, "Choose an edited Joey folder on Windows first.");
+                installation = await InspectEditedJoeyAsync(editedDirectory, configuredGames, preparationCancellation.Token);
+            }
+            else
+            {
+                if (ExternalCardTools.IsEditedJoey(installation, editedDirectory) || ExternalCardTools.HasEditedJoeyLayout(installation))
+                    return new(false, "Use Play Modded Joey for the edited game folder.");
+                _ = LaunchPlan.Create(installation, launchSettings); // Validate installed files before cache work.
+            }
+            installations = new[] { installation }.Concat(configuredGames).DistinctBy(game => game.GameId).ToArray();
             collectionLease = await _temporaryCollections.AcquireSessionLeaseAsync(installations,
-                preparationCancellation.Token);
-            var profileId = _profiles?.Read().ActiveId ?? PlayerProfiles.BaseId;
-            var executable = await _preparer.PrepareExecutableAsync(installation, options,
-                preparationCancellation.Token);
-            var plan = LaunchPlan.CreatePrepared(installation, launchSettings, executable);
+                preparationCancellation.Token, requireTemporaryOff: modded);
+            string profileId;
+            ProcessStartInfo plan;
+            if (modded)
+            {
+                var workingDirectory = Path.GetDirectoryName(installation.ExecutablePath)!;
+                LaunchPlan.ValidateWindowsPaths(installation.ExecutablePath, workingDirectory);
+                _profiles!.Recover(installations);
+                profileId = _profiles.SelectModded(workingDirectory, installations);
+                plan = new ProcessStartInfo { FileName = installation.ExecutablePath, WorkingDirectory = workingDirectory, UseShellExecute = false };
+            }
+            else
+            {
+                profileId = _profiles?.Read().ActiveId ?? PlayerProfiles.BaseId;
+                if (profileId == PlayerProfiles.ModdedId)
+                    return new(false, "Switch to a regular profile before playing a stock game.");
+                var executable = await _preparer.PrepareExecutableAsync(installation, options, preparationCancellation.Token);
+                plan = LaunchPlan.CreatePrepared(installation, launchSettings, executable);
+            }
             var data = await LoadPlaytimeAsync(profileId, forLaunch: true);
             // Check that tracking can be persisted before starting an external application.
             await SavePlaytimeAsync(profileId, data);
@@ -166,7 +203,7 @@ public sealed class GameSessionService : IAsyncDisposable
             return new(false, "Game launch was cancelled.");
         }
         catch (Exception exception) when (exception is IOException or InvalidDataException or UnauthorizedAccessException or OverflowException
-            or ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception)
+            or ArgumentException or InvalidOperationException or BadImageFormatException or System.ComponentModel.Win32Exception)
         {
             return new(false, "Could not start the game: " + exception.Message);
         }
@@ -234,7 +271,7 @@ public sealed class GameSessionService : IAsyncDisposable
 
     private void RecoverProfile(IReadOnlyList<GameInstallation> installations)
     {
-        try { _profiles?.Recover(installations); }
+        try { if (_profiles?.Recover(installations) is { } warning) LastWarning = warning; }
         catch (Exception exception) when (IsStorageException(exception) || exception is InvalidOperationException)
         {
             LastWarning = "Profile recovery is pending. Close all games and reopen the launcher. " + exception.Message;

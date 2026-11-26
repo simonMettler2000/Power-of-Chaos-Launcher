@@ -746,7 +746,7 @@ internal static class Program
                 Require(Find<TextBlock>(window, "ActiveProfileName").Text == "Runner", "Games lost the active profile badge.");
             });
 
-            Check("Play Windowed defaults off and persists independently", () =>
+            Check("Card tools expose help and Play Windowed is a persistent, independent setting", () =>
             {
                 Find<Button>(window, "ModsNav").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 var windowed = Find<CheckBox>(window, "PlayWindowedCheckBox");
@@ -755,6 +755,49 @@ internal static class Program
                 windowed.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 WaitUntil(() => windowed.IsEnabled && JsonNode.Parse(File.ReadAllText(Path.Combine(data, "launcher-settings.json")))
                     ?["PlayWindowed"]?.GetValue<bool>() == true, "Play Windowed did not persist.");
+                Require(Find<Button>(window, "OpenCardEditorButton").IsEnabled == false, "The editor was enabled without a selected executable.");
+                Require(window.GetVisualDescendants().OfType<TextBlock>().Any(block => block.IsEffectivelyVisible
+                    && block.Text == "Card editor and Modded Joey (experimental)"), "The Mods row has no visible experimental label.");
+                Find<Button>(window, "CardToolsHelpButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                WaitUntil(() => window.OwnedWindows.Any(child => child.Title == "Card editor and Modded Joey help"), "Card tools Help did not open.");
+                var help = window.OwnedWindows.Single(child => child.Title == "Card editor and Modded Joey help");
+                var paragraphs = help.GetVisualDescendants().OfType<TextBlock>().Select(block => block.Text ?? "").ToArray();
+                Require(paragraphs.Any(text => text.Contains("folder picker", StringComparison.Ordinal))
+                    && paragraphs.Any(text => text.Contains("Modded profile", StringComparison.Ordinal)),
+                    "The help did not explain setup or save separation.");
+                help.GetVisualDescendants().OfType<Button>().Single(button => Equals(button.Content, "Close"))
+                    .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                WaitUntil(() => !window.OwnedWindows.Contains(help), "Card tools Help did not close.");
+            });
+
+            if (OperatingSystem.IsWindows()) Check("The active Modded profile has a badge and stock play and collection controls are unavailable", () =>
+            {
+                var modded = Path.Combine(data, "profiles", PlayerProfiles.ModdedId);
+                Directory.CreateDirectory(modded);
+                var metadata = Path.Combine(modded, "installation.json");
+                try
+                {
+                    File.WriteAllText(metadata, JsonSerializer.Serialize(new { Folder = modded, Name = "Custom Cards", Active = true }));
+                    Find<Button>(window, "ProfileNav").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    WaitUntil(() => Find<Border>(window, "ActiveModdedBadge").IsEffectivelyVisible
+                        && Find<TextBlock>(window, "ProfileUniqueCards").Text == "Custom pool", "The Modded profile did not show its badge and collection status.");
+                    Require(Find<TextBlock>(window, "ActiveProfileName").Text == "Custom Cards", "The badge replaced the profile name.");
+                    Capture(window, "modded-profile.png");
+                    Find<Button>(window, "LibraryNav").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    Require(Find<Border>(window, "ModdedJoeyGame").IsEffectivelyVisible
+                        && Find<ItemsControl>(window, "GameCards").Items.OfType<GameCardViewModel>().All(card => !card.CanPlay),
+                        "A stock title was ready to start with the Modded profile.");
+                    Require(Find<Border>(window, "ModdedJoeyGame").GetVisualDescendants().OfType<TextBlock>()
+                        .Any(block => block.IsEffectivelyVisible && block.Text == "Modded Joey (experimental)"),
+                        "The Games row has no visible experimental label.");
+                    Find<Button>(window, "CollectionNav").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    Require(!Find<ItemsControl>(window, "CollectionGames").IsEffectivelyVisible, "The stock gallery appeared on a Modded profile.");
+                }
+                finally
+                {
+                    File.Delete(metadata);
+                    Find<Button>(window, "ProfileNav").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                }
             });
 
             if (args.Contains("--installed-artwork", StringComparer.Ordinal))

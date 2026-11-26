@@ -149,7 +149,7 @@ public sealed class TemporaryCollectionService
 
     /// <summary>Acquire before every launch and keep alive until monitoring ends. Never restores a save on disposal.</summary>
     public async Task<IAsyncDisposable> AcquireSessionLeaseAsync(IReadOnlyList<GameInstallation> games,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, bool requireTemporaryOff = false)
     {
         ArgumentNullException.ThrowIfNull(games);
         cancellationToken.ThrowIfCancellationRequested();
@@ -162,6 +162,8 @@ public sealed class TemporaryCollectionService
             var journal = loaded.Journal;
             if (journal is not null && journal.Phase != "inactive")
             {
+                if (requireTemporaryOff)
+                    throw new InvalidOperationException("Turn off Temporary all cards before playing Modded Joey.");
                 if (!_allowTemporaryProfile)
                     throw new InvalidOperationException("Temporary all-cards profiles are currently supported on Windows only.");
                 var original = ReadOriginal(journal);

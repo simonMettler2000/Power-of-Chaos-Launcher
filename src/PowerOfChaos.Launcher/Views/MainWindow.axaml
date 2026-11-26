@@ -79,7 +79,12 @@
         <Border Grid.Column="1" Classes="panel" MaxWidth="200" Padding="12,7" VerticalAlignment="Top">
           <StackPanel Spacing="2">
             <TextBlock Text="{loc:Tr Text='Active profile'}" Classes="caption" FontSize="11" />
-            <TextBlock x:Name="ActiveProfileName" Text="Player" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="7">
+              <TextBlock x:Name="ActiveProfileName" Text="Player" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+              <Border x:Name="ActiveModdedBadge" Grid.Column="1" Background="#683DA4" CornerRadius="4" Padding="6,2" IsVisible="False">
+                <TextBlock Text="Modded" FontSize="10" FontWeight="SemiBold" Foreground="White" />
+              </Border>
+            </Grid>
           </StackPanel>
         </Border>
       </Grid>
@@ -193,6 +198,22 @@
                 </ContentControl>
               </Grid>
             </StackPanel>
+            <Border x:Name="ModdedJoeyGame" Classes="panel" Padding="18" IsVisible="False">
+              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="14">
+                <StackPanel Spacing="6">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="{loc:Tr Text='Modded Joey (experimental)'}" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    <Border Background="#683DA4" CornerRadius="4" Padding="6,2" VerticalAlignment="Center">
+                      <TextBlock Text="Modded" FontSize="10" FontWeight="SemiBold" Foreground="White" />
+                    </Border>
+                  </StackPanel>
+                  <TextBlock x:Name="ModdedJoeyPlaytime" Classes="caption" IsVisible="False" />
+                  <TextBlock x:Name="SwitchFromModdedHint" Text="{loc:Tr Text='Switch to a regular profile to play the original games.'}" Classes="quiet" TextWrapping="Wrap" IsVisible="False" />
+                </StackPanel>
+                <Button x:Name="PlayModdedJoeyButton" Grid.Column="1" Content="{loc:Tr Text='Play Modded Joey'}" Classes="primary"
+                        VerticalAlignment="Center" Click="PlayModdedJoey_Click" IsEnabled="False" />
+              </Grid>
+            </Border>
             <TextBlock Text="{loc:Tr Text='Playtime counts sessions started from this launcher.'}" Classes="quiet" FontSize="11" Margin="0,0,0,8" />
           </StackPanel>
           <StackPanel x:Name="ModsView" Spacing="12" IsVisible="False">
@@ -296,12 +317,33 @@
                 </StackPanel>
               </Grid>
             </Border>
+            <Border Classes="panel" Padding="20">
+              <StackPanel Spacing="10">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                  <TextBlock Text="{loc:Tr Text='Card editor and Modded Joey (experimental)'}" FontSize="16" FontWeight="SemiBold"
+                             TextWrapping="Wrap" VerticalAlignment="Center" />
+                  <Button x:Name="CardToolsHelpButton" Grid.Column="1" Content="{loc:Tr Text='Help'}" Classes="secondary"
+                          AutomationProperties.Name="{loc:Tr Text='Card editor and Modded Joey help'}" Click="CardToolsHelp_Click" />
+                </Grid>
+                <TextBlock Text="{loc:Tr Text='Open your own card editor and play an edited copy of Joey with a separate profile.'}" Classes="quiet" TextWrapping="Wrap" />
+                <WrapPanel>
+                  <Button x:Name="ChooseCardEditorButton" Content="{loc:Tr Text='Choose editor'}" Classes="secondary" Margin="0,0,8,6"
+                          IsEnabled="False" Click="ChooseCardEditor_Click" />
+                  <Button x:Name="OpenCardEditorButton" Content="{loc:Tr Text='Open Card Editor'}" Classes="primary" Margin="0,0,0,6"
+                          IsEnabled="False" Click="OpenCardEditor_Click" />
+                </WrapPanel>
+                <views:CopyPathButton x:Name="CardEditorPath" IsVisible="False" FontSize="12" />
+                <Button x:Name="ChooseModdedJoeyButton" Content="{loc:Tr Text='Choose edited Joey folder'}" Classes="secondary"
+                        HorizontalAlignment="Left" IsEnabled="False" Click="ChooseModdedJoey_Click" />
+                <views:CopyPathButton x:Name="ModdedJoeyPath" IsVisible="False" FontSize="12" />
+              </StackPanel>
+            </Border>
           </StackPanel>
           <StackPanel x:Name="CollectionView" Spacing="18" IsVisible="False">
             <Border Classes="panel" Padding="24">
               <StackPanel Spacing="14">
                 <Grid ColumnDefinitions="*,Auto">
-                  <StackPanel Spacing="8">
+                  <StackPanel x:Name="StockCollectionTotals" Spacing="8">
                     <TextBlock Text="{loc:Tr Text='Unique cards'}" Classes="caption" />
                     <TextBlock x:Name="UniqueCardCount" Text="—/771" FontSize="32" FontWeight="SemiBold" AutomationProperties.Name="{loc:Tr Text='Unique cards across all games'}" />
                   </StackPanel>

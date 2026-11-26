@@ -138,6 +138,8 @@ public sealed class SettingsStore
             CustomOpponentDecks = settings.CustomOpponentDecks,
             WineExecutable = wine,
             CollectionSavePath = ValidAbsolutePath(settings.CollectionSavePath),
+            CardEditorPath = ValidAbsolutePath(settings.CardEditorPath),
+            ModdedJoeyDirectory = ValidAbsolutePath(settings.ModdedJoeyDirectory),
             CardLanguage = Collections.CardLanguages.Normalize(settings.CardLanguage)
         };
     }

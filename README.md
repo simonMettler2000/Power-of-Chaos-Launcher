@@ -41,6 +41,14 @@ Open **Profile** above About to create, rename, switch, or delete launcher profi
 
 **Reset cards** restores starter quantities for cards introduced by the selected title and replaces the shared active deck with that title’s starter deck. This can change shared card counts in other titles. Launcher playtime is kept. Reset and separate game profiles require a supported game build and the active shared save. Deleting the original Player profile removes its launcher entry and playtime while preserving the games' external shared save. **Temporary all cards** uses the original profile.
 
+## Card editor and Modded Joey (experimental)
+
+In **Mods**, choose your local Windows card editor and select **Open Card Editor**. Open the edited game’s unpacked `data` folder in the editor and mark each new card as available in Joey. The Toolset is a separate download, and its v1.3.2 editor requires 64-bit Windows. [YGO-PoC Toolset v1.3.2](https://github.com/bitemydusto/YGO-PoC-Toolset/releases/tag/v1.3.2)
+
+Prepare a separate compatible Joey the Passion folder with your own loader and edited files. Keep the original card slots in order and append new cards after them. Select the folder under **Mods**, then choose **Play Modded Joey** under **Games**. The launcher uses a separate **Modded** profile for save data and playtime. The **Help** button in Mods has the setup steps.
+
+This integration is experimental. The launcher’s folder checks and save isolation have automated coverage. Custom card packs and persistence of new card quantities during live play still need testing. If a Modded session produces an unsupported save, the launcher restores the regular save and keeps a recovery copy of the Modded output when available.
+
 ## Your card collection
 
 | Game | Available cards |

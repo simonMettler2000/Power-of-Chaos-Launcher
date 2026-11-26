@@ -99,7 +99,7 @@ public static class ReleasePackageProbe
             componentsValid,
             desktopDependenciesValid,
             builtInMods = new[] { "skip-splash-screens", "skip-character-interactions", "speedy-mode", "play-windowed", "original-aspect-ratio",
-                "temporary-all-cards", "hd-card-artwork", "new-card-rewards", "custom-opponent-decks" },
+                "temporary-all-cards", "hd-card-artwork", "new-card-rewards", "custom-opponent-decks", "modded-joey-experimental" },
             gameFilesRead = false,
             userSettingsRead = false,
             errors

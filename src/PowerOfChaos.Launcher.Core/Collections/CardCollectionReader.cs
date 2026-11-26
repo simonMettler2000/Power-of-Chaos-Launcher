@@ -11,9 +11,13 @@ public sealed class CardCollectionReader
 {
     private const string CommonFolder = "Yu-Gi-Oh! Power of Chaos Common";
     private readonly Func<IReadOnlyList<GameInstallation>, IEnumerable<string>> _findSaves;
+    private readonly bool _usesWindowsDiscovery;
 
     public CardCollectionReader(Func<IReadOnlyList<GameInstallation>, IEnumerable<string>>? findSaves = null)
-        => _findSaves = findSaves ?? FindSaves;
+    {
+        _findSaves = findSaves ?? FindSaves;
+        _usesWindowsDiscovery = findSaves is null;
+    }
 
     public Task<CollectionSnapshot> ReadAsync(IReadOnlyList<GameInstallation> installations,
         string? selectedSave = null, CancellationToken cancellationToken = default)
@@ -36,6 +40,29 @@ public sealed class CardCollectionReader
         if (candidates.Length != 1)
             throw new InvalidOperationException("The games' active shared save must be found unambiguously. Play once on the original profile first.");
         return TemporaryCollectionService.ValidateTargetPath(candidates[0]);
+    }
+
+    internal string ResolveModdedSave(IReadOnlyList<GameInstallation> games)
+    {
+        if (!OperatingSystem.IsWindows() || !_usesWindowsDiscovery) return ResolveActiveSave(games);
+        return ResolveRegisteredModdedSave(ReadCommonDirectories(), VirtualizedPath, File.Exists);
+    }
+
+    internal static string ResolveRegisteredModdedSave(IReadOnlyList<string> configuredDirectories,
+        Func<string, string?> virtualizedPath, Func<string, bool> fileExists)
+    {
+        var configured = configuredDirectories.Select(path => Path.TrimEndingDirectorySeparator(Path.GetFullPath(path)))
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        if (configured.Length != 1)
+            throw new InvalidOperationException("Modded Joey needs one unambiguous Windows shared save folder. Play a stock game once to set it up.");
+
+        var original = Path.Combine(configured[0], "system.dat");
+        var virtualized = virtualizedPath(original);
+        var hasOriginal = fileExists(original);
+        var hasVirtualized = virtualized is not null && fileExists(virtualized);
+        if (hasOriginal == hasVirtualized)
+            throw new InvalidOperationException("Modded Joey needs exactly one shared save in the registered folder or its Windows virtual copy.");
+        return TemporaryCollectionService.ValidateTargetPath(hasOriginal ? original : virtualized!);
     }
 
     internal bool IsRecoveryTarget(IReadOnlyList<GameInstallation> games, string target)
