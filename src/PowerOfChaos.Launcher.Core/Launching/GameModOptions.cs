@@ -3,12 +3,14 @@ namespace PowerOfChaos.Launcher.Core.Launching;
 /// <summary>Immutable selection captured when Play is requested; changes apply to the next launch.</summary>
 public sealed record GameModOptions(bool SkipSplashScreens = false, bool SkipCharacterInteractions = false,
     bool RestoreOriginalAspectRatio = false, bool HdCardArtwork = false, string? HdCardImageDirectory = null,
-    bool NewCardRewards = false, bool CustomOpponentDecks = false)
+    bool NewCardRewards = false, bool CustomOpponentDecks = false, bool PlayWindowed = false)
 {
+    internal HdWindowPlacement? HdWindow { get; init; }
+
     internal bool AnyEnabled => BinaryModsEnabled || UsesDisplayComponent || UsesGameplayComponent;
     internal bool BinaryModsEnabled => SkipSplashScreens || SkipCharacterInteractions;
     /// <summary>HD card artwork brings its own build of the display component, which also keeps the 4:3 picture.</summary>
-    internal bool UsesDisplayComponent => RestoreOriginalAspectRatio || HdCardArtwork;
+    internal bool UsesDisplayComponent => RestoreOriginalAspectRatio || HdCardArtwork || PlayWindowed;
     /// <summary>Mods that act inside the running game through the authored gameplay component.</summary>
     internal bool UsesGameplayComponent => NewCardRewards || CustomOpponentDecks;
     internal GameModOptions BinaryOptions => new(SkipSplashScreens, SkipCharacterInteractions);

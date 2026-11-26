@@ -114,9 +114,11 @@ internal sealed class OriginalAspectRatioPreparer
                 extras.Add(file.Key, file.Value);
             }
         }
-        Func<string, string> recipe = _variant.HdCards ? CreateHdConfiguration : CreateConfiguration;
+        string Recipe(string screenshots) => _variant.HdCards
+            ? CreateHdConfiguration(screenshots, options.PlayWindowed, options.HdWindow)
+            : CreateConfiguration(screenshots, options.RestoreOriginalAspectRatio || !options.PlayWindowed);
         // Hash the complete recipe with a fixed bucket placeholder to avoid a circular directory/config hash.
-        var recipeHash = Hash(Encoding.UTF8.GetBytes(recipe(Path.Combine(root, new string('0', 32), "screenshots"))));
+        var recipeHash = Hash(Encoding.UTF8.GetBytes(Recipe(Path.Combine(root, new string('0', 32), "screenshots"))));
 
         // The full identity stays in the manifest; only the directory bucket is shortened for legacy MAX_PATH APIs.
         var identity = _variant.HdCards
@@ -146,7 +148,7 @@ internal sealed class OriginalAspectRatioPreparer
         if (Path.Combine(directory, "ddraw.ini").Length >= 260 || screenshots.Length + 1 >= 260)
             throw new InvalidDataException("The launcher data path is too long for Restore Original Aspect Ratio. Choose a shorter launcher data directory, or untick this mod.");
         gameplay?.RequireReachableFrom(directory);
-        var configuration = Encoding.UTF8.GetBytes(recipe(screenshots));
+        var configuration = Encoding.UTF8.GetBytes(Recipe(screenshots));
         var manifest = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new
         {
             Identity = identity, IdentitySha256 = identityHash, ConfigurationSha256 = Hash(configuration)
@@ -202,7 +204,7 @@ internal sealed class OriginalAspectRatioPreparer
         }
     }
 
-    internal static string CreateConfiguration(string screenshotDirectory)
+    internal static string CreateConfiguration(string screenshotDirectory, bool keepAspect = true)
     {
         var screenshotPath = Path.GetFullPath(screenshotDirectory);
         RefuseNonAsciiNativePath(screenshotPath);
@@ -211,7 +213,8 @@ internal sealed class OriginalAspectRatioPreparer
         // Wine maps an absolute Unix host path through Z:, while Windows already supplies a drive path.
         if (!OperatingSystem.IsWindows()) screenshotPath = "Z:" + screenshotPath.Replace('/', '\\');
         screenshotPath = screenshotPath.TrimEnd('\\') + "\\";
-        return "[ddraw]\nwidth=800\nheight=600\nwindowed=true\nfullscreen=false\nmaintas=true\naspect_ratio=4:3\n"
+        var aspect = keepAspect ? "maintas=true\naspect_ratio=4:3\n" : "maintas=false\n";
+        return "[ddraw]\nwidth=800\nheight=600\nwindowed=true\nfullscreen=false\n" + aspect
             + "boxing=false\nmaxgameticks=-1\nlimiter_type=0\nminfps=0\nsavesettings=0\nresizable=true\nborder=true\n"
             + "toggle_borderless=true\ntoggle_upscaled=false\nrenderer=auto\nd3d9_filter=1\nshader=Nearest neighbor\n"
             + "maxfps=-1\nvsync=false\nadjmouse=true\nkeyscreenshot=0x00\nscreenshotdir=" + screenshotPath
@@ -219,15 +222,23 @@ internal sealed class OriginalAspectRatioPreparer
     }
 
     /// <summary>The aspect recipe with the HD presenter: borderless 4:3 at desktop size, Alt+Enter for a window.</summary>
-    internal static string CreateHdConfiguration(string screenshotDirectory)
+    internal static string CreateHdConfiguration(string screenshotDirectory, bool startWindowed = false,
+        HdWindowPlacement? placement = null)
     {
         const string window = "width=800\nheight=600\nwindowed=true\nfullscreen=false\n";
         const string renderer = "\nrenderer=auto\n";
         var classic = CreateConfiguration(screenshotDirectory);
         if (!classic.Contains(window, StringComparison.Ordinal) || !classic.Contains(renderer, StringComparison.Ordinal))
             throw new InvalidDataException("The display recipe changed; the HD card artwork recipe must be reviewed with it.");
-        return classic.Replace(window, "width=1024\nheight=768\nwindowed=true\nfullscreen=true\n", StringComparison.Ordinal)
+        var size = startWindowed ? placement : null;
+        var fullscreen = startWindowed ? "false" : "true";
+        var startup = FormattableString.Invariant($"width={size?.Width ?? 1024}\nheight={size?.Height ?? 768}\nwindowed=true\nfullscreen={fullscreen}\n");
+        var configuration = classic.Replace(window, startup, StringComparison.Ordinal)
             .Replace(renderer, "\nrenderer=hd\n", StringComparison.Ordinal);
+        return size is { } bounds
+            ? configuration.Replace("posX=-32000\nposY=-32000\n",
+                FormattableString.Invariant($"posX={bounds.X}\nposY={bounds.Y}\n"), StringComparison.Ordinal)
+            : configuration;
     }
 
     private static void RefuseNonAsciiNativePath(string path)

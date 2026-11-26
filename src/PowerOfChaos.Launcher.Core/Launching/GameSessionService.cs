@@ -91,12 +91,16 @@ public sealed class GameSessionService : IAsyncDisposable
     }
 
     public async Task<LaunchResult> LaunchAsync(GameInstallation installation, LauncherSettings settings,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, HdWindowPlacement? hdWindow = null)
     {
         // Capture before the first await, including when another launch owns the gate.
         var options = new GameModOptions(settings.SkipSplashScreens, settings.SkipCharacterInteractions,
             settings.RestoreOriginalAspectRatio, settings.HdCardArtwork,
-            settings.HdCardArtwork ? settings.HdCardImageDirectory : null, settings.NewCardRewards, settings.CustomOpponentDecks);
+            settings.HdCardArtwork ? settings.HdCardImageDirectory : null, settings.NewCardRewards, settings.CustomOpponentDecks,
+            settings.PlayWindowed)
+        {
+            HdWindow = hdWindow
+        };
         var installations = new[] { installation }.Concat(settings.Installations)
             .DistinctBy(game => game.GameId).ToArray();
         var launchSettings = new LauncherSettings
@@ -104,6 +108,7 @@ public sealed class GameSessionService : IAsyncDisposable
             SkipSplashScreens = options.SkipSplashScreens,
             SkipCharacterInteractions = options.SkipCharacterInteractions,
             SpeedyMode = settings.SpeedyMode,
+            PlayWindowed = options.PlayWindowed,
             RestoreOriginalAspectRatio = options.RestoreOriginalAspectRatio,
             HdCardArtwork = options.HdCardArtwork,
             HdCardImageDirectory = options.HdCardImageDirectory,

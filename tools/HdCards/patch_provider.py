@@ -137,6 +137,33 @@ def apply_hd_integration(root: Path) -> None:
         + "        else if (tolower(g_config.renderer[0]) == 'd') /* direct3d9 or direct3d9on12*/",
         'renderer selection')
     text = replace_once(text, '#include "dd.h"', '#include "dd.h"' + LF + '#include "pochd.h"', 'dd.c include')
+    # Power of Chaos restores the display before requesting DDSCL_NORMAL, without another
+    # SetDisplayMode. The wrapper must restart HD even though the logical surface size remains set.
+    coop_mode = """    if ((dwFlags & DDSCL_NORMAL) && !(dwFlags & DDSCL_FULLSCREEN))
+    {
+        if (g_config.fake_mode[0])"""
+    text = replace_once(
+        text, coop_mode,
+        """    static HWND hd_window_from_game_menu;
+    if (hwnd == g_ddraw.hwnd && g_ddraw.renderer == pochd_render_main && g_config.windowed &&
+        hd_window_from_game_menu == hwnd && (dwFlags & DDSCL_EXCLUSIVE) && (dwFlags & DDSCL_FULLSCREEN))
+    {
+        hd_window_from_game_menu = NULL;
+        g_config.fullscreen = TRUE;
+    }
+
+    if ((dwFlags & DDSCL_NORMAL) && !(dwFlags & DDSCL_FULLSCREEN))
+    {
+        if (hwnd == g_ddraw.hwnd && g_ddraw.renderer == pochd_render_main && g_config.windowed &&
+            !g_config.fake_mode[0] && g_ddraw.width && g_ddraw.height && !g_ddraw.render.run &&
+            !g_ddraw.render.thread)
+        {
+            hd_window_from_game_menu = hwnd;
+            g_config.fullscreen = FALSE;
+            return dd_SetDisplayMode(g_ddraw.width, g_ddraw.height, g_ddraw.bpp, 0);
+        }
+        if (g_config.fake_mode[0])""",
+        'restart HD on native windowed transition')
     write(path, text)
 
     path = root / 'src/dllmain.c'

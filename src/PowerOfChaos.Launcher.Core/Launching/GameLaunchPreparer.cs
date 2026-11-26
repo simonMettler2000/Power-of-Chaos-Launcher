@@ -82,7 +82,7 @@ public sealed class GameLaunchPreparer : IGameLaunchPreparer
             if (options.HdCardArtwork)
                 return await _hdCardPreparer.PrepareAsync(installation, options, profile, modified, cancellationToken, gameplay)
                     .ConfigureAwait(false);
-            if (options.RestoreOriginalAspectRatio)
+            if (options.RestoreOriginalAspectRatio || options.PlayWindowed)
                 return await _displayPreparer.PrepareAsync(installation, options, profile, modified, cancellationToken, gameplay)
                     .ConfigureAwait(false);
             // Keep a full SHA256 identity without nesting the verbose selection and both full hashes.

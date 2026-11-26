@@ -159,6 +159,63 @@ internal static class HdCardChecks
             Require(!wine.Environment.ContainsKey("CNC_DDRAW_CONFIG_FILE") && wine.Environment["WINEDLLOVERRIDES"] == "winmm,ddraw,*winmm,*ddraw=n",
                 "The HD launch environment does not select the private provider.");
         });
+        await run("windowed HD fits a large physical-pixel 4:3 viewport inside the available work area", () =>
+        {
+            Require(HdWindowPlacement.Fit(0, 0, 1920, 1032, 1) == new HdWindowPlacement(1304, 978, 308, 41),
+                "The HD window did not use the available pixels above a 1080p taskbar.");
+            Require(HdWindowPlacement.Fit(-3840, 0, 3840, 2064, 2) == new HdWindowPlacement(2612, 1959, -3226, 80),
+                "A high-DPI display lost physical detail or its desktop coordinates.");
+            Require(HdWindowPlacement.Fit(0, 0, 1280, 680, 1) is { Width: 836, Height: 627 },
+                "A shorter display was given an oversized HD window.");
+            Require(HdWindowPlacement.Fit(0, 0, 640, 480, 1) is { Width: 800, Height: 600 },
+                "The game was allocated fewer pixels than its native canvas.");
+            Require(HdWindowPlacement.Fit(0, 0, 0, 0, 1) is null, "The fallback was lost without display geometry.");
+            return Task.CompletedTask;
+        });
+
+        await run("Play Windowed prepares a window for all three games with or without HD artwork or 4:3", async () =>
+        {
+            foreach (var title in GameCatalog.All)
+            {
+                var fixture = await Fixture.Create(Path.Combine(fixtures, "wd-" + title.Id), title.Id);
+                foreach (var (hd, aspect) in new[] { (false, false), (false, true), (true, false), (true, true) })
+                {
+                    var options = new GameModOptions(PlayWindowed: true, RestoreOriginalAspectRatio: aspect, HdCardArtwork: hd,
+                        HdCardImageDirectory: fixture.Pictures);
+                    var path = await fixture.Preparer.PrepareExecutableAsync(fixture.Game, options);
+                    var config = await File.ReadAllTextAsync(Path.Combine(Path.GetDirectoryName(path)!, "ddraw.ini"));
+                    Require(config.Contains("\nfullscreen=false\n", StringComparison.Ordinal)
+                        && config.Contains("\nwindowed=true\n", StringComparison.Ordinal)
+                        && config.Contains("\nresizable=true\n", StringComparison.Ordinal)
+                        && config.Contains("\nborder=true\n", StringComparison.Ordinal), $"{title.Id} would not start in a resizable window.");
+                    Require(config.Contains("\nmaintas=true\n", StringComparison.Ordinal) == (hd || aspect)
+                        && config.Contains("\nrenderer=hd\n", StringComparison.Ordinal) == hd, "Windowed mode changed the display style.");
+                    if (hd)
+                    {
+                        Require(config.Contains("\nwidth=1024\nheight=768\n", StringComparison.Ordinal),
+                            "An unavailable work area changed the HD provider's fallback dimensions.");
+                        Require(await fixture.Preparer.PrepareExecutableAsync(fixture.Game, options with { PlayWindowed = false }) != path,
+                            "Fullscreen HD and windowed HD used the same cache.");
+                        var placement = HdWindowPlacement.Fit(-1920, 0, 1920, 1032, 1);
+                        var fitted = await fixture.Preparer.PrepareExecutableAsync(fixture.Game, options with { HdWindow = placement });
+                        var fittedIni = await File.ReadAllTextAsync(Path.Combine(Path.GetDirectoryName(fitted)!, "ddraw.ini"));
+                        Require(fitted != path && fittedIni.Contains("\nwidth=1304\nheight=978\nwindowed=true\nfullscreen=false\n", StringComparison.Ordinal)
+                            && fittedIni.Contains("\nrenderer=hd\n", StringComparison.Ordinal)
+                            && fittedIni.Contains("\nposX=-1612\nposY=41\n", StringComparison.Ordinal),
+                            "Windowed HD did not use the expected physical size, position and presenter.");
+                        var fullscreen = await fixture.Preparer.PrepareExecutableAsync(fixture.Game, options with { PlayWindowed = false });
+                        Require(await fixture.Preparer.PrepareExecutableAsync(fixture.Game,
+                            options with { PlayWindowed = false, HdWindow = placement }) == fullscreen,
+                            "A window work area altered the fullscreen HD recipe.");
+                    }
+                    var settings = new LauncherSettings { PlayWindowed = true, RestoreOriginalAspectRatio = aspect, HdCardArtwork = hd };
+                    var plan = LaunchPlan.CreatePrepared(fixture.Game, settings, path, isWindows: true);
+                    Require(plan.FileName == path && plan.WorkingDirectory == Path.GetDirectoryName(fixture.Game.ExecutablePath),
+                        "Windowed mode lost the verified display cache or game asset folder.");
+                }
+            }
+        });
+
         await run("Speedy mode passes one game argument for every title and display combination on Windows and Wine", async () =>
         {
             foreach (var title in GameCatalog.All)

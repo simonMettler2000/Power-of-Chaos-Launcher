@@ -746,6 +746,17 @@ internal static class Program
                 Require(Find<TextBlock>(window, "ActiveProfileName").Text == "Runner", "Games lost the active profile badge.");
             });
 
+            Check("Play Windowed defaults off and persists independently", () =>
+            {
+                Find<Button>(window, "ModsNav").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                var windowed = Find<CheckBox>(window, "PlayWindowedCheckBox");
+                Require(windowed.IsEnabled && windowed.IsChecked == false, "An old configuration started with Play Windowed enabled.");
+                windowed.IsChecked = true;
+                windowed.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                WaitUntil(() => windowed.IsEnabled && JsonNode.Parse(File.ReadAllText(Path.Combine(data, "launcher-settings.json")))
+                    ?["PlayWindowed"]?.GetValue<bool>() == true, "Play Windowed did not persist.");
+            });
+
             if (args.Contains("--installed-artwork", StringComparer.Ordinal))
             {
                 Check("installed portraits are loaded without starting a game", () =>

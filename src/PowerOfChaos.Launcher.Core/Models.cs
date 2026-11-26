@@ -26,6 +26,7 @@ public sealed class LauncherSettings
     public bool SkipSplashScreens { get; set; }
     public bool SkipCharacterInteractions { get; set; }
     public bool SpeedyMode { get; set; }
+    public bool PlayWindowed { get; set; }
     public bool RestoreOriginalAspectRatio { get; set; }
     public bool HdCardArtwork { get; set; }
     public string? HdCardImageDirectory { get; set; }

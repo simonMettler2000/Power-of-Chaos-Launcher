@@ -392,5 +392,7 @@
   "Turn off Temporary all cards before changing profiles or resetting cards.": "Turn off Temporary all cards before changing profiles or resetting cards.",
   "Temporary all cards is available on the original profile.": "Temporary all cards is available on the original profile.",
   "Enter a profile name between 1 and 32 characters.": "Enter a profile name between 1 and 32 characters.",
-  "A profile with that name already exists.": "A profile with that name already exists."
+  "A profile with that name already exists.": "A profile with that name already exists.",
+  "Play Windowed": "Play Windowed",
+  "Start the original games in a resizable window. Also applies when HD card artwork is on.": "Start the original games in a resizable window. Also applies when HD card artwork is on."
 }

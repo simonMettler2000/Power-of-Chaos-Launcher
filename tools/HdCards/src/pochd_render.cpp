@@ -350,7 +350,9 @@ bool create_device()
 
 bool create_swap_chain(HWND window, int width, int height)
 {
-    if (g_swap && g_swap_window == window && g_swap_w == width && g_swap_h == height) return true;
+    if (g_target && g_swap_window == window && g_swap_w == width && g_swap_h == height) return true;
+    // ResizeBuffers requires releasing the context's reference to the old back buffer as well.
+    if (g_target) g_context->OMSetRenderTargets(0, NULL, NULL);
     release(g_target);
     if (g_swap && g_swap_window == window)
     {

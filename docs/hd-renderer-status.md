@@ -25,7 +25,8 @@ On Windows 11 with the three supported installations. The repository owner asked
 - **Artwork pack v2.** Repaired Normal monster pictures and unchanged pictures of other card types were shown in the large preview of deck construction in Yugi the Destiny and, from the extracted release archive, in Joey the Passion, where the component matched 772 of 776 card bitmaps. Pictures are matched by file name, which v2 keeps. Not looked at with v2: Kaiba the Revenge, the card list and duels.
 - **Artwork pack v3.** One Effect monster, Spell card, Trap card and Fusion monster each were shown in the large preview of deck construction in Yugi the Destiny, from the pictures the release archive was built from (the archive was compared with them file by file). v3 keeps the file names. Not looked at with v3: Ritual monsters, Joey the Passion, Kaiba the Revenge, the card list and duels.
 - **Through the launcher.** Each game was started with Play with the mod ticked and ran from the launcher's private cache with the pinned provider.
-- Maximize/restore and Alt+Enter between the borderless 4:3 picture and a window (checked before the motion work; the presenter's window handling has not changed since).
+- Maximize/restore and Alt+Enter between the borderless 4:3 picture and a window (checked before the motion work).
+- The in-game Options menu switched from Fullscreen to Window and back with HD enabled in all three games. The tests used private game copies and verified that the HD presenter continued to draw after the switches.
 - Tracking costs one to two milliseconds per presented frame in a duel with the diagnostics on, a fifth of a millisecond on a still screen.
 
 ## Open

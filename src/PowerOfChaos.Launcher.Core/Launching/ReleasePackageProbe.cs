@@ -98,7 +98,7 @@ public static class ReleasePackageProbe
             actualVersion = Environment.Version.ToString(),
             componentsValid,
             desktopDependenciesValid,
-            builtInMods = new[] { "skip-splash-screens", "skip-character-interactions", "speedy-mode", "original-aspect-ratio",
+            builtInMods = new[] { "skip-splash-screens", "skip-character-interactions", "speedy-mode", "play-windowed", "original-aspect-ratio",
                 "temporary-all-cards", "hd-card-artwork", "new-card-rewards", "custom-opponent-decks" },
             gameFilesRead = false,
             userSettingsRead = false,

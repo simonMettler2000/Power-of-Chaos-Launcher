@@ -23,7 +23,7 @@ public static class LaunchPlan
         if (!File.Exists(preparedExecutable)
             || !string.Equals(Path.GetFileName(preparedExecutable), definition.ExecutableName, StringComparison.OrdinalIgnoreCase))
             throw new FileNotFoundException("The prepared game executable is missing or invalid.");
-        var displayComponent = settings.RestoreOriginalAspectRatio || settings.HdCardArtwork;
+        var displayComponent = settings.RestoreOriginalAspectRatio || settings.HdCardArtwork || settings.PlayWindowed;
         if (!displayComponent && Directory.EnumerateFiles(Path.GetDirectoryName(preparedExecutable)!)
             .Any(path => Path.GetFileName(path).Equals("ddraw.dll", StringComparison.OrdinalIgnoreCase)
                 || Path.GetFileName(path).Equals("winmm.dll", StringComparison.OrdinalIgnoreCase)))

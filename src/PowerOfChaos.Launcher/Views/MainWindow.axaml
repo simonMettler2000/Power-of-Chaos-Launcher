@@ -232,6 +232,14 @@
               </Grid>
             </Border>
             <Border Classes="panel" Padding="20">
+              <Grid ColumnDefinitions="Auto,210,*" ColumnSpacing="20">
+                <CheckBox x:Name="PlayWindowedCheckBox" IsEnabled="False" VerticalAlignment="Center"
+                          AutomationProperties.Name="{loc:Tr Text='Play Windowed'}" Click="PlayWindowed_Click" />
+                <TextBlock Grid.Column="1" Text="{loc:Tr Text='Play Windowed'}" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="2" Text="{loc:Tr Text='Start the original games in a resizable window. Also applies when HD card artwork is on.'}" Classes="quiet" TextWrapping="Wrap" LineHeight="21" VerticalAlignment="Center" />
+              </Grid>
+            </Border>
+            <Border Classes="panel" Padding="20">
               <Grid x:Name="OriginalAspectRatioRow" ColumnDefinitions="Auto,210,*" ColumnSpacing="20">
                 <CheckBox x:Name="OriginalAspectRatioCheckBox" IsEnabled="False" VerticalAlignment="Center"
                           AutomationProperties.Name="{loc:Tr Text='Original aspect ratio for all three games'}" Click="OriginalAspectRatio_Click" />

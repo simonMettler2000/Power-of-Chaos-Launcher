@@ -392,5 +392,7 @@
   "Turn off Temporary all cards before changing profiles or resetting cards.": "Disattiva Tutte le carte temporaneamente prima di cambiare profilo o ripristinare le carte.",
   "Temporary all cards is available on the original profile.": "Tutte le carte temporaneamente è disponibile nel profilo originale.",
   "Enter a profile name between 1 and 32 characters.": "Inserisci un nome di profilo da 1 a 32 caratteri.",
-  "A profile with that name already exists.": "Esiste già un profilo con questo nome."
+  "A profile with that name already exists.": "Esiste già un profilo con questo nome.",
+  "Play Windowed": "Gioca in finestra",
+  "Start the original games in a resizable window. Also applies when HD card artwork is on.": "Avvia i giochi originali in una finestra ridimensionabile. Funziona anche con le illustrazioni HD attive."
 }
